@@ -17,6 +17,7 @@
 		"asn1js": "^3.0.5",
 		"axios": "^1.7.9",
 		"buffer": "^6.0.3",
+		"cbor-web": "^9.0.2",
 		"cose-kit": "^1.7.1",
 		"jose": "^5.9.6",
 		"jsonpointer": "^5.0.1",

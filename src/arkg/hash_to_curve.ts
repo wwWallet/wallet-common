@@ -5,7 +5,7 @@ import { concat, I2OSP, OS2IP, toU8 } from "../utils/util";
 import { Curve, curveSecp256r1, curveSecp521r1 } from "./ec";
 
 
-function strxor(a: BufferSource, b: BufferSource): ArrayBuffer {
+function strxor(a: BufferSource, b: BufferSource): Uint8Array {
 	const ua = toU8(a);
 	const ub = toU8(b);
 	if (ua.length !== ub.length) {

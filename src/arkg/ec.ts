@@ -1,4 +1,6 @@
 import { concat, fromBase64Url, I2OSP, OS2IP, toBase64Url } from "../utils/util";
+import { ParsedCOSEKeyEc2Public } from "../cose";
+
 
 export type Curve = {
 	a: bigint,
@@ -224,7 +226,7 @@ export async function publicKeyFromPoint(alg: string, namedCurve: "P-256", p: Po
 		concat(new Uint8Array([0x04]), I2OSP(p.x, L), I2OSP(p.y, L)),
 		{ name: alg, namedCurve },
 		true,
-		["verify"],
+		[alg === "ECDSA" ? "verify" : "deriveBits"],
 	);
 }
 
@@ -268,7 +270,15 @@ export async function pointFromPublicKey(crv: Curve, pubk: CryptoKey): Promise<P
 }
 
 
-import { assert, describe, it, test } from "vitest";
+export async function pointFromCosePublicKey(crv: Curve, pk: ParsedCOSEKeyEc2Public): Promise<Point> {
+	return assertIsOnCurve(crv, {
+		x: OS2IP(pk.x),
+		y: OS2IP(pk.y),
+	});
+}
+
+
+import { assert, describe, it, test } from "vitest"; // eslint-disable-line import/first
 
 export function tests() {
 	// Define tests in this module so that we don't have to export private members
