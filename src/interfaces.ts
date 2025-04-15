@@ -1,7 +1,6 @@
 import { JWK } from "jose";
 import { CredentialParsingError, CredentialVerificationError, PublicKeyResolutionError, CredentialRenderingError, ValidatePresentationRequirementsError } from "./error";
 import { Result, ParsedCredential, CredentialClaims } from "./types";
-import { CredentialConfigurationSupported } from "./schemas";
 
 export interface CredentialRendering {
 	renderSvgTemplate(args: {
