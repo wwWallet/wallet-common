@@ -14,6 +14,7 @@ export const OpenidCredentialIssuerMetadataSchema = z.object({
 	}).optional(),
 	credential_configurations_supported: z.record(CredentialConfigurationSupportedSchema),
 	signed_metadata: z.string().optional(),
+	mdoc_iacas_uri: z.string().optional(),
 })
 
 export type OpenidCredentialIssuerMetadata = z.infer<typeof OpenidCredentialIssuerMetadataSchema>;
