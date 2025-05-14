@@ -137,7 +137,7 @@ async function fetchAndMergeMetadata(
 	if (metadataObj) {
 		metadata = metadataObj as Record<string, any>;
 	} else {
-		const result = await httpClient.get(metadataId);
+		const result = await httpClient.get(metadataId, {}, { useCache: true });
 
 		if (
 			!result ||
@@ -173,7 +173,7 @@ async function fetchAndMergeMetadata(
 			return { error: "INTEGRITY_MISSING" };
 		}
 
-		const resultSchema = await httpClient.get(metadata.schema_uri);
+		const resultSchema = await httpClient.get(metadata.schema_uri, {}, { useCache: true });
 		if (
 			!resultSchema ||
 			resultSchema.status !== 200 ||
@@ -217,7 +217,7 @@ export async function resolveIssuerMetadata(httpClient: any, issuerUrl: string):
 		const issUrl = new URL(issuerUrl);
 		if (!issUrl?.origin) return { error: "NOT_FOUND" };
 
-		const result = await httpClient.get(`${issUrl.origin}/.well-known/jwt-vc-issuer`) as {
+		const result = await httpClient.get(`${issUrl.origin}/.well-known/jwt-vc-issuer`, {}, { useCache: true }) as {
 			data: { issuer: string };
 		};
 
