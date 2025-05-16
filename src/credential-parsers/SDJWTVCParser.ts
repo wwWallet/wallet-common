@@ -84,7 +84,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 
 			// Fetch issuer metadata
 			const issuerResponse = await args.httpClient
-				.get(`${parsedClaims.iss}/.well-known/openid-credential-issuer`)
+				.get(`${parsedClaims.iss}/.well-known/openid-credential-issuer`, {}, { useCache: true })
 				.catch(() => null);
 
 			const issuerMetadata = issuerResponse?.data as {
@@ -115,7 +115,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 
 				// 1. Try to fetch SVG template and render
 				if (credentialImageSvgTemplateURL) {
-					const svgResponse = await args.httpClient.get(credentialImageSvgTemplateURL).then((res) => res).catch(() => null);
+					const svgResponse = await args.httpClient.get(credentialImageSvgTemplateURL, {}, { useCache: true }).then((res) => res).catch(() => null);
 					if (svgResponse && svgResponse.status === 200) {
 						const svgdata = svgResponse.data as string;
 						dataUri = await cr

@@ -52,7 +52,7 @@ export function OpenID4VCICredentialRendering(args: { httpClient: HttpClient }):
 				});
 			} else {
 				// Backend (Node.js): Use Axios or Fetch with Buffer
-				const response = await args.httpClient.get(url, {}, { responseType: 'arraybuffer' })
+				const response = await args.httpClient.get(url, {}, { responseType: 'arraybuffer', useCache: true })
 				const blob = response.data as any;
 				const base64 = Buffer.from(blob, "binary").toString("base64");
 				const mimeType = response.headers["content-type"]; // Get MIME type
