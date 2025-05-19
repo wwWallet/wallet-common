@@ -1,5 +1,5 @@
 import { SDJwt } from "@sd-jwt/core";
-import { HasherAndAlg } from "@sd-jwt/types";
+import type { HasherAndAlg } from "@sd-jwt/types";
 import { CredentialParsingError } from "../error";
 import { Context, CredentialParser, HttpClient } from "../interfaces";
 import { VerifiableCredentialFormat } from "../types";
