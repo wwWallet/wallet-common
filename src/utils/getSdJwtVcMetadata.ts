@@ -2,6 +2,7 @@ import { Context, HttpClient } from '../interfaces';
 import { fromBase64 } from './util';
 import { verifySRIFromObject } from './verifySRIFromObject';
 import Ajv2020 from "ajv/dist/2020";
+import addFormats from "ajv-formats";
 
 type CredentialPayload = {
 	iss: string;
@@ -98,6 +99,7 @@ export function validateAgainstSchema(
 	// console.log('Data to validate against schema:', dataToValidate);
 
 	const ajv = new Ajv2020();
+	addFormats(ajv);
 
 	// 1. Validate the schema itself
 	const isSchemaValid = ajv.validateSchema(schema);

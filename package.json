@@ -12,6 +12,7 @@
 		"@auth0/mdl": "https://github.com/wwwallet/mdl.git#deploy",
 		"@sd-jwt/core": "^0.2.1",
 		"ajv": "^8.17.1",
+		"ajv-formats": "^3.0.1",
 		"asn1js": "^3.0.5",
 		"axios": "^1.7.9",
 		"buffer": "^6.0.3",
