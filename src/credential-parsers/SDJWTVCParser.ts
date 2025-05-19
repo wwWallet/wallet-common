@@ -147,6 +147,14 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 						})
 						.catch(() => null);
 				}
+			} else {
+				const fallbackDisplayConfig = {
+					name: "Credential"
+				}
+
+				dataUri = await renderer.renderCustomSvgTemplate({ signedClaims: parsedClaims, displayConfig: fallbackDisplayConfig })
+					.then((res) => res)
+					.catch((err) => { console.error(err); return null; });
 			}
 
 			return {
