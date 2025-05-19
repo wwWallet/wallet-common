@@ -3,6 +3,12 @@ import { fromBase64 } from './util';
 import { verifySRIFromObject } from './verifySRIFromObject';
 import Ajv2020 from "ajv/dist/2020";
 
+type CredentialPayload = {
+	iss: string;
+	vct: string;
+	[key: string]: unknown;
+};
+
 type MetadataErrorCode =
 	| "NOT_FOUND"
 	| "INTEGRITY_FAIL"
@@ -240,17 +246,22 @@ function isValidHttpUrl(value: string): boolean {
 	}
 }
 
-export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClient, credential: string): Promise<{ credentialMetadata: any } | MetadataError> {
-	try {
-		const credentialHeader = JSON.parse(new TextDecoder().decode(fromBase64(credential.split('.')[0] as string)));
-		const credentialPayload = JSON.parse(new TextDecoder().decode(fromBase64(credential.split('.')[1] as string)));
+function isCredentialPayload(obj: unknown): obj is CredentialPayload {
+	return typeof obj === 'object' && obj !== null && 'iss' in obj && typeof (obj as any).iss === 'string';
+}
 
-		if (!credentialHeader || !credentialPayload) {
+export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClient, credential: string, parsedClaims: Record<string, unknown>): Promise<{ credentialMetadata: any } | MetadataError> {
+	try {
+		// Decode Header
+		const credentialHeader = JSON.parse(new TextDecoder().decode(fromBase64(credential.split('.')[0] as string)));
+		const credentialPayload = parsedClaims;
+
+		// Check Header, Payload and Payload Type
+		if (!credentialHeader || !credentialPayload || !isCredentialPayload(credentialPayload)) {
 			return { error: "NOT_FOUND" };
 		}
-		// console.log('Decoded credential header:', credentialHeader);
-		// console.log('Decoded credential payload:', credentialPayload);
 
+		// Check issuer by iss 
 		const checkIssuer = await resolveIssuerMetadata(httpClient, credentialPayload.iss);
 		if ('error' in checkIssuer) {
 			return { error: checkIssuer.error };
