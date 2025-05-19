@@ -1,4 +1,5 @@
-import { HasherAlgorithm, HasherAndAlgorithm, SdJwt } from "@sd-jwt/core";
+import { SDJwt } from "@sd-jwt/core";
+import { HasherAndAlg } from "@sd-jwt/types";
 import { CredentialParsingError } from "../error";
 import { Context, CredentialParser, HttpClient } from "../interfaces";
 import { VerifiableCredentialFormat } from "../types";
@@ -34,11 +35,14 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 	}
 
 	// Encoding the string into a Uint8Array
-	const hasherAndAlgorithm: HasherAndAlgorithm = {
-		hasher: (input: string) => {
-			return args.context.subtle.digest('SHA-256', encoder.encode(input)).then((v) => new Uint8Array(v));
+	const hasherAndAlgorithm: HasherAndAlg = {
+		hasher: (data: string | ArrayBuffer, alg: string) => {
+			const encoded =
+				typeof data === 'string' ? encoder.encode(data) : new Uint8Array(data);
+
+			return args.context.subtle.digest(alg, encoded).then((v) => new Uint8Array(v));
 		},
-		algorithm: HasherAlgorithm.Sha256
+		alg: 'sha-256',
 	};
 
 	const cr = CredentialRenderingService();
@@ -57,11 +61,8 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 			let dataUri: string | null = null;
 			const parsedClaims: Record<string, unknown> | null = await (async () => {
 				try {
-					return await SdJwt.fromCompact<Record<string, unknown>, any>(rawCredential)
-						.withHasher(hasherAndAlgorithm)
-						.getPrettyClaims()
-						.then((signedClaims) => signedClaims)
-						.catch(() => null);
+					const claims = await (await SDJwt.fromEncode(rawCredential, hasherAndAlgorithm.hasher)).getClaims(hasherAndAlgorithm.hasher);
+					return claims as Record<string, unknown>;
 				}
 				catch (err) {
 					return null;
