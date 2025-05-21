@@ -14,7 +14,7 @@ export const OpenidAuthorizationServerMetadataSchema = z.object({
 	dpop_signing_alg_values_supported: z.array(z.string()).optional(),
 	scopes_supported: z.array(z.string()).optional(),
 	grant_types_supported: z.array(z.string()).optional(),
-	jwks_uri: z.string(),
+	jwks_uri: z.string().optional(),
 });
 
 export type OpenidAuthorizationServerMetadata = z.infer<typeof OpenidAuthorizationServerMetadataSchema>;
