@@ -6,6 +6,7 @@ const proofTypesSupportedSchema = z.object({
 		proof_signing_alg_values_supported: z.array(z.string())
 	}).optional(),
 	attestation: z.object({
+		proof_signing_alg_values_supported: z.array(z.string()),
 		key_attestations_required: z.object({
 			key_storage: z.enum(["iso_18045_high", "iso_18045_moderate", "iso_18045_enhanced-basic", "iso_18045_basic"]).optional(),
 			user_authentication: z.enum(["iso_18045_high", "iso_18045_moderate", "iso_18045_enhanced-basic", "iso_18045_basic"]).optional(),

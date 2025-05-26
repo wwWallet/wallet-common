@@ -1,4 +1,5 @@
-import { HasherAlgorithm, HasherAndAlgorithm, SdJwt } from "@sd-jwt/core";
+import { SDJwt } from "@sd-jwt/core";
+import type { HasherAndAlg } from "@sd-jwt/types";
 import { Context, CredentialVerifier, PublicKeyResolverEngineI } from "../interfaces";
 import { CredentialVerificationError } from "../error";
 import { Result } from "../types";
@@ -16,17 +17,20 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 	const decoder = new TextDecoder();
 
 	// Encoding the string into a Uint8Array
-	const hasherAndAlgorithm: HasherAndAlgorithm = {
-		hasher: (input: string) => {
-			return args.context.subtle.digest('SHA-256', encoder.encode(input)).then((v) => new Uint8Array(v));
+	const hasherAndAlgorithm: HasherAndAlg = {
+		hasher: (data: string | ArrayBuffer, alg: string) => {
+			const encoded =
+				typeof data === 'string' ? encoder.encode(data) : new Uint8Array(data);
+
+			return args.context.subtle.digest(alg, encoded).then((v) => new Uint8Array(v));
 		},
-		algorithm: HasherAlgorithm.Sha256
+		alg: 'sha-256',
 	};
 
 	const parse = async (rawCredential: string) => {
 		try {
-			const credential = SdJwt.fromCompact(rawCredential).withHasher(hasherAndAlgorithm);
-			const parsedSdJwtWithPrettyClaims = await SdJwt.fromCompact(rawCredential).withHasher(hasherAndAlgorithm).getPrettyClaims();
+			const credential = await SDJwt.fromEncode(rawCredential, hasherAndAlgorithm.hasher);
+			const parsedSdJwtWithPrettyClaims = await (await SDJwt.fromEncode(rawCredential, hasherAndAlgorithm.hasher)).getClaims(hasherAndAlgorithm.hasher);
 			return { credential, parsedSdJwtWithPrettyClaims };
 		}
 		catch (err) {
@@ -37,7 +41,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 		}
 
 	}
-	const getHolderPublicKey = async (rawCredential: string): Promise<Result<Uint8Array<ArrayBufferLike> | KeyLike, CredentialVerificationError>> => {
+	const getHolderPublicKey = async (rawCredential: string): Promise<Result<Uint8Array | KeyLike, CredentialVerificationError>> => {
 		const parseResult = await parse(rawCredential);
 		if (parseResult === CredentialVerificationError.InvalidFormat) {
 			return {
@@ -45,11 +49,11 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 				error: CredentialVerificationError.InvalidFormat,
 			}
 		}
-		const cnf = parseResult.parsedSdJwtWithPrettyClaims.cnf as Record<string, unknown>;
+		const cnf = (parseResult.parsedSdJwtWithPrettyClaims as any).cnf as Record<string, unknown>;
 
-		if (cnf.jwk && typeof parseResult.credential.header["alg"] === 'string') {
+		if (cnf.jwk && parseResult.credential.jwt && parseResult.credential.jwt.header && typeof parseResult.credential.jwt.header["alg"] === 'string') {
 			try {
-				const holderPublicKey = await importJWK(cnf.jwk as JWK, parseResult.credential.header["alg"]);
+				const holderPublicKey = await importJWK(cnf.jwk as JWK, parseResult.credential.jwt.header["alg"]);
 				return {
 					success: true,
 					value: holderPublicKey,
@@ -73,9 +77,9 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 
 
 	const verifyIssuerSignature = async (rawCredential: string): Promise<Result<{}, CredentialVerificationError>> => {
-		const parsedSdJwt = (() => {
+		const parsedSdJwt = await( async() => {
 			try {
-				return SdJwt.fromCompact(rawCredential).withHasher(hasherAndAlgorithm);
+				return (await SDJwt.fromEncode(rawCredential, hasherAndAlgorithm.hasher)).jwt;
 			}
 			catch (err) {
 				if (err instanceof Error) {
@@ -93,9 +97,9 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 			}
 		}
 
-		const getIssuerPublicKey = async (): Promise<Result<Uint8Array<ArrayBufferLike> | KeyLike, CredentialVerificationError>> => {
-			const x5c = parsedSdJwt.header["x5c"];
-			const alg = parsedSdJwt.header["alg"];
+		const getIssuerPublicKey = async (): Promise<Result<Uint8Array | KeyLike, CredentialVerificationError>> => {
+			const x5c = (parsedSdJwt?.header?.x5c as string[]) ?? "";
+			const alg = (parsedSdJwt?.header?.alg as string) ?? "";
 			if (x5c && x5c instanceof Array && x5c.length > 0 && typeof alg === 'string') { // extract public key from certificate
 				const lastCertificate: string = x5c[x5c.length - 1];
 				const lastCertificatePem = `-----BEGIN CERTIFICATE-----\n${lastCertificate}\n-----END CERTIFICATE-----`;
@@ -127,7 +131,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 				}
 
 			}
-			if (typeof parsedSdJwt.payload.iss === 'string' && typeof alg === 'string') {
+			if (parsedSdJwt && parsedSdJwt.payload && typeof parsedSdJwt.payload.iss === 'string' && typeof alg === 'string') {
 				const publicKeyResolutionResult = await args.pkResolverEngine.resolve({ identifier: parsedSdJwt.payload.iss });
 				if (!publicKeyResolutionResult.success) {
 					logError(CredentialVerificationError.CannotResolveIssuerPublicKey, "CannotResolveIssuerPublicKey");

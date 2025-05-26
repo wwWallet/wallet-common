@@ -11,7 +11,8 @@ const metadata = {
 	"token_endpoint": "https://wallet.a-sit.at/m6/token",
 	"token_endpoint_auth_methods_supported": [
 		"attest_jwt_client_auth"
-	]
+	],
+	"jwks_uri": "https://example.com/jwks",
 };
 
 
