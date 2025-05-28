@@ -1,11 +1,22 @@
+import axios from "axios"
 import { SDJwt } from "@sd-jwt/core";
+import { SDJwtVcInstance } from "@sd-jwt/sd-jwt-vc";
 import type { HasherAndAlg } from "@sd-jwt/types";
 import { Context, CredentialVerifier, PublicKeyResolverEngineI } from "../interfaces";
 import { CredentialVerificationError } from "../error";
-import { Result } from "../types";
+import { Result, Vct, VctUrls } from "../types";
 import { exportJWK, importJWK, importX509, JWK, jwtVerify, KeyLike } from "jose";
 import { fromBase64Url, toBase64Url } from "../utils/util";
 import { verifyCertificate } from "../utils/verifyCertificate";
+
+
+const VctUrls: VctUrls = {
+	'urn:eu.europa.ec.eudi:pid:1': 'https://demo-issuer.wwwallet.org/public/creds/pid/person-identification-data-arf-15-vctm-example-01.json',
+	'urn:eudi:pid:1': 'https://demo-issuer.wwwallet.org/public/creds/pid/person-identification-data-arf-18-vctm-example-01.json',
+	'urn:eudi:ehic:1': 'https://demo-issuer.wwwallet.org/public/creds/ehic/european-health-insurance-card-vctm-dc4eu-01.json',
+	'urn:eudi:pda1:1': 'https://demo-issuer.wwwallet.org/public/creds/pda1/portable-document-a1-vctm-dc4eu-01.json',
+	'urn:eu.europa.ec.eudi:por:1': 'https://demo-issuer.wwwallet.org/public/creds/por/power-of-representation-vctm-potential-01.json',
+};
 
 export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: PublicKeyResolverEngineI }): CredentialVerifier {
 	let errors: { error: CredentialVerificationError, message: string }[] = [];
@@ -129,7 +140,6 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 						error: CredentialVerificationError.CannotImportIssuerPublicKey,
 					}
 				}
-
 			}
 			if (parsedSdJwt && parsedSdJwt.payload && typeof parsedSdJwt.payload.iss === 'string' && typeof alg === 'string') {
 				const publicKeyResolutionResult = await args.pkResolverEngine.resolve({ identifier: parsedSdJwt.payload.iss });
@@ -189,6 +199,33 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 			return {
 				success: false,
 				error: CredentialVerificationError.InvalidSignature,
+			}
+		}
+
+		return {
+			success: true,
+			value: {},
+		}
+	}
+
+	const verifyCredentialVct = async (rawCredential: string): Promise<Result<{}, CredentialVerificationError>> => {
+		const SdJwtVc = new SDJwtVcInstance({
+			verifier: () => true,
+		  hasher: hasherAndAlgorithm.hasher,
+		  hashAlg: hasherAndAlgorithm.alg as 'sha-256',
+		  loadTypeMetadataFormat: true,
+			vctFetcher: (urn) => {
+				const url = VctUrls[urn as Vct]
+				return axios.get(url).then(({ data }) => data)
+			}
+		});
+
+		const verified = await SdJwtVc.verify(rawCredential);
+
+		if (!verified.payload) {
+			return {
+				success: false,
+				error: CredentialVerificationError.VctSchemaError,
 			}
 		}
 
@@ -283,6 +320,15 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 			// Issuer Signature validation
 			const issuerSignatureVerificationResult = await verifyIssuerSignature(rawCredential);
 			if (!issuerSignatureVerificationResult.success) {
+				return {
+					success: false,
+					error: errors.length > 0 ?  errors[0].error : CredentialVerificationError.UnknownProblem,
+				}
+			}
+
+			// Credential vct validation
+			const credentialVctVerificationResult = await verifyCredentialVct(rawCredential);
+			if (!credentialVctVerificationResult.success) {
 				return {
 					success: false,
 					error: errors.length > 0 ?  errors[0].error : CredentialVerificationError.UnknownProblem,

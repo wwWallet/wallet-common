@@ -42,3 +42,9 @@ export type ParsedCredential = {
 	}
 	signedClaims: CredentialClaims,
 };
+
+export type Vct = 'urn:eu.europa.ec.eudi:pid:1' | 'urn:eudi:pid:1' | 'urn:eudi:ehic:1' | 'urn:eudi:pda1:1' | 'urn:eu.europa.ec.eudi:por:1';
+
+export type VctUrls = {
+  [k in Vct]: string
+};
