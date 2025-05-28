@@ -7,10 +7,10 @@ function generateCertificate () {
 	return new Promise(resolve => {
 		exec('openssl ecparam -name prime256v1 -genkey -noout -out ./test/fixtures/cert.key', () => {
 			exec('openssl req -new -x509 -key ./test/fixtures/cert.key -out ./test/fixtures/cert.pem -days 3650 -subj /CN=test/C=FR/ST=test/L=test/O=test', () => {
-        return resolve('ok')
-			})
-		})
-	})
+        return resolve('ok');
+			});
+		});
+	});
 }
 
 const vctClaims =  {
@@ -80,23 +80,23 @@ const vctClaims =  {
   "urn:eu.europa.ec.eudi:por:1": {
     "legal_person_identifier": "test",
   }
-}
+};
 
 export function sdJwtFixture (vct: string = 'urn:eu.europa.ec.eudi:pid:1') {
-	const claims = vctClaims[vct]
+	const claims = vctClaims[vct];
 
 	return new Promise(async resolve => {
-		await generateCertificate()
-		const certPem = fs.readFileSync('./test/fixtures/cert.pem').toString('utf8')
-		const privateKeyPem = fs.readFileSync('./test/fixtures/cert.key').toString('utf8')
+		await generateCertificate();
+		const certPem = fs.readFileSync('./test/fixtures/cert.pem').toString('utf8');
+		const privateKeyPem = fs.readFileSync('./test/fixtures/cert.key').toString('utf8');
 
-		const cert = Crypto.createPublicKey(certPem)
-		const privateKey = Crypto.createPrivateKey(privateKeyPem)
+		const cert = Crypto.createPublicKey(certPem);
+		const privateKey = Crypto.createPrivateKey(privateKeyPem);
 		const x5c = [
 			certPem
 			.replace('-----BEGIN CERTIFICATE-----\n', '')
 			.replace('\n-----END CERTIFICATE-----\n', '')
-		]
+		];
 
 		const header = {
 			"typ": "vc+sd-jwt",
@@ -107,7 +107,7 @@ export function sdJwtFixture (vct: string = 'urn:eu.europa.ec.eudi:pid:1') {
 				x5c
 			],
 			"alg": "ES256"
-		}
+		};
 
 
 		const disclosures = Object.keys(claims).map(key => {
@@ -120,7 +120,7 @@ export function sdJwtFixture (vct: string = 'urn:eu.europa.ec.eudi:pid:1') {
 
 
 			return { _sd, disclosure, rawDisclosure }
-		})
+		});
 
 		const body = {
 			"cnf": {
@@ -139,14 +139,14 @@ export function sdJwtFixture (vct: string = 'urn:eu.europa.ec.eudi:pid:1') {
 
     const jwt = await new SignJWT(body)
       .setProtectedHeader(header)
-      .sign(privateKey)
+      .sign(privateKey);
 		// const privateKey = Crypto.createPrivateKey(privateKeyPem)
 		// const rawSignature = Crypto.sign('sha-256', Buffer.from(header + '.' + body), privateKey)
 		// const signature = Buffer.from(rawSignature).toString('base64url')
 
 		// const jwt = header + '.' + body + '.' + signature
-		const sdJwt = jwt + '~' + disclosures.map(({ disclosure }) => disclosure).join('~') + '~'
+		const sdJwt = jwt + '~' + disclosures.map(({ disclosure }) => disclosure).join('~') + '~';
 
-		return resolve({ sdJwt, privateKey, cert, certPem })
-	})
+		return resolve({ sdJwt, privateKey, cert, certPem });
+	});
 }

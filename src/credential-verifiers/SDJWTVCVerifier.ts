@@ -15,7 +15,7 @@ const VctUrls = {
 	'urn:eudi:ehic:1': 'https://demo-issuer.wwwallet.org/public/creds/ehic/european-health-insurance-card-vctm-dc4eu-01.json',
 	'urn:eudi:pda1:1': 'https://demo-issuer.wwwallet.org/public/creds/pda1/portable-document-a1-vctm-dc4eu-01.json',
 	'urn:eu.europa.ec.eudi:por:1': 'https://demo-issuer.wwwallet.org/public/creds/por/power-of-representation-vctm-potential-01.json',
-}
+};
 
 export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: PublicKeyResolverEngineI }): CredentialVerifier {
 	let errors: { error: CredentialVerificationError, message: string }[] = [];
@@ -219,7 +219,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 			}
 		});
 
-		const verified = await SdJwtVc.verify(rawCredential)
+		const verified = await SdJwtVc.verify(rawCredential);
 
 		if (!verified.payload) {
 			return {
