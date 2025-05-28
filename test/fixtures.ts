@@ -140,11 +140,6 @@ export function sdJwtFixture (vct: string = 'urn:eu.europa.ec.eudi:pid:1') {
     const jwt = await new SignJWT(body)
       .setProtectedHeader(header)
       .sign(privateKey);
-		// const privateKey = Crypto.createPrivateKey(privateKeyPem)
-		// const rawSignature = Crypto.sign('sha-256', Buffer.from(header + '.' + body), privateKey)
-		// const signature = Buffer.from(rawSignature).toString('base64url')
-
-		// const jwt = header + '.' + body + '.' + signature
 		const sdJwt = jwt + '~' + disclosures.map(({ disclosure }) => disclosure).join('~') + '~';
 
 		return resolve({ sdJwt, privateKey, cert, certPem });
