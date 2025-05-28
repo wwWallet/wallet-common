@@ -1,6 +1,5 @@
-import Crypto from 'node:crypto'
 import axios from "axios"
-import { SDJwt, SDJwtInstance } from "@sd-jwt/core";
+import { SDJwt } from "@sd-jwt/core";
 import { SDJwtVcInstance } from "@sd-jwt/sd-jwt-vc";
 import type { HasherAndAlg } from "@sd-jwt/types";
 import { Context, CredentialVerifier, PublicKeyResolverEngineI } from "../interfaces";

@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import Crypto from 'node:crypto'
 import { exec } from 'child_process'
-import { importJWK, SignJWT } from 'jose'
+import { SignJWT } from 'jose'
 
 function generateCertificate () {
 	return new Promise(resolve => {
