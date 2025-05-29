@@ -38,7 +38,7 @@ const commonSchema = z.object({
 });
 
 const sdJwtSchema = commonSchema.extend({
-	format: z.literal(VerifiableCredentialFormat.VC_SDJWT),
+	format: z.literal(VerifiableCredentialFormat.VC_SDJWT).or(z.literal(VerifiableCredentialFormat.DC_SDJWT)),
 	vct: z.string()
 });
 
