@@ -52,6 +52,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 		}
 
 	}
+
 	const getHolderPublicKey = async (rawCredential: string): Promise<Result<Uint8Array | KeyLike, CredentialVerificationError>> => {
 		const parseResult = await parse(rawCredential);
 		if (parseResult === CredentialVerificationError.InvalidFormat) {
@@ -85,7 +86,6 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 		}
 
 	}
-
 
 	const verifyIssuerSignature = async (rawCredential: string): Promise<Result<{}, CredentialVerificationError>> => {
 		const parsedSdJwt = await( async() => {
@@ -216,16 +216,33 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 		  loadTypeMetadataFormat: true,
 			vctFetcher: (urn) => {
 				const url = VctUrls[urn as Vct]
+				if (!url) {
+					throw new Error(CredentialVerificationError.VctUrnNotFoundError);
+				}
 				return axios.get(url).then(({ data }) => data)
 			}
 		});
 
-		const verified = await SdJwtVc.verify(rawCredential);
+		try {
+			const verified = await SdJwtVc.verify(rawCredential);
 
-		if (!verified.payload) {
-			return {
-				success: false,
-				error: CredentialVerificationError.VctSchemaError,
+			if (!verified.payload) {
+				return {
+					success: false,
+					error: CredentialVerificationError.VctSchemaError,
+				}
+			}
+		} catch (error) {
+			if (error instanceof Error && error.message == CredentialVerificationError.VctUrnNotFoundError) {
+				return {
+					success: true,
+					value: {},
+				}
+			} else {
+				return {
+					success: false,
+					error: CredentialVerificationError.VctSchemaError,
+				}
 			}
 		}
 
