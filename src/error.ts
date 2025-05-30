@@ -2,6 +2,7 @@ export enum CredentialParsingError {
 	MissingIssuerIdentifier = "MissingIssuerIdentifier",
 	CouldNotParse = "CouldNotParse",
 	InvalidDatatype = "InvalidDatatype",
+	NotSupportedCredentialType = "NotSupportedCredentialType",
 }
 
 export enum GetMatchingCredentialsError {

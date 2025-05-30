@@ -6,6 +6,7 @@ import { VerifiableCredentialFormat } from "../types";
 import { CredentialRenderingService } from "../rendering";
 import { getSdJwtVcMetadata } from "../utils/getSdJwtVcMetadata";
 import { OpenID4VCICredentialRendering } from "../functions/openID4VCICredentialRendering";
+import { z } from 'zod';
 
 export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }): CredentialParser {
 	const encoder = new TextEncoder();
@@ -59,17 +60,20 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 			}
 
 			let dataUri: string | null = null;
-			const parsedClaims: Record<string, unknown> | null = await (async () => {
+
+			const { parsedClaims, parsedHeaders, err } = await (async () => {
 				try {
-					const claims = await (await SDJwt.fromEncode(rawCredential, hasherAndAlgorithm.hasher)).getClaims(hasherAndAlgorithm.hasher);
-					return claims as Record<string, unknown>;
+					const parsedSdJwt = await SDJwt.fromEncode(rawCredential, hasherAndAlgorithm.hasher);
+					const claims = await parsedSdJwt.getClaims(hasherAndAlgorithm.hasher);
+					const headers = await parsedSdJwt.jwt?.header;
+					return { parsedClaims: claims as Record<string, unknown>, parsedHeaders: headers, err: null };
 				}
 				catch (err) {
-					return null;
+					return { parsedClaims: null, parsedHeaders: null, err: err };
 				}
 
 			})();
-			if (parsedClaims === null) {
+			if (err || !parsedClaims || !parsedHeaders) {
 				return {
 					success: false,
 					error: CredentialParsingError.CouldNotParse,
@@ -158,13 +162,22 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 					.catch((err) => { console.error(err); return null; });
 			}
 
+			const schema = z.enum([VerifiableCredentialFormat.VC_SDJWT, VerifiableCredentialFormat.DC_SDJWT]);
+			const typParseResult = await schema.safeParseAsync(parsedHeaders.typ);
+			if (typParseResult.error) {
+				return {
+					success: false,
+					error: CredentialParsingError.NotSupportedCredentialType,
+				}
+			}
+
 			return {
 				success: true,
 				value: {
 					signedClaims: parsedClaims,
 					metadata: {
 						credential: {
-							format: VerifiableCredentialFormat.VC_SDJWT,
+							format: typParseResult.data,
 							vct: parsedClaims?.vct as string | undefined ?? "",
 							// @ts-ignore
 							metadataDocuments: [getSdJwtMetadataResult.credentialMetadata],
