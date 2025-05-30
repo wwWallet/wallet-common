@@ -173,6 +173,33 @@ describe("The SDJWTVerifier", () => {
 		assert(result.success === true);
 	});
 
+	it("should successfully verify unknown credential issued by Wallet Enterprise Issuer", async () => {
+		const { sdJwt, certPem } = await sdJwtFixture('unknown');
+		const resolverEngine = PublicKeyResolverEngine();
+		resolverEngine.register({ resolve: () => {
+			return {
+				success: true,
+				value: certPem
+			}
+		}});
+		const result = await SDJWTVCVerifier({
+			context: {
+				clockTolerance: 0,
+				lang: 'en-US',
+				subtle: crypto.subtle,
+				trustedCertificates: [
+					certPem
+				],
+			},
+			pkresolverEngine: resolverEngine
+		})
+		.verify({
+			rawCredential: sdJwt, opts: {}
+		});
+
+		assert(result.success === true);
+	});
+
 	it.skip("should successfully verify SDJWT+KBJWT issued by Wallet Enterprise Issuer", async () => {
 		const result = await SDJWTVCVerifier({ context, pkResolverEngine })
 		.verify({

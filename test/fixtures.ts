@@ -79,7 +79,10 @@ const vctClaims =  {
   },
   "urn:eu.europa.ec.eudi:por:1": {
     "legal_person_identifier": "test",
-  }
+  },
+	"unknown": {
+		"unknown": true,
+	}
 };
 
 export function sdJwtFixture (vct: string = 'urn:eu.europa.ec.eudi:pid:1') {
