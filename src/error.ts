@@ -3,6 +3,7 @@ export enum CredentialParsingError {
 	CouldNotParse = "CouldNotParse",
 	InvalidDatatype = "InvalidDatatype",
 	NotSupportedCredentialType = "NotSupportedCredentialType",
+	FailGetSdJwtVcMetadata = "FailGetSdJwtVcMetadata",
 }
 
 export enum GetMatchingCredentialsError {

@@ -1,5 +1,5 @@
 import { Context, HttpClient } from '../interfaces';
-import { fromBase64 } from './util';
+import { fromBase64, fromBase64Url } from './util';
 import { verifySRIFromObject } from './verifySRIFromObject';
 import Ajv2020 from "ajv/dist/2020";
 import addFormats from "ajv-formats";
@@ -12,10 +12,17 @@ type CredentialPayload = {
 
 type MetadataErrorCode =
 	| "NOT_FOUND"
+	| "HEADER_FAIL"
 	| "INTEGRITY_FAIL"
 	| "INTEGRITY_MISSING"
-	| "ISSUER_MISMATCH"
+	| "JWT_VC_ISSUER_FAIL"
+	| "JWT_VC_ISSUER_MISMATCH"
+	| "SCHEMA_FETCH_FAIL"
 	| "SCHEMA_CONFLICT"
+	| "INFINITE_RECURSION"
+	| "PAYLOAD_FAIL"
+	| "VCTM_DECODE_FAIL"
+	| "UNKNOWN_ERROR"
 	| "SCHEMA_FAIL";
 
 type MetadataError = { error: MetadataErrorCode };
@@ -95,8 +102,6 @@ export function validateAgainstSchema(
 	schema: Record<string, any>,
 	dataToValidate?: Record<string, any>
 ): { valid: true } | MetadataError {
-	// console.log('Schema to validate:', schema);
-	// console.log('Data to validate against schema:', dataToValidate);
 
 	const ajv = new Ajv2020();
 	addFormats(ajv);
@@ -126,25 +131,54 @@ export function validateAgainstSchema(
 	return { valid: true };
 }
 
+function isObjectRecord(data: unknown): data is Record<string, any> {
+	return typeof data === 'object' && data !== null && !Array.isArray(data);
+}
+
+function isInvalidSchemaResponse(res: any): res is { status: number; data: Record<string, any> } {
+	return (
+		!res ||
+		res.status !== 200 ||
+		typeof res.data !== 'object' ||
+		res.data === null ||
+		Array.isArray(res.data)
+	);
+}
+
 async function fetchAndMergeMetadata(
 	context: Context,
 	httpClient: HttpClient,
 	metadataId: string,
-	metadataObj?: Object,
+	metadataArray?: Object,
 	visited = new Set<string>(),
 	integrity?: string,
 	credentialPayload?: Record<string, any>
-): Promise<Record<string, any> | MetadataError> {
+): Promise<Record<string, any> | MetadataError | undefined> {
 
 	if (visited.has(metadataId)) {
-		return { error: "NOT_FOUND" };
+		return { error: "INFINITE_RECURSION" };
 	}
 	visited.add(metadataId);
 
 	let metadata;
-	if (metadataObj) {
-		metadata = metadataObj as Record<string, any>;
-	} else {
+
+	if (metadataArray && Array.isArray(metadataArray)) {
+		metadata = metadataArray.find((m) => m.vct === metadataId);
+
+		if (!metadata) {
+			return undefined;
+		}
+
+		if (!integrity) {
+			return { error: "INTEGRITY_MISSING" };
+		}
+		const isValid = await verifySRIFromObject(context, metadata, integrity);
+		if (!isValid) {
+			return { error: "INTEGRITY_FAIL" };
+		}
+
+	}
+	else {
 		const result = await httpClient.get(metadataId, {}, { useCache: true });
 
 		if (
@@ -154,13 +188,16 @@ async function fetchAndMergeMetadata(
 			result.data === null ||
 			!('vct' in result.data)
 		) {
-			return { error: "NOT_FOUND" };
+			return undefined;
 		}
 
-		if (!integrity) return { error: "INTEGRITY_MISSING" };
+		if (integrity) {
+			const isValid = await verifySRIFromObject(context, result.data, integrity);
+			if (!isValid) {
+				return { error: "INTEGRITY_FAIL" };
+			}
+		}
 
-		const isValid = verifySRIFromObject(context, result.data, integrity);
-		if (!isValid) return { error: "INTEGRITY_FAIL" };
 		metadata = result.data as Record<string, any>;
 	}
 
@@ -176,23 +213,22 @@ async function fetchAndMergeMetadata(
 	}
 
 	if (metadata.schema_uri && typeof metadata.schema_uri === 'string') {
-		const schemaIntegrity = metadata['schema_uri#integrity'];
-		if (!schemaIntegrity) {
-			return { error: "INTEGRITY_MISSING" };
-		}
 
 		const resultSchema = await httpClient.get(metadata.schema_uri, {}, { useCache: true });
-		if (
-			!resultSchema ||
-			resultSchema.status !== 200 ||
-			typeof resultSchema.data !== 'object' ||
-			resultSchema.data === null
-		) {
-			return { error: "NOT_FOUND" };
+		if (isInvalidSchemaResponse(resultSchema)) {
+			return { error: "SCHEMA_FETCH_FAIL" };
 		}
 
-		if (!verifySRIFromObject(context, resultSchema.data, schemaIntegrity)) {
-			return { error: "INTEGRITY_FAIL" };
+		if (!isObjectRecord(resultSchema.data)) {
+			return { error: "SCHEMA_FETCH_FAIL" };
+		}
+
+		const schemaIntegrity = metadata['schema_uri#integrity'];
+
+		if (schemaIntegrity) {
+			if (!(await verifySRIFromObject(context, resultSchema.data, schemaIntegrity))) {
+				return { error: "INTEGRITY_FAIL" };
+			}
 		}
 
 		const resultValidate = validateAgainstSchema(resultSchema.data, credentialPayload);
@@ -211,8 +247,8 @@ async function fetchAndMergeMetadata(
 
 	if (typeof metadata.extends === 'string') {
 		const childIntegrity = metadata['extends#integrity'] as string | undefined;
-		const parent = await fetchAndMergeMetadata(context, httpClient, metadata.extends, undefined, visited, childIntegrity);
-		if ('error' in parent) return parent;
+		const parent = await fetchAndMergeMetadata(context, httpClient, metadata.extends, metadataArray || undefined, visited, childIntegrity);
+		if (parent === undefined || 'error' in parent) return parent;
 		merged = deepMerge(parent, metadata);
 	} else {
 		merged = metadata;
@@ -223,19 +259,26 @@ async function fetchAndMergeMetadata(
 export async function resolveIssuerMetadata(httpClient: any, issuerUrl: string): Promise<{ valid: true } | MetadataError> {
 	try {
 		const issUrl = new URL(issuerUrl);
-		if (!issUrl?.origin) return { error: "NOT_FOUND" };
 
 		const result = await httpClient.get(`${issUrl.origin}/.well-known/jwt-vc-issuer`, {}, { useCache: true }) as {
 			data: { issuer: string };
 		};
 
-		if (result.data?.issuer !== issUrl.origin) {
-			return { error: 'ISSUER_MISMATCH' };
+		if (
+			result &&
+			typeof result === 'object' &&
+			('data' in result) &&
+			typeof (result as any).data === 'object' &&
+			typeof (result as any).data.issuer === 'string'
+		) {
+			if (result.data.issuer !== issUrl.origin) {
+				return { error: 'JWT_VC_ISSUER_MISMATCH' };
+			}
 		}
 
 		return { valid: true };
 	} catch (err) {
-		return { error: "NOT_FOUND" };
+		return { error: "JWT_VC_ISSUER_FAIL" };
 	}
 }
 
@@ -255,54 +298,76 @@ function isCredentialPayload(obj: unknown): obj is CredentialPayload {
 export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClient, credential: string, parsedClaims: Record<string, unknown>): Promise<{ credentialMetadata: any } | MetadataError> {
 	try {
 		// Decode Header
-		const credentialHeader = JSON.parse(new TextDecoder().decode(fromBase64(credential.split('.')[0] as string)));
+		let credentialHeader: any;
+		try {
+			credentialHeader = JSON.parse(new TextDecoder().decode(fromBase64Url(credential.split('.')[0] as string)));
+		} catch (e) {
+			console.warn('Failed to decode credential header:', e);
+			return { error: "HEADER_FAIL" };
+		}
+
+		if (!credentialHeader || typeof credentialHeader !== 'object') {
+			console.warn('Invalid or missing credential header structure.');
+			return { error: "HEADER_FAIL" };
+		}
 		const credentialPayload = parsedClaims;
 
-		// Check Header, Payload and Payload Type
-		if (!credentialHeader || !credentialPayload || !isCredentialPayload(credentialPayload)) {
-			return { error: "NOT_FOUND" };
+		if (!credentialPayload || !isCredentialPayload(credentialPayload)) {
+			return { error: "PAYLOAD_FAIL" };
 		}
-
-		// Check issuer by iss 
-		const checkIssuer = await resolveIssuerMetadata(httpClient, credentialPayload.iss);
-		if ('error' in checkIssuer) {
-			return { error: checkIssuer.error };
-		}
-
 		const vct = credentialPayload.vct;
 		if (vct && typeof vct === 'string' && isValidHttpUrl(vct)) {
+
+			// Check jwt-vc-issuer by iss 
+			const checkIssuer = await resolveIssuerMetadata(httpClient, credentialPayload.iss);
+			if ('error' in checkIssuer) {
+				return { error: checkIssuer.error };
+			}
+
 			try {
 				const vctIntegrity = credentialPayload['vct#integrity'] as string | undefined;
 				const mergedMetadata = await fetchAndMergeMetadata(context, httpClient, vct, undefined, new Set(), vctIntegrity, credentialPayload);
-				if ('error' in mergedMetadata) {
-					return { error: mergedMetadata.error }
+				if (mergedMetadata) {
+					if ('error' in mergedMetadata) {
+						return { error: mergedMetadata.error }
+					} else {
+						return { credentialMetadata: mergedMetadata };
+					}
 				}
-				console.log('Final Metadata:', mergedMetadata);
-				return { credentialMetadata: mergedMetadata };
 			} catch (e) {
 				console.warn('Invalid vct URL:', vct, e);
 			}
 		}
 
-		if (credentialHeader.vctm) {
-			const sdjwtvcMetadataDocument = credentialHeader.vctm.map((encodedMetadataDocument: string) =>
-				JSON.parse(new TextDecoder().decode(fromBase64(encodedMetadataDocument)))
-			).filter(((metadataDocument: Record<string, unknown>) => metadataDocument.vct === credentialPayload.vct))[0];
-			if (sdjwtvcMetadataDocument) {
-				console.log('sdjwtvcMetadataDocument', sdjwtvcMetadataDocument);
-				const vctmMergedMetadata = await fetchAndMergeMetadata(context, httpClient, sdjwtvcMetadataDocument.vct, sdjwtvcMetadataDocument, new Set(), undefined, credentialPayload);
+		if (credentialHeader.vctm && Array.isArray(credentialHeader.vctm)) {
+			const decodedVctmList = credentialHeader.vctm.map((encoded: string, index: number) => {
+				try {
+					return JSON.parse(new TextDecoder().decode(fromBase64Url(encoded)));
+				} catch (err) {
+					return { error: "VCTM_DECODE_FAIL" }
+				}
+			});
+
+			const vctIntegrity = credentialPayload['vct#integrity'] as string | undefined;
+			const vctmMergedMetadata = await fetchAndMergeMetadata(context, httpClient, credentialPayload.vct, decodedVctmList, new Set(), vctIntegrity, credentialPayload);
+
+			if (vctmMergedMetadata) {
 				if ('error' in vctmMergedMetadata) {
 					return { error: vctmMergedMetadata.error }
+				} else {
+					console.log('Final vctm Metadata:', vctmMergedMetadata);
+					return { credentialMetadata: vctmMergedMetadata };
 				}
-				console.log('Final vctm Metadata:', vctmMergedMetadata);
-				return { credentialMetadata: vctmMergedMetadata };
 			}
 		}
+
+		// if no metafata found return NOT_FOUND
+		// here you add more ways to find metadata (eg registry)
 
 		return { error: "NOT_FOUND" };
 	}
 	catch (err) {
 		console.log(err);
-		return { error: "NOT_FOUND" };
+		return { error: "UNKNOWN_ERROR" };
 	}
 }
