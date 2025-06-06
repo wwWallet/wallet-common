@@ -18,6 +18,12 @@ const VctUrls: VctUrls = {
 	'urn:eu.europa.ec.eudi:por:1': 'https://demo-issuer.wwwallet.org/public/creds/por/power-of-representation-vctm-potential-01.json',
 };
 
+type VerifyOpts = {
+	expectedNonce?: string;
+	expectedAudience?: string;
+	verifySchema?: boolean;
+}
+
 export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: PublicKeyResolverEngineI }): CredentialVerifier {
 	let errors: { error: CredentialVerificationError, message: string }[] = [];
 	const logError = (error: CredentialVerificationError, message: string): void => {
@@ -325,7 +331,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 	}
 
 	return {
-		async verify({ rawCredential, opts }) {
+		async verify({ rawCredential, opts }: { rawCredential: string, opts: VerifyOpts }) {
 			errors = []; // re-initialize error array
 			if (typeof rawCredential !== 'string') {
 				return {
@@ -344,11 +350,13 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 			}
 
 			// Credential vct validation
-			const credentialVctVerificationResult = await verifyCredentialVct(rawCredential);
-			if (!credentialVctVerificationResult.success) {
-				return {
-					success: false,
-					error: errors.length > 0 ?  errors[0].error : CredentialVerificationError.UnknownProblem,
+			if (opts.verifySchema) {
+				const credentialVctVerificationResult = await verifyCredentialVct(rawCredential);
+				if (!credentialVctVerificationResult.success) {
+					return {
+						success: false,
+						error: errors.length > 0 ?  errors[0].error : CredentialVerificationError.UnknownProblem,
+					}
 				}
 			}
 
