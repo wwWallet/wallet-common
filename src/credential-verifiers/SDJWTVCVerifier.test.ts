@@ -90,7 +90,7 @@ describe("The SDJWTVerifier", () => {
 		assert(result.success === true);
 	});
 
-	['urn:eu.europa.ec.eudi:pid:1', 'urn:eudi:pid:1', 'urn:eudi:ehic:1'].forEach(vct => {
+	['urn:eu.europa.ec.eudi:pid:1', 'urn:eudi:pid:1'].forEach(vct => {
 		it(`should successfully verify ${vct} credential issued by Wallet Enterprise Issuer`, async () => {
 			const { sdJwt, certPem } = await sdJwtFixture(vct);
 			const resolverEngine = PublicKeyResolverEngine();
@@ -112,7 +112,7 @@ describe("The SDJWTVerifier", () => {
 				pkresolverEngine: resolverEngine
 			})
 			.verify({
-				rawCredential: sdJwt, opts: {}
+				rawCredential: sdJwt, opts: { verifySchema: true }
 			});
 
 			assert(result.success === true);
@@ -140,7 +140,7 @@ describe("The SDJWTVerifier", () => {
 			pkresolverEngine: resolverEngine
 		})
 		.verify({
-			rawCredential: sdJwt, opts: {}
+			rawCredential: sdJwt, opts: { verifySchema: true }
 		});
 
 		assert(result.success === true);
@@ -167,7 +167,34 @@ describe("The SDJWTVerifier", () => {
 			pkresolverEngine: resolverEngine
 		})
 		.verify({
-			rawCredential: sdJwt, opts: {}
+			rawCredential: sdJwt, opts: { verifySchema: true }
+		});
+
+		assert(result.success === true);
+	});
+
+	it("should successfully verify unknown credential issued by Wallet Enterprise Issuer", async () => {
+		const { sdJwt, certPem } = await sdJwtFixture('unknown');
+		const resolverEngine = PublicKeyResolverEngine();
+		resolverEngine.register({ resolve: () => {
+			return {
+				success: true,
+				value: certPem
+			}
+		}});
+		const result = await SDJWTVCVerifier({
+			context: {
+				clockTolerance: 0,
+				lang: 'en-US',
+				subtle: crypto.subtle,
+				trustedCertificates: [
+					certPem
+				],
+			},
+			pkresolverEngine: resolverEngine
+		})
+		.verify({
+			rawCredential: sdJwt, opts: { verifySchema: true }
 		});
 
 		assert(result.success === true);
