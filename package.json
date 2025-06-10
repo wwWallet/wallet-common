@@ -9,7 +9,7 @@
 		"build": "rm -rf dist/ && tsc"
 	},
 	"dependencies": {
-		"@auth0/mdl": "^2.0.1",
+		"@auth0/mdl": "^2.2.0",
 		"@sd-jwt/core": "^0.10.0",
 		"ajv": "^8.17.1",
 		"asn1js": "^3.0.5",
