@@ -8,13 +8,13 @@ export type COSE_KTY_ARKG_PUB = typeof COSE_KTY_ARKG_PUB; // eslint-disable-line
 export const COSE_KTY_ARKG_DERIVED = -65538;
 export type COSE_KTY_ARKG_DERIVED = typeof COSE_KTY_ARKG_DERIVED; // eslint-disable-line @typescript-eslint/no-redeclare
 
-// ARKG-P256ADD-ECDH (no spec yet)
-export const COSE_ALG_ARKG_P256ADD_ECDH = -60600;
-export type COSE_ALG_ARKG_P256ADD_ECDH = typeof COSE_ALG_ARKG_P256ADD_ECDH; // eslint-disable-line @typescript-eslint/no-redeclare
-
 // ESP256-ARKG (no spec yet)
 export const COSE_ALG_ESP256_ARKG = -65539;
 export type COSE_ALG_ESP256_ARKG = typeof COSE_ALG_ESP256_ARKG; // eslint-disable-line @typescript-eslint/no-redeclare
+
+// ARKG-P256 https://www.ietf.org/archive/id/draft-bradleylundberg-cfrg-arkg-08.html#name-cose-key-type-arkg-public-s
+export const COSE_ALG_ARKG_P256 = -65700;
+export type COSE_ALG_ARKG_P256 = typeof COSE_ALG_ARKG_P256; // eslint-disable-line @typescript-eslint/no-redeclare
 
 
 export type ParsedCOSEKey = {
@@ -157,11 +157,11 @@ export function parseCoseKeyArkgPubSeed(cose: cbor.Map): ParsedCOSEKeyArkgPubSee
 			let alg = cose.get(3);
 			switch (alg) {
 				case COSE_ALG_ESP256_ARKG:
-					console.warn(`WARNING: Wrong alg (3) value in ARKG-pub COSE_Key: ${alg}; should probably be ${COSE_ALG_ARKG_P256ADD_ECDH}`);
-					alg = COSE_ALG_ARKG_P256ADD_ECDH;
+					console.warn(`WARNING: Wrong alg (3) value in ARKG-pub COSE_Key: ${alg}; should probably be ${COSE_ALG_ARKG_P256}`);
+					alg = COSE_ALG_ARKG_P256;
 					break;
 
-				case COSE_ALG_ARKG_P256ADD_ECDH:
+				case COSE_ALG_ARKG_P256:
 					// OK; do nothing
 					break;
 
