@@ -49,76 +49,76 @@ const validPayload = {
 describe("getSdJwtVcMetadata - header failure cases", () => {
 
 
-  it("fails on malformed base64 header", async () => {
-    const malformedCredential = "!!notbase64!!.payload.sig"; // invalid base64
+	it("fails on malformed base64 header", async () => {
+		const malformedCredential = "!!notbase64!!.payload.sig"; // invalid base64
 
-    const result = await getSdJwtVcMetadata(
-      context,
-      defaultHttpClient,
-      malformedCredential,
-      {} // doesn't matter for this test
-    );
+		const result = await getSdJwtVcMetadata(
+			context,
+			defaultHttpClient,
+			malformedCredential,
+			{} // doesn't matter for this test
+		);
 
-    expect(result).toEqual({ error: "HEADER_FAIL" });
-  });
+		expect(result).toMatchObject({ error: "HEADER_FAIL" });
+	});
 
-  it("fails on non-object header", async () => {
-    const badHeader = btoa('"notAnObject"');
-    const credential = `${badHeader}.payload.sig`;
+	it("fails on non-object header", async () => {
+		const badHeader = btoa('"notAnObject"');
+		const credential = `${badHeader}.payload.sig`;
 
-    const result = await getSdJwtVcMetadata(
-      context,
-      defaultHttpClient,
-      credential,
-      {}
-    );
+		const result = await getSdJwtVcMetadata(
+			context,
+			defaultHttpClient,
+			credential,
+			{}
+		);
 
-    expect(result).toEqual({ error: "HEADER_FAIL" });
-  });
+		expect(result).toMatchObject({ error: "HEADER_FAIL" });
+	});
 });
 
 describe("getSdJwtVcMetadata - payload failure cases", () => {
-  it("fails when parsed claims are null", async () => {
-    const validHeader = encodeBase64Url({ alg: "ES256" });
-    const credential = `${validHeader}.payload.sig`;
+	it("fails when parsed claims are null", async () => {
+		const validHeader = encodeBase64Url({ alg: "ES256" });
+		const credential = `${validHeader}.payload.sig`;
 
-    const result = await getSdJwtVcMetadata(
-      context,
-      defaultHttpClient,
-      credential,
-      null as any // simulate corrupted or missing parsedClaims
-    );
+		const result = await getSdJwtVcMetadata(
+			context,
+			defaultHttpClient,
+			credential,
+			null as any // simulate corrupted or missing parsedClaims
+		);
 
-    expect(result).toEqual({ error: "PAYLOAD_FAIL" });
-  });
+		expect(result).toMatchObject({ error: "PAYLOAD_FAIL" });
+	});
 
-  it("fails when parsed claims are not an object", async () => {
-    const validHeader = encodeBase64Url({ alg: "ES256" });
-    const credential = `${validHeader}.payload.sig`;
+	it("fails when parsed claims are not an object", async () => {
+		const validHeader = encodeBase64Url({ alg: "ES256" });
+		const credential = `${validHeader}.payload.sig`;
 
-    const result = await getSdJwtVcMetadata(
-      context,
-      defaultHttpClient,
-      credential,
-      "not-an-object" as any
-    );
+		const result = await getSdJwtVcMetadata(
+			context,
+			defaultHttpClient,
+			credential,
+			"not-an-object" as any
+		);
 
-    expect(result).toEqual({ error: "PAYLOAD_FAIL" });
-  });
+		expect(result).toMatchObject({ error: "PAYLOAD_FAIL" });
+	});
 
-  it("fails when parsed claims are missing `iss`", async () => {
-    const validHeader = encodeBase64Url({ alg: "ES256" });
-    const credential = `${validHeader}.payload.sig`;
+	it("fails when parsed claims are missing `iss`", async () => {
+		const validHeader = encodeBase64Url({ alg: "ES256" });
+		const credential = `${validHeader}.payload.sig`;
 
-    const result = await getSdJwtVcMetadata(
-      context,
-      defaultHttpClient,
-      credential,
-      { vct: "https://example.com/vct.json" } // missing 'iss'
-    );
+		const result = await getSdJwtVcMetadata(
+			context,
+			defaultHttpClient,
+			credential,
+			{ vct: "https://example.com/vct.json" } // missing 'iss'
+		);
 
-    expect(result).toEqual({ error: "PAYLOAD_FAIL" });
-  });
+		expect(result).toMatchObject({ error: "PAYLOAD_FAIL" });
+	});
 });
 
 describe("getSdJwtVcMetadata - vct url failure cases", () => {
@@ -170,25 +170,35 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 	}
 
 
-  it("fails on /jwt-vc-issuer mismatch", async () => {
-    const payload = { ...validPayload, iss: "https://attacker.com" };
-    const credential = `${encodeBase64Url({})}.${encodeBase64Url(payload)}.sig`;
-    const result = await getSdJwtVcMetadata(context, createHttpClient(), credential, payload);
-    expect(result).toEqual({ error: "JWT_VC_ISSUER_MISMATCH" });
-  });
+	it("warning on /jwt-vc-issuer mismatch", async () => {
+		const payload = { ...validPayload, iss: "https://attacker.com" };
+		const credential = `${encodeBase64Url({})}.${encodeBase64Url(payload)}.sig`;
+		const result = await getSdJwtVcMetadata(context, createHttpClient(), credential, payload);
+		if ('warnings' in result) {
+			expect(result.warnings.some(w => w.code === 'JWT_VC_ISSUER_MISMATCH')).toBe(true);
+
+		} else {
+			throw new Error(`Expected result to be success with warnings`);
+		}
+	});
 
 
-	it("fails when fetching main vct fails", async () => {
+	it("warning when fetching main vct fails", async () => {
 		const payload = { ...validPayload };
 		const credential = `${encodeBase64Url({})}.${encodeBase64Url(payload)}.sig`;
 
 		const httpClient = createHttpClient({ failChild: true });
 
 		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
-		expect(result).toEqual({ error: "NOT_FOUND" });
+		if ('warnings' in result) {
+			expect(result.warnings.some(w => w.code === 'NOT_FOUND')).toBe(true);
+
+		} else {
+			throw new Error(`Expected result to be success with warnings`);
+		}
 	});
 
-	it("fails when fetching parent metadata (extends) fails", async () => {
+	it("warning when fetching parent metadata (extends) fails", async () => {
 		const payload = { ...validPayload };
 		const credential = `${encodeBase64Url({})}.${encodeBase64Url(payload)}.sig`;
 
@@ -202,7 +212,12 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 		});
 
 		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
-		expect(result).toEqual({ error: "NOT_FOUND" });
+		if ('warnings' in result) {
+			expect(result.warnings.some(w => w.code === 'NOT_FOUND')).toBe(true);
+
+		} else {
+			throw new Error(`Expected result to be success with warnings`);
+		}
 	});
 
 	it("fails with INFINITE_RECURSION when metadata extends each other", async () => {
@@ -232,15 +247,15 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 
 		const httpClient = createHttpClient({
 			childMetadataOverride: circularChild,
-			parentMetadataOverride: circularParent ,
+			parentMetadataOverride: circularParent,
 		});
 
 		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
-		expect(result).toEqual({ error: "INFINITE_RECURSION" });
+		expect(result).toMatchObject({ error: "INFINITE_RECURSION" });
 	});
 
 
-	it("fails on incorrect vct#integrity", async () => {
+	it("warning on incorrect vct#integrity", async () => {
 		const badIntegrity = "sha256-invalidhash===";
 
 		const payload = {
@@ -256,7 +271,12 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 		});
 
 		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
-		expect(result).toEqual({ error: "INTEGRITY_FAIL" });
+		if ('warnings' in result) {
+			expect(result.warnings.some(w => w.code === 'INTEGRITY_FAIL')).toBe(true);
+
+		} else {
+			throw new Error(`Expected result to be success with warnings`);
+		}
 	});
 
 	it("fails with SCHEMA_FETCH_FAIL when schema_uri cannot be fetched", async () => {
@@ -295,7 +315,7 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 		};
 
 		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
-		expect(result).toEqual({ error: "SCHEMA_FETCH_FAIL" });
+		expect(result).toMatchObject({ error: "SCHEMA_FETCH_FAIL" });
 	});
 
 
@@ -322,11 +342,11 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 		});
 
 		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
-		expect(result).toEqual({ error: "SCHEMA_CONFLICT" });
+		expect(result).toMatchObject({ error: "SCHEMA_CONFLICT" });
 	});
 
 
-	it("fails with SCHEMA_FAIL when schema validation fails", async () => {
+	it("warning with SCHEMA_FAIL when schema validation fails", async () => {
 		const invalidSchema = {
 			type: "object",
 			required: ["foo"], // not present in payload
@@ -356,11 +376,16 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 		});
 
 		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
-		expect(result).toEqual({ error: "SCHEMA_FAIL" });
+		if ('warnings' in result) {
+			expect(result.warnings.some(w => w.code === 'SCHEMA_FAIL')).toBe(true);
+
+		} else {
+			throw new Error(`Expected result to be success with warnings`);
+		}
 	});
 
 
-	it("fails with JWT_VC_ISSUER_FAIL when .well-known/jwt-vc-issuer fetch fails", async () => {
+	it("warning with JWT_VC_ISSUER_FAIL when .well-known/jwt-vc-issuer fetch fails", async () => {
 		const payload = {
 			iss: "https://issuer.com",
 			vct: "https://issuer.com/child.json",
@@ -380,11 +405,19 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 			if (url.endsWith("child.json")) {
 				return { status: 200, data: childMetadata };
 			}
+			if (url.endsWith("parent.json")) {
+				return { status: 200, data: parentMetadata };
+			}
 			return { status: 404, data: null };
 		};
 
 		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
-		expect(result).toEqual({ error: "JWT_VC_ISSUER_FAIL" });
+		if ('warnings' in result) {
+			expect(result.warnings.some(w => w.code === 'JWT_VC_ISSUER_FAIL')).toBe(true);
+
+		} else {
+			throw new Error(`Expected result to be success with warnings`);
+		}
 	});
 
 });
@@ -446,7 +479,7 @@ export function buildJwtLikeCredential(header: any, payload: any): string {
 
 describe("getSdJwtVcTypeMetadata - failure cases (vctm)", () => {
 
-	it("fails on vctm#integrity mismatch", async () => {
+	it("warning on vctm#integrity mismatch", async () => {
 		const badIntegrity = "sha256-wronghash===";
 		const payload = { vct: "urn:eudi:pid:1", iss: "https://issuer.com" };
 
@@ -455,12 +488,17 @@ describe("getSdJwtVcTypeMetadata - failure cases (vctm)", () => {
 			vctm: [encodeBase64Url(metadata1), encodeBase64Url(metadata2)],
 		};
 
-		
+
 		const result = await getSdJwtVcMetadata(context, createHttpClient(), encodeBase64Url(header), payload);
-		expect(result).toEqual({ error: "INTEGRITY_MISSING" });
+		if ('warnings' in result) {
+			expect(result.warnings.some(w => w.code === 'INTEGRITY_MISSING')).toBe(true);
+
+		} else {
+			throw new Error(`Expected result to be success with warnings`);
+		}
 	});
 
-	it("fails on vctm#integrity failed", async () => {
+	it("warning on vctm#integrity failed", async () => {
 		const badIntegrity = "sha256-wronghash===";
 		const payload = { vct: "urn:eudi:pid:1", iss: "https://issuer.com", "vct#integrity": badIntegrity };
 
@@ -468,9 +506,14 @@ describe("getSdJwtVcTypeMetadata - failure cases (vctm)", () => {
 			vctm: [encodeBase64Url(metadata1), encodeBase64Url(metadata2)],
 		};
 
-		
+
 		const result = await getSdJwtVcMetadata(context, createHttpClient(), encodeBase64Url(header), payload);
-		expect(result).toEqual({ error: "INTEGRITY_FAIL" });
+		if ('warnings' in result) {
+			expect(result.warnings.some(w => w.code === 'INTEGRITY_FAIL')).toBe(true);
+
+		} else {
+			throw new Error(`Expected result to be success with warnings`);
+		}
 	});
 
 
@@ -487,46 +530,45 @@ describe("getSdJwtVcTypeMetadata - failure cases (vctm)", () => {
 				}
 			}
 		};
-	
+
 		const encodedMetadata = encodeBase64Url(metadata);
 		const integrity = generateSRIFromObject(metadata);
-	
+
 		const header = {
 			alg: "ES256",
 			vctm: [encodedMetadata],
 			"vctm#integrity": [integrity]
 		};
-	
+
 		const payload = {
 			vct: "urn:eudi:pid:1",
 			iss: "https://issuer.com",
 			"vct#integrity": integrity,
 			pid: "123456789"
 		};
-	
+
 		const credential = buildJwtLikeCredential(header, payload);
-	
+
 		const result = await getSdJwtVcMetadata(context, createHttpClient(), credential, payload);
-	
-		expect(result).toEqual({
+		expect(result).toMatchObject({
 			credentialMetadata: {
 				...metadata,
 				schema: metadata.schema // schema should be injected into the final output
 			}
 		});
 
-		
+
 	});
-	
+
 	it("succeeds when child metadata in vctm extends parent metadata", async () => {
 		const parentMetadata = {
 			vct: "urn:eudi:parent",
 			display: [{ lang: "en-US", name: "Base Person", description: "Parent Metadata" }],
 			claims: [{ path: ["name"], sd: "always", display: [{ lang: "en-US", label: "Full Name" }] }]
 		};
-	
+
 		const parentIntegrity = generateSRIFromObject(parentMetadata);
-	
+
 		const childMetadata = {
 			vct: "urn:eudi:pid:1",
 			extends: "urn:eudi:parent",
@@ -534,15 +576,15 @@ describe("getSdJwtVcTypeMetadata - failure cases (vctm)", () => {
 			display: [{ lang: "en-US", name: "PID", description: "Extended Metadata" }],
 			claims: [{ path: ["pid"], sd: "always", display: [{ lang: "en-US", label: "PID" }] }]
 		};
-	
+
 		const childIntegrity = generateSRIFromObject(childMetadata);
-	
+
 		const header = {
 			alg: "ES256",
 			vctm: [encodeBase64Url(childMetadata), encodeBase64Url(parentMetadata)],
 			"vctm#integrity": [childIntegrity, parentIntegrity]
 		};
-	
+
 		const payload = {
 			vct: "urn:eudi:pid:1",
 			iss: "https://issuer.com",
@@ -550,12 +592,12 @@ describe("getSdJwtVcTypeMetadata - failure cases (vctm)", () => {
 			pid: "123456789",
 			name: "Jane Doe" // from parent
 		};
-	
+
 		const credential = buildJwtLikeCredential(header, payload);
-	
+
 		const result = await getSdJwtVcMetadata(context, createHttpClient(), credential, payload);
-	
-		expect(result).toEqual({
+
+		expect(result).toMatchObject({
 			credentialMetadata: {
 				...parentMetadata,
 				...childMetadata,
@@ -563,41 +605,49 @@ describe("getSdJwtVcTypeMetadata - failure cases (vctm)", () => {
 			}
 		});
 	});
-	
-	it("when vct is a URN and vctm is IS empty", async () => {
+
+	it("warning when vct is a URN and vctm is IS empty", async () => {
 		const payload = {
 			vct: "urn:eudi:pid:1", // not a URL
 			iss: "https://issuer.com"
 		};
-	
+
 		const header = {
 			alg: "ES256",
-			vctm:[]
+			vctm: []
 		};
-	
-		const credential = buildJwtLikeCredential(header, payload);
-	
-		const result = await getSdJwtVcMetadata(context, createHttpClient(), credential, payload);
-	
-		expect(result).toEqual({ error: "NOT_FOUND" });
-	});
 
-	it("when vct is a URN and vctm is missing", async () => {
+		const credential = buildJwtLikeCredential(header, payload);
+
+		const result = await getSdJwtVcMetadata(context, createHttpClient(), credential, payload);
+		if ('warnings' in result) {
+			expect(result.warnings.some(w => w.code === 'NOT_FOUND')).toBe(true);
+
+		} else {
+			throw new Error(`Expected result to be success with warnings`);
+		}	});
+
+	it("warning when vct is a URN and vctm is missing", async () => {
 		const payload = {
 			vct: "urn:eudi:pid:1", // not a URL
 			iss: "https://issuer.com"
 		};
-	
+
 		const header = {
 			alg: "ES256",
 			// ⚠️ no vctm provided
 		};
-	
+
 		const credential = buildJwtLikeCredential(header, payload);
-	
+
 		const result = await getSdJwtVcMetadata(context, createHttpClient(), credential, payload);
-	
-		expect(result).toEqual({ error: "NOT_FOUND" });
+
+		if ('warnings' in result) {
+			expect(result.warnings.some(w => w.code === 'NOT_FOUND')).toBe(true);
+
+		} else {
+			throw new Error(`Expected result to be success with warnings`);
+		}
 	});
-	
+
 });

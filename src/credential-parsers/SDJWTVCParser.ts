@@ -99,7 +99,14 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 			let credentialFriendlyName: string | null = null;
 
 			const getSdJwtMetadataResult = await getSdJwtVcMetadata(args.context, args.httpClient, rawCredential, parsedClaims);
-			if (!('error' in getSdJwtMetadataResult)) {
+			if ('error' in getSdJwtMetadataResult) {
+				return {
+					success: false,
+					error: getSdJwtMetadataResult.error,
+					message: getSdJwtMetadataResult.message,
+				}
+			} else if (getSdJwtMetadataResult.credentialMetadata) {
+
 				const { credentialMetadata } = getSdJwtMetadataResult;
 
 				// Get localized display metadata from issuer metadata
@@ -152,20 +159,6 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 						})
 						.catch(() => null);
 				}
-			} else if (getSdJwtMetadataResult.error === 'NOT_FOUND') {
-				const fallbackDisplayConfig = {
-					name: "Credential"
-				}
-
-				dataUri = await renderer.renderCustomSvgTemplate({ signedClaims: parsedClaims, displayConfig: fallbackDisplayConfig })
-					.then((res) => res)
-					.catch((err) => { console.error(err); return null; });
-			} else {
-				return {
-					success: false,
-					error: CredentialParsingError.FailGetSdJwtVcMetadata,
-					message: getSdJwtMetadataResult.error
-				}
 			}
 
 			const schema = z.enum([VerifiableCredentialFormat.VC_SDJWT, VerifiableCredentialFormat.DC_SDJWT]);
@@ -199,7 +192,8 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 					},
 					validityInfo: {
 						...extractValidityInfo(parsedClaims)
-					}
+					},
+					warnings:getSdJwtMetadataResult.warnings
 				}
 			}
 		},
