@@ -233,6 +233,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 				}
 			}
 		} catch (error) {
+			console.error(error);
 			if (error instanceof Error && error.message == CredentialVerificationError.VctUrnNotFoundError) {
 				return {
 					success: true,
