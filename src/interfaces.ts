@@ -1,6 +1,6 @@
 import { JWK } from "jose";
 import { CredentialParsingError, CredentialVerificationError, PublicKeyResolutionError, CredentialRenderingError, ValidatePresentationRequirementsError } from "./error";
-import { Result, ParsedCredential, CredentialClaims } from "./types";
+import { Result, ParsedCredential, CredentialClaims, ParserResult } from "./types";
 
 export interface CredentialRendering {
 	renderSvgTemplate(args: {
@@ -34,7 +34,7 @@ export interface PublicKeyResolverEngineI {
 
 
 export interface CredentialParser {
-	parse(args: { rawCredential: unknown }): Promise<Result<ParsedCredential, CredentialParsingError>>;
+	parse(args: { rawCredential: unknown }): Promise<ParserResult>;
 }
 
 export interface CredentialVerifier {

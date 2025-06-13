@@ -47,6 +47,7 @@ describe("The openID4VCICredentialRendering", () => {
 			}
 		});
 
+		console.log('result!',result)
 		assert(result != null);
 		assert(typeof result === 'string');
 		convertDataUriToImage(result, path.join(__dirname, "../../output/openID4VCIRenderingResult"));
