@@ -80,6 +80,15 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 				};
 			}
 
+			const schema = z.enum([VerifiableCredentialFormat.VC_SDJWT, VerifiableCredentialFormat.DC_SDJWT]);
+			const typParseResult = await schema.safeParseAsync(parsedHeaders.typ);
+			if (typParseResult.error) {
+				return {
+					success: false,
+					error: CredentialParsingError.NotSupportedCredentialType,
+				}
+			}
+
 			if (typeof parsedClaims.iss !== 'string') {
 				return {
 					success: false,
@@ -161,15 +170,6 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 				}
 			}
 
-			const schema = z.enum([VerifiableCredentialFormat.VC_SDJWT, VerifiableCredentialFormat.DC_SDJWT]);
-			const typParseResult = await schema.safeParseAsync(parsedHeaders.typ);
-			if (typParseResult.error) {
-				return {
-					success: false,
-					error: CredentialParsingError.NotSupportedCredentialType,
-				}
-			}
-
 			return {
 				success: true,
 				value: {
@@ -193,7 +193,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 					validityInfo: {
 						...extractValidityInfo(parsedClaims)
 					},
-					warnings:getSdJwtMetadataResult.warnings
+					warnings: getSdJwtMetadataResult.warnings
 				}
 			}
 		},
