@@ -44,12 +44,10 @@ export type MetadataCode =
 
 export type MetadataError = {
 	error: MetadataCode;
-	message?: string;
 };
 
 export type MetadataWarning = {
 	code: MetadataCode;
-	message?: string;
 };
 
 export type ParsedCredential = {
