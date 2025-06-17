@@ -2,7 +2,7 @@ import { SDJwt } from "@sd-jwt/core";
 import type { HasherAndAlg } from "@sd-jwt/types";
 import { CredentialParsingError } from "../error";
 import { Context, CredentialParser, HttpClient } from "../interfaces";
-import { VerifiableCredentialFormat } from "../types";
+import { MetadataWarning, VerifiableCredentialFormat } from "../types";
 import { CredentialRenderingService } from "../rendering";
 import { getSdJwtVcMetadata } from "../utils/getSdJwtVcMetadata";
 import { OpenID4VCICredentialRendering } from "../functions/openID4VCICredentialRendering";
@@ -60,6 +60,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 			}
 
 			let dataUri: string | null = null;
+			const warnings: MetadataWarning[] = [];
 
 			const { parsedClaims, parsedHeaders, err } = await (async () => {
 				try {
@@ -107,7 +108,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 
 			let credentialFriendlyName: string | null = null;
 
-			const getSdJwtMetadataResult = await getSdJwtVcMetadata(args.context, args.httpClient, rawCredential, parsedClaims);
+			const getSdJwtMetadataResult = await getSdJwtVcMetadata(args.context, args.httpClient, rawCredential, parsedClaims, warnings);
 			if ('error' in getSdJwtMetadataResult) {
 				return {
 					success: false,

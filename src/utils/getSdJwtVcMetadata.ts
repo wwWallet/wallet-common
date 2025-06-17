@@ -305,10 +305,8 @@ function isCredentialPayload(obj: unknown): obj is CredentialPayload {
 	return typeof obj === 'object' && obj !== null && 'iss' in obj && typeof (obj as any).iss === 'string';
 }
 
-export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClient, credential: string, parsedClaims: Record<string, unknown>): Promise<{ credentialMetadata: any; warnings: MetadataWarning[] } | MetadataError> {
+export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClient, credential: string, parsedClaims: Record<string, unknown>, warnings: MetadataWarning[] = []): Promise<{ credentialMetadata: any; warnings: MetadataWarning[] } | MetadataError> {
 	try {
-
-		const warnings: MetadataWarning[] = [];
 
 		// Decode Header
 		let credentialHeader: any;
