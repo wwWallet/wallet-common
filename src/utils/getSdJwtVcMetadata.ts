@@ -4,18 +4,14 @@ import { verifySRIFromObject } from './verifySRIFromObject';
 import Ajv2020 from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 import { CredentialPayload, MetadataError, MetadataWarning } from '../types';
-import { CredentialParsingError, CredentialParsingWarnings } from '../error';
-
-export function isWarning(code: CredentialParsingError): boolean {
-	return CredentialParsingWarnings.has(code);
-}
+import { CredentialParsingError, CredentialParsingWarnings, isCredentialParsingWarnings } from '../error';
 
 function handleMetadataCode(
 	code: CredentialParsingError,
 	warnings: MetadataWarning[]
 ): MetadataError | undefined {
 
-	if (isWarning(code)) {
+	if (isCredentialParsingWarnings(code)) {
 		warnings.push({ code });
 		return undefined; // continue flow
 	} else {
