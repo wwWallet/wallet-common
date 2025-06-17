@@ -7,6 +7,7 @@ import { CredentialRenderingService } from "../rendering";
 import { getSdJwtVcMetadata } from "../utils/getSdJwtVcMetadata";
 import { OpenID4VCICredentialRendering } from "../functions/openID4VCICredentialRendering";
 import { z } from 'zod';
+import { getIssuerMetadata } from "../utils/getIssuerMetadata";
 
 export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }): CredentialParser {
 	const encoder = new TextEncoder();
@@ -97,14 +98,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 				}
 			}
 
-			// Fetch issuer metadata
-			const issuerResponse = await args.httpClient
-				.get(`${parsedClaims.iss}/.well-known/openid-credential-issuer`, {}, { useCache: true })
-				.catch(() => null);
-
-			const issuerMetadata = issuerResponse?.data as {
-				credential_configurations_supported?: Record<string, any>;
-			} | null;
+			const { metadata: issuerMetadata } = await getIssuerMetadata(args.httpClient, parsedClaims.iss, warnings);
 
 			let credentialFriendlyName: string | null = null;
 
@@ -120,7 +114,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 
 				// Get localized display metadata from issuer metadata
 				const issuerDisplay = issuerMetadata?.credential_configurations_supported?.[credentialMetadata.vct]?.display;
-				const issuerDisplayLocalized = Array.isArray(issuerMetadata?.credential_configurations_supported?.[credentialMetadata.vct]?.display)
+				const issuerDisplayLocalized = Array.isArray(issuerDisplay)
 					? issuerDisplay.find((d: any) => d.locale === args.context.lang)
 					: null;
 

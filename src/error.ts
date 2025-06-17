@@ -16,6 +16,8 @@ export enum CredentialParsingError {
 	IntegrityFail = "IntegrityFail",
 	SchemaFail = "SchemaFail",
 	JwtVcIssuerFail = "JwtVcIssuerFail",
+	FailFetchIssuerMetadata = "FailFetchIssuerMetadata",
+	FailSchemaIssuerMetadata = "FailSchemaIssuerMetadata",
 }
 
 export const CredentialParsingWarnings = new Set<CredentialParsingError>([
@@ -25,6 +27,8 @@ export const CredentialParsingWarnings = new Set<CredentialParsingError>([
 	CredentialParsingError.IntegrityFail,
 	CredentialParsingError.SchemaFail,
 	CredentialParsingError.JwtVcIssuerFail,
+	CredentialParsingError.FailFetchIssuerMetadata,
+	CredentialParsingError.FailSchemaIssuerMetadata,
 ]);
 
 export function isCredentialParsingWarnings(code: CredentialParsingError): boolean {
