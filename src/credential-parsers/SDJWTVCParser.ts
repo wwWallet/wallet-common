@@ -112,7 +112,6 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 				return {
 					success: false,
 					error: getSdJwtMetadataResult.error,
-					message: getSdJwtMetadataResult.message,
 				}
 			} else if (getSdJwtMetadataResult.credentialMetadata) {
 

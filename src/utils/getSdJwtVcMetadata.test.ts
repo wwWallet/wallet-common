@@ -59,7 +59,7 @@ describe("getSdJwtVcMetadata - header failure cases", () => {
 			{} // doesn't matter for this test
 		);
 
-		expect(result).toMatchObject({ error: "HEADER_FAIL" });
+		expect(result).toMatchObject({ error: "HeaderFail" });
 	});
 
 	it("fails on non-object header", async () => {
@@ -73,7 +73,7 @@ describe("getSdJwtVcMetadata - header failure cases", () => {
 			{}
 		);
 
-		expect(result).toMatchObject({ error: "HEADER_FAIL" });
+		expect(result).toMatchObject({ error: "HeaderFail" });
 	});
 });
 
@@ -89,7 +89,7 @@ describe("getSdJwtVcMetadata - payload failure cases", () => {
 			null as any // simulate corrupted or missing parsedClaims
 		);
 
-		expect(result).toMatchObject({ error: "PAYLOAD_FAIL" });
+		expect(result).toMatchObject({ error: "PayloadFail" });
 	});
 
 	it("fails when parsed claims are not an object", async () => {
@@ -103,7 +103,7 @@ describe("getSdJwtVcMetadata - payload failure cases", () => {
 			"not-an-object" as any
 		);
 
-		expect(result).toMatchObject({ error: "PAYLOAD_FAIL" });
+		expect(result).toMatchObject({ error: "PayloadFail" });
 	});
 
 	it("fails when parsed claims are missing `iss`", async () => {
@@ -117,7 +117,7 @@ describe("getSdJwtVcMetadata - payload failure cases", () => {
 			{ vct: "https://example.com/vct.json" } // missing 'iss'
 		);
 
-		expect(result).toMatchObject({ error: "PAYLOAD_FAIL" });
+		expect(result).toMatchObject({ error: "PayloadFail" });
 	});
 });
 
@@ -175,7 +175,7 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 		const credential = `${encodeBase64Url({})}.${encodeBase64Url(payload)}.sig`;
 		const result = await getSdJwtVcMetadata(context, createHttpClient(), credential, payload);
 		if ('warnings' in result) {
-			expect(result.warnings.some(w => w.code === 'JWT_VC_ISSUER_MISMATCH')).toBe(true);
+			expect(result.warnings.some(w => w.code === 'JwtVcIssuerMismatch')).toBe(true);
 
 		} else {
 			throw new Error(`Expected result to be success with warnings`);
@@ -191,7 +191,7 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 
 		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
 		if ('warnings' in result) {
-			expect(result.warnings.some(w => w.code === 'NOT_FOUND')).toBe(true);
+			expect(result.warnings.some(w => w.code === 'NotFound')).toBe(true);
 
 		} else {
 			throw new Error(`Expected result to be success with warnings`);
@@ -213,14 +213,14 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 
 		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
 		if ('warnings' in result) {
-			expect(result.warnings.some(w => w.code === 'NOT_FOUND')).toBe(true);
+			expect(result.warnings.some(w => w.code === 'NotFound')).toBe(true);
 
 		} else {
 			throw new Error(`Expected result to be success with warnings`);
 		}
 	});
 
-	it("fails with INFINITE_RECURSION when metadata extends each other", async () => {
+	it("fails with InfiniteRecursion when metadata extends each other", async () => {
 		const circularParent = {
 			...parentMetadata,
 			extends: "https://issuer.com/child.json"
@@ -251,7 +251,7 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 		});
 
 		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
-		expect(result).toMatchObject({ error: "INFINITE_RECURSION" });
+		expect(result).toMatchObject({ error: "InfiniteRecursion" });
 	});
 
 
@@ -272,14 +272,14 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 
 		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
 		if ('warnings' in result) {
-			expect(result.warnings.some(w => w.code === 'INTEGRITY_FAIL')).toBe(true);
+			expect(result.warnings.some(w => w.code === 'IntegrityFail')).toBe(true);
 
 		} else {
 			throw new Error(`Expected result to be success with warnings`);
 		}
 	});
 
-	it("fails with SCHEMA_FETCH_FAIL when schema_uri cannot be fetched", async () => {
+	it("fails with SchemaFetchFail when schema_uri cannot be fetched", async () => {
 		const childWithSchemaUri = {
 			...childMetadata,
 			schema_uri: "https://issuer.com/schema.json",
@@ -315,11 +315,11 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 		};
 
 		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
-		expect(result).toMatchObject({ error: "SCHEMA_FETCH_FAIL" });
+		expect(result).toMatchObject({ error: "SchemaFetchFail" });
 	});
 
 
-	it("fails with SCHEMA_CONFLICT when both schema and schema_uri are present", async () => {
+	it("fails with SchemaConflict when both schema and schema_uri are present", async () => {
 		const conflictingMetadata = {
 			...childMetadata,
 			schema_uri: "https://issuer.com/schema.json",
@@ -342,11 +342,11 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 		});
 
 		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
-		expect(result).toMatchObject({ error: "SCHEMA_CONFLICT" });
+		expect(result).toMatchObject({ error: "SchemaConflict" });
 	});
 
 
-	it("warning with SCHEMA_FAIL when schema validation fails", async () => {
+	it("warning with SchemaFail when schema validation fails", async () => {
 		const invalidSchema = {
 			type: "object",
 			required: ["foo"], // not present in payload
@@ -377,7 +377,7 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 
 		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
 		if ('warnings' in result) {
-			expect(result.warnings.some(w => w.code === 'SCHEMA_FAIL')).toBe(true);
+			expect(result.warnings.some(w => w.code === 'SchemaFail')).toBe(true);
 
 		} else {
 			throw new Error(`Expected result to be success with warnings`);
@@ -385,7 +385,7 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 	});
 
 
-	it("warning with JWT_VC_ISSUER_FAIL when .well-known/jwt-vc-issuer fetch fails", async () => {
+	it("warning with JwtVcIssuerFail when .well-known/jwt-vc-issuer fetch fails", async () => {
 		const payload = {
 			iss: "https://issuer.com",
 			vct: "https://issuer.com/child.json",
@@ -413,7 +413,7 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 
 		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
 		if ('warnings' in result) {
-			expect(result.warnings.some(w => w.code === 'JWT_VC_ISSUER_FAIL')).toBe(true);
+			expect(result.warnings.some(w => w.code === 'JwtVcIssuerFail')).toBe(true);
 
 		} else {
 			throw new Error(`Expected result to be success with warnings`);
@@ -461,7 +461,7 @@ export function decodeVctmArray(encodedArray: string[]): Record<string, any>[] {
 		try {
 			return decodeBase64UrlToObject(entry) as Record<string, any>;
 		} catch (e) {
-			throw new Error(`VCTM_DECODE_FAIL at index ${index}: ${e instanceof Error ? e.message : String(e)}`);
+			throw new Error(`VctmDecodeFail at index ${index}: ${e instanceof Error ? e.message : String(e)}`);
 		}
 	});
 }
@@ -491,7 +491,7 @@ describe("getSdJwtVcTypeMetadata - failure cases (vctm)", () => {
 
 		const result = await getSdJwtVcMetadata(context, createHttpClient(), encodeBase64Url(header), payload);
 		if ('warnings' in result) {
-			expect(result.warnings.some(w => w.code === 'INTEGRITY_MISSING')).toBe(true);
+			expect(result.warnings.some(w => w.code === 'IntegrityMissing')).toBe(true);
 
 		} else {
 			throw new Error(`Expected result to be success with warnings`);
@@ -509,7 +509,7 @@ describe("getSdJwtVcTypeMetadata - failure cases (vctm)", () => {
 
 		const result = await getSdJwtVcMetadata(context, createHttpClient(), encodeBase64Url(header), payload);
 		if ('warnings' in result) {
-			expect(result.warnings.some(w => w.code === 'INTEGRITY_FAIL')).toBe(true);
+			expect(result.warnings.some(w => w.code === 'IntegrityFail')).toBe(true);
 
 		} else {
 			throw new Error(`Expected result to be success with warnings`);
@@ -621,11 +621,12 @@ describe("getSdJwtVcTypeMetadata - failure cases (vctm)", () => {
 
 		const result = await getSdJwtVcMetadata(context, createHttpClient(), credential, payload);
 		if ('warnings' in result) {
-			expect(result.warnings.some(w => w.code === 'NOT_FOUND')).toBe(true);
+			expect(result.warnings.some(w => w.code === 'NotFound')).toBe(true);
 
 		} else {
 			throw new Error(`Expected result to be success with warnings`);
-		}	});
+		}
+	});
 
 	it("warning when vct is a URN and vctm is missing", async () => {
 		const payload = {
@@ -643,7 +644,7 @@ describe("getSdJwtVcTypeMetadata - failure cases (vctm)", () => {
 		const result = await getSdJwtVcMetadata(context, createHttpClient(), credential, payload);
 
 		if ('warnings' in result) {
-			expect(result.warnings.some(w => w.code === 'NOT_FOUND')).toBe(true);
+			expect(result.warnings.some(w => w.code === 'NotFound')).toBe(true);
 
 		} else {
 			throw new Error(`Expected result to be success with warnings`);

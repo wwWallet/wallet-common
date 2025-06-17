@@ -3,7 +3,29 @@ export enum CredentialParsingError {
 	CouldNotParse = "CouldNotParse",
 	InvalidDatatype = "InvalidDatatype",
 	NotSupportedCredentialType = "NotSupportedCredentialType",
+	HeaderFail = "HeaderFail",
+  SchemaFetchFail = "SchemaFetchFail",
+  SchemaConflict = "SchemaConflict",
+  InfiniteRecursion = "InfiniteRecursion",
+  PayloadFail = "PayloadFail",
+  VctmDecodeFail = "VctmDecodeFail",
+  UnknownError = "UnknownError",
+	NotFound = "NotFound",
+  IntegrityMissing = "IntegrityMissing",
+  JwtVcIssuerMismatch = "JwtVcIssuerMismatch",
+  IntegrityFail = "IntegrityFail",
+  SchemaFail = "SchemaFail",
+  JwtVcIssuerFail = "JwtVcIssuerFail",
 }
+
+export const CredentialParsingWarnings = new Set<CredentialParsingError>([
+  CredentialParsingError.NotFound,
+  CredentialParsingError.IntegrityMissing,
+  CredentialParsingError.JwtVcIssuerMismatch,
+  CredentialParsingError.IntegrityFail,
+  CredentialParsingError.SchemaFail,
+  CredentialParsingError.JwtVcIssuerFail,
+]);
 
 export enum GetMatchingCredentialsError {
 	PresentationDefinitionParseError = "PresentationDefinitionParseError"
