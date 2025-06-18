@@ -3,6 +3,7 @@ import type { HasherAndAlg } from "@sd-jwt/types";
 import { CredentialParsingError } from "../error";
 import { Context, CredentialParser, HttpClient } from "../interfaces";
 import { MetadataWarning, VerifiableCredentialFormat } from "../types";
+import { SdJwtVcPayloadSchema } from "../schemas";
 import { CredentialRenderingService } from "../rendering";
 import { getSdJwtVcMetadata } from "../utils/getSdJwtVcMetadata";
 import { OpenID4VCICredentialRendering } from "../functions/openID4VCICredentialRendering";
@@ -91,18 +92,22 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 				}
 			}
 
-			if (typeof parsedClaims.iss !== 'string') {
+			// sd-jwt vc Payload Schema Validation
+			let validatedParsedClaims;
+			try {
+				validatedParsedClaims = SdJwtVcPayloadSchema.parse(parsedClaims);
+			} catch (err) {
 				return {
 					success: false,
-					error: CredentialParsingError.MissingIssuerIdentifier,
-				}
+					error: CredentialParsingError.InvalidSdJwtVcPayload,
+				};
 			}
 
-			const { metadata: issuerMetadata } = await getIssuerMetadata(args.httpClient, parsedClaims.iss, warnings);
+			const { metadata: issuerMetadata } = await getIssuerMetadata(args.httpClient, validatedParsedClaims.iss, warnings);
 
 			let credentialFriendlyName: string | null = null;
 
-			const getSdJwtMetadataResult = await getSdJwtVcMetadata(args.context, args.httpClient, rawCredential, parsedClaims, warnings);
+			const getSdJwtMetadataResult = await getSdJwtVcMetadata(args.context, args.httpClient, rawCredential, validatedParsedClaims, warnings);
 			if ('error' in getSdJwtMetadataResult) {
 				return {
 					success: false,
@@ -135,7 +140,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 						const svgdata = svgResponse.data as string;
 						dataUri = await cr
 							.renderSvgTemplate({
-								json: parsedClaims,
+								json: validatedParsedClaims,
 								credentialImageSvgTemplate: svgdata,
 								sdJwtVcMetadataClaims: credentialMetadata.claims,
 							})
@@ -147,7 +152,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 				if (!dataUri && simpleDisplayConfig) {
 					dataUri = await renderer
 						.renderCustomSvgTemplate({
-							signedClaims: parsedClaims,
+							signedClaims: validatedParsedClaims,
 							displayConfig: { ...credentialDisplayLocalized, ...simpleDisplayConfig },
 						})
 						.catch(() => null);
@@ -157,7 +162,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 				if (!dataUri && issuerDisplayLocalized) {
 					dataUri = await renderer
 						.renderCustomSvgTemplate({
-							signedClaims: parsedClaims,
+							signedClaims: validatedParsedClaims,
 							displayConfig: issuerDisplayLocalized,
 						})
 						.catch(() => null);
@@ -167,11 +172,11 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 			return {
 				success: true,
 				value: {
-					signedClaims: parsedClaims,
+					signedClaims: validatedParsedClaims,
 					metadata: {
 						credential: {
 							format: typParseResult.data,
-							vct: parsedClaims?.vct as string | undefined ?? "",
+							vct: validatedParsedClaims?.vct as string | undefined ?? "",
 							// @ts-ignore
 							metadataDocuments: [getSdJwtMetadataResult.credentialMetadata],
 							image: {
@@ -180,12 +185,12 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 							name: credentialFriendlyName ?? "Credential",
 						},
 						issuer: {
-							id: parsedClaims.iss,
-							name: parsedClaims.iss,
+							id: validatedParsedClaims.iss,
+							name: validatedParsedClaims.iss,
 						}
 					},
 					validityInfo: {
-						...extractValidityInfo(parsedClaims)
+						...extractValidityInfo(validatedParsedClaims)
 					},
 					warnings: getSdJwtMetadataResult.warnings
 				}

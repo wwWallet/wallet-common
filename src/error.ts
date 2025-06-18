@@ -1,6 +1,6 @@
 export enum CredentialParsingError {
-	MissingIssuerIdentifier = "MissingIssuerIdentifier",
 	CouldNotParse = "CouldNotParse",
+	InvalidSdJwtVcPayload= "InvalidSdJwtVcPayload",
 	InvalidDatatype = "InvalidDatatype",
 	NotSupportedCredentialType = "NotSupportedCredentialType",
 	HeaderFail = "HeaderFail",
