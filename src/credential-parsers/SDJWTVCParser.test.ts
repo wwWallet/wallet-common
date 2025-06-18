@@ -159,4 +159,25 @@ describe("The SDJWTVCParser", () => {
 		assert((result.value.warnings ?? []).some(w => w.code === CredentialParsingError.FailSchemaIssuerMetadata));
 	});
 
+	it("should default to the first metadata display when an invalid locale is passed", async () => {
+		const contextCopy = {...context, lang: 'el-GR'};
+		const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context: contextCopy });
+		const parsedCredential = await parser.parse({ rawCredential });
+		let image;
+		if (parsedCredential.success) {
+			image = parsedCredential.value.metadata?.credential?.image?.dataUri;
+		}
+		assert(image);
+	});
+
+	it("should be able to match metadata display langs from 2 letter format", async () => {
+		const contextCopy = {...context, lang: 'en'};
+		const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context: contextCopy });
+		const parsedCredential = await parser.parse({ rawCredential });
+		let image;
+		if (parsedCredential.success) {
+			image = parsedCredential.value.metadata?.credential?.image?.dataUri;
+		}
+		assert(image);
+	});
 })
