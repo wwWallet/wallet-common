@@ -115,4 +115,48 @@ describe("The SDJWTVCParser", () => {
 		assert(result.error === CredentialParsingError.InvalidSdJwtVcPayload);
 	});
 
+	it("should warn if issuer metadata fetch fail", async () => {
+		const malformedHttpClient: HttpClient = {
+			get: async (url: string) => {
+				if (url.includes(".well-known/openid-credential-issuer")) {
+					return {
+						status: 400,
+					};
+				}
+				// fallback to real http call for everything else
+				return defaultHttpClient.get(url);
+			}
+		};
+
+		const parser = SDJWTVCParser({ httpClient: malformedHttpClient, context });
+		const result = await parser.parse({ rawCredential });
+
+		assert(result.success === true);
+		assert((result.value.warnings ?? []).some(w => w.code === CredentialParsingError.FailFetchIssuerMetadata));
+	});
+
+	it("should warn if issuer metadata have invalid schema", async () => {
+		const malformedHttpClient: HttpClient = {
+			get: async (url: string) => {
+				if (url.includes(".well-known/openid-credential-issuer")) {
+					return {
+						status: 200,
+						data: {
+							// Malformed on purpose: missing `credential_configurations_supported`
+							invalid_field: true
+						}
+					};
+				}
+				// fallback to real http call for everything else
+				return defaultHttpClient.get(url);
+			}
+		};
+
+		const parser = SDJWTVCParser({ httpClient: malformedHttpClient, context });
+		const result = await parser.parse({ rawCredential });
+
+		assert(result.success === true);
+		assert((result.value.warnings ?? []).some(w => w.code === CredentialParsingError.FailSchemaIssuerMetadata));
+	});
+
 })
