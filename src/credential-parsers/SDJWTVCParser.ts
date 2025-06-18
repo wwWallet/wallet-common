@@ -111,14 +111,28 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 
 				// Get localized display metadata from issuer metadata
 				const issuerDisplay = issuerMetadata?.credential_configurations_supported?.[credentialMetadata.vct]?.display;
-				const issuerDisplayLocalized = Array.isArray(issuerMetadata?.credential_configurations_supported?.[credentialMetadata.vct]?.display)
-					? issuerDisplay.find((d: any) => d.locale === args.context.lang)
-					: null;
+				let issuerDisplayLocalized = null;
+				if (Array.isArray(issuerDisplay)) {
+					const matchedDisplay = issuerDisplay.find((d: any) => d.locale === args.context.lang || d.locale.substring(0, 2) === args.context.lang);
+					if (matchedDisplay) {
+						issuerDisplayLocalized = matchedDisplay;
+					} else {
+						// select the first display as a fallback
+						issuerDisplayLocalized = issuerDisplay[0];
+					}
+				}
 
 				// Get localized display metadata from credential
-				const credentialDisplayLocalized = Array.isArray(credentialMetadata?.display)
-					? credentialMetadata.display.find((d: any) => d.lang === args.context.lang)
-					: null;
+				let credentialDisplayLocalized = null;
+				if (Array.isArray(credentialMetadata?.display)) {
+					const matchedDisplay = credentialMetadata.display.find((d: any) => d.lang === args.context.lang || d.lang.substring(0, 2) === args.context.lang);
+					if (matchedDisplay) {
+						credentialDisplayLocalized = matchedDisplay;
+					} else {
+						// select the first display as a fallback
+						credentialDisplayLocalized = credentialMetadata.display[0]
+					}
+				}
 
 				credentialFriendlyName = credentialDisplayLocalized?.name ?? null;
 
