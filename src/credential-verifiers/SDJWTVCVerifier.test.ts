@@ -81,7 +81,7 @@ describe("The SDJWTVerifier", () => {
 					exampleCert
 				],
 			},
-			pkresolverEngine: resolverEngine
+			pkResolverEngine: resolverEngine
 		})
 		.verify({
 			rawCredential: exampleCredential, opts: {}
@@ -92,7 +92,8 @@ describe("The SDJWTVerifier", () => {
 
 	['urn:eu.europa.ec.eudi:pid:1', 'urn:eudi:pid:1'].forEach(vct => {
 		it(`should successfully verify ${vct} credential issued by Wallet Enterprise Issuer`, async () => {
-			const { sdJwt, certPem } = await sdJwtFixture(vct);
+			const { sdJwt, certPem } = await sdJwtFixture('urn:wwwallet:test');
+      console.log(sdJwt);
 			const resolverEngine = PublicKeyResolverEngine();
 			resolverEngine.register({ resolve: () => {
 				return {
@@ -109,12 +110,13 @@ describe("The SDJWTVerifier", () => {
 						certPem
 					],
 				},
-				pkresolverEngine: resolverEngine
+				pkResolverEngine: resolverEngine
 			})
 			.verify({
 				rawCredential: sdJwt, opts: { verifySchema: true }
 			});
 
+      console.log(result)
 			assert(result.success === true);
 		});
 	});
@@ -137,7 +139,7 @@ describe("The SDJWTVerifier", () => {
 					certPem
 				],
 			},
-			pkresolverEngine: resolverEngine
+			pkResolverEngine: resolverEngine
 		})
 		.verify({
 			rawCredential: sdJwt, opts: { verifySchema: true }
@@ -164,7 +166,7 @@ describe("The SDJWTVerifier", () => {
 					certPem
 				],
 			},
-			pkresolverEngine: resolverEngine
+			pkResolverEngine: resolverEngine
 		})
 		.verify({
 			rawCredential: sdJwt, opts: { verifySchema: true }
@@ -191,7 +193,7 @@ describe("The SDJWTVerifier", () => {
 					certPem
 				],
 			},
-			pkresolverEngine: resolverEngine
+			pkResolverEngine: resolverEngine
 		})
 		.verify({
 			rawCredential: sdJwt, opts: { verifySchema: true }
@@ -218,7 +220,7 @@ describe("The SDJWTVerifier", () => {
 					certPem
 				],
 			},
-			pkresolverEngine: resolverEngine
+			pkResolverEngine: resolverEngine
 		})
 		.verify({
 			rawCredential: sdJwt, opts: {}

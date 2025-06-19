@@ -21,6 +21,7 @@ const VctUrls: VctUrls = {
 export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: PublicKeyResolverEngineI }): CredentialVerifier {
 	let errors: { error: CredentialVerificationError, message: string }[] = [];
 	const logError = (error: CredentialVerificationError, message: string): void => {
+    console.log(error)
 		errors.push({ error, message });
 	}
 
@@ -173,6 +174,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 		};
 
 		const issuerPublicKeyResult = await getIssuerPublicKey();
+    console.log(issuerPublicKeyResult)
 
 		if (!issuerPublicKeyResult.success) {
 			logError(CredentialVerificationError.CannotResolveIssuerPublicKey, "CannotResolveIssuerPublicKey");
@@ -208,12 +210,12 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 		}
 	}
 
-	const verifyCredentialVct = async (rawCredential: string): Promise<Result<{}, CredentialVerificationError>> => {
+	const verifyCredential = async (rawCredential: string, verifySchema: boolean = false): Promise<Result<{}, CredentialVerificationError>> => {
 		const SdJwtVc = new SDJwtVcInstance({
 			verifier: () => true,
 		  hasher: hasherAndAlgorithm.hasher,
 		  hashAlg: hasherAndAlgorithm.alg as 'sha-256',
-		  loadTypeMetadataFormat: true,
+		  loadTypeMetadataFormat: verifySchema,
 			vctFetcher: (urn) => {
 				const url = VctUrls[urn as Vct]
 				if (!url) {
@@ -233,6 +235,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 				}
 			}
 		} catch (error) {
+      console.error(error)
 			if (error instanceof Error && error.message == CredentialVerificationError.VctUrnNotFoundError) {
 				return {
 					success: true,
@@ -344,7 +347,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 			}
 
 			// Credential vct validation
-			const credentialVctVerificationResult = await verifyCredentialVct(rawCredential);
+			const credentialVctVerificationResult = await verifyCredential(rawCredential, opts.verifySchema);
 			if (!credentialVctVerificationResult.success) {
 				return {
 					success: false,
