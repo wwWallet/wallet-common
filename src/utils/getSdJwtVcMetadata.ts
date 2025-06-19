@@ -3,42 +3,20 @@ import { fromBase64, fromBase64Url } from './util';
 import { verifySRIFromObject } from './verifySRIFromObject';
 import Ajv2020 from "ajv/dist/2020";
 import addFormats from "ajv-formats";
-import { CredentialPayload, MetadataCode, MetadataError, MetadataWarning } from '../types';
-
-
-// This can also just be Record<MetadataCode, "error" | "warning">
-const CODE_SEVERITY: Record<MetadataCode, "error" | "warning"> = {
-	NOT_FOUND: "warning", //optional warning
-	HEADER_FAIL: "error",
-	INTEGRITY_MISSING: "warning", //optional warning
-	JWT_VC_ISSUER_MISMATCH: "warning", //optional warning
-	SCHEMA_FETCH_FAIL: "error", //optional warning
-	SCHEMA_CONFLICT: "error", //optional warning
-	INFINITE_RECURSION: "error",
-	PAYLOAD_FAIL: "error",
-	VCTM_DECODE_FAIL: "error",
-	UNKNOWN_ERROR: "error",
-	INTEGRITY_FAIL: "warning", //optional warning
-	SCHEMA_FAIL: "warning", //optional warning
-	JWT_VC_ISSUER_FAIL: "warning" //optional warning
-};
-
-function isWarning(code: MetadataCode): boolean {
-	return CODE_SEVERITY[code] === "warning";
-}
+import { CredentialPayload, MetadataError, MetadataWarning } from '../types';
+import { CredentialParsingError, CredentialParsingWarnings, isCredentialParsingWarnings } from '../error';
 
 function handleMetadataCode(
-	code: MetadataCode,
-	message: string,
+	code: CredentialParsingError,
 	warnings: MetadataWarning[]
 ): MetadataError | undefined {
 
-	if (isWarning(code)) {
-		warnings.push({ code, message });
+	if (isCredentialParsingWarnings(code)) {
+		warnings.push({ code });
 		return undefined; // continue flow
 	} else {
-		console.warn(`❌ Metadata Error [${code}]: ${message}`);
-		return { error: code, message: message }; // now error includes message
+		console.warn(`❌ Metadata Error [${code}]`);
+		return { error: code }; // now error
 	}
 }
 
@@ -116,7 +94,7 @@ function deepMerge(parent: any, child: any): any {
 export function validateAgainstSchema(
 	schema: Record<string, any>,
 	dataToValidate?: Record<string, any>
-): { code: MetadataCode; message: string } | undefined {
+): CredentialParsingError | undefined {
 
 	const ajv = new Ajv2020();
 	addFormats(ajv);
@@ -125,7 +103,7 @@ export function validateAgainstSchema(
 	const isSchemaValid = ajv.validateSchema(schema);
 	if (!isSchemaValid) {
 		console.warn('❌ Invalid schema structure:', ajv.errors);
-		return { code: "SCHEMA_FAIL", message: `Invalid schema structure: ${JSON.stringify(ajv.errors)}` };
+		return CredentialParsingError.SchemaFail;
 	}
 
 	// 2. If data is provided, validate it against the schema
@@ -135,11 +113,11 @@ export function validateAgainstSchema(
 			const isValid = validate(dataToValidate);
 			if (!isValid) {
 				console.warn('❌ Data does not conform to schema:', validate.errors);
-				return { code: "SCHEMA_FAIL", message: `Data does not conform to schema: ${JSON.stringify(validate.errors)}` };
+				return CredentialParsingError.SchemaFail;
 			}
 		} catch (err) {
 			console.warn('⚠️ Error during schema compilation/validation:', err);
-			return { code: "SCHEMA_FAIL", message: `Error during schema compilation/validation: ${err}` };
+			return CredentialParsingError.SchemaFail;
 		}
 	}
 
@@ -172,7 +150,7 @@ async function fetchAndMergeMetadata(
 ): Promise<Record<string, any> | MetadataError | undefined> {
 
 	if (visited.has(metadataId)) {
-		const resultCode = handleMetadataCode("INFINITE_RECURSION", `Infinite recursion for ${metadataId}`, warnings);
+		const resultCode = handleMetadataCode(CredentialParsingError.InfiniteRecursion, warnings);
 		if (resultCode) return resultCode;
 	}
 	visited.add(metadataId);
@@ -187,12 +165,12 @@ async function fetchAndMergeMetadata(
 		}
 
 		if (!integrity) {
-			const resultCode = handleMetadataCode("INTEGRITY_MISSING", `Integrity missing for ${metadataId}`, warnings);
+			const resultCode = handleMetadataCode(CredentialParsingError.IntegrityMissing, warnings);
 			if (resultCode) return resultCode;
 		} else {
 			const isValid = await verifySRIFromObject(context, metadata, integrity);
 			if (!isValid) {
-				const resultCode = handleMetadataCode("INTEGRITY_FAIL", `Integrity check fail failed for ${metadataId}`, warnings);
+				const resultCode = handleMetadataCode(CredentialParsingError.IntegrityFail, warnings);
 				if (resultCode) return resultCode;
 			}
 		}
@@ -214,7 +192,7 @@ async function fetchAndMergeMetadata(
 		if (integrity) {
 			const isValid = await verifySRIFromObject(context, result.data, integrity);
 			if (!isValid) {
-				const resultCode = handleMetadataCode("INTEGRITY_FAIL", `Integrity check fail failed for ${metadataId}`, warnings);
+				const resultCode = handleMetadataCode(CredentialParsingError.IntegrityFail, warnings);
 				if (resultCode) return resultCode;
 			}
 		}
@@ -223,14 +201,14 @@ async function fetchAndMergeMetadata(
 	}
 
 	if ('schema' in metadata && 'schema_uri' in metadata) {
-		const resultCode = handleMetadataCode("SCHEMA_CONFLICT", `Both schema and schema_uri exists in ${metadataId}`, warnings);
+		const resultCode = handleMetadataCode(CredentialParsingError.SchemaConflict, warnings);
 		if (resultCode) return resultCode;
 	}
 
 	if ('schema' in metadata) {
-		const resultValidate = validateAgainstSchema(metadata.schema, credentialPayload);
-		if (resultValidate) {
-			const resultCode = handleMetadataCode(resultValidate.code, resultValidate.message, warnings);
+		const resultValidateCode = validateAgainstSchema(metadata.schema, credentialPayload);
+		if (resultValidateCode) {
+			const resultCode = handleMetadataCode(resultValidateCode, warnings);
 			if (resultCode) return resultCode;
 		}
 	}
@@ -239,12 +217,12 @@ async function fetchAndMergeMetadata(
 
 		const resultSchema = await httpClient.get(metadata.schema_uri, {}, { useCache: true });
 		if (isInvalidSchemaResponse(resultSchema)) {
-			const resultCode = handleMetadataCode("SCHEMA_FETCH_FAIL", `Invalid Schema Response ${metadata.schema_uri}`, warnings);
+			const resultCode = handleMetadataCode(CredentialParsingError.SchemaFetchFail, warnings);
 			if (resultCode) return resultCode;
 		}
 
 		if (!isObjectRecord(resultSchema.data)) {
-			const resultCode = handleMetadataCode("SCHEMA_FETCH_FAIL", `Invalid Schema Response ${metadata.schema_uri}`, warnings);
+			const resultCode = handleMetadataCode(CredentialParsingError.SchemaFetchFail, warnings);
 			if (resultCode) return resultCode;
 		}
 
@@ -253,14 +231,14 @@ async function fetchAndMergeMetadata(
 
 		if (schemaIntegrity) {
 			if (!(await verifySRIFromObject(context, resultSchemaData, schemaIntegrity))) {
-				const resultCode = handleMetadataCode("INTEGRITY_FAIL", `Integrity schema check fail failed for ${metadataId}`, warnings);
+				const resultCode = handleMetadataCode(CredentialParsingError.IntegrityFail, warnings);
 				if (resultCode) return resultCode;
 			}
 		}
 
-		const resultValidate = validateAgainstSchema(resultSchemaData, credentialPayload);
-		if (resultValidate) {
-			const resultCode = handleMetadataCode(resultValidate.code, resultValidate.message, warnings);
+		const resultValidateCode = validateAgainstSchema(resultSchemaData, credentialPayload);
+		if (resultValidateCode) {
+			const resultCode = handleMetadataCode(resultValidateCode, warnings);
 			if (resultCode) return resultCode;
 		}
 
@@ -284,7 +262,7 @@ async function fetchAndMergeMetadata(
 	return merged;
 }
 
-export async function resolveIssuerMetadata(httpClient: any, issuerUrl: string): Promise<{ code: MetadataCode; message: string } | undefined> {
+export async function resolveIssuerMetadata(httpClient: any, issuerUrl: string): Promise<{ code: CredentialParsingError } | undefined> {
 	try {
 		const issUrl = new URL(issuerUrl);
 
@@ -300,13 +278,13 @@ export async function resolveIssuerMetadata(httpClient: any, issuerUrl: string):
 			typeof (result as any).data.issuer === 'string'
 		) {
 			if (result.data.issuer !== issUrl.origin) {
-				return { code: 'JWT_VC_ISSUER_MISMATCH', message: `Mismatch on jwt-vc-issuer between ${result.data.issuer} and ${issUrl.origin}` };
+				return { code: CredentialParsingError.JwtVcIssuerMismatch };
 			}
 		}
 
 		return undefined;
 	} catch (err) {
-		return { code: 'JWT_VC_ISSUER_FAIL', message: `Fail to fetch jwt-vc-issuer for ${issuerUrl} with err ${err}` };
+		return { code: CredentialParsingError.JwtVcIssuerFail };
 	}
 }
 
@@ -323,10 +301,8 @@ function isCredentialPayload(obj: unknown): obj is CredentialPayload {
 	return typeof obj === 'object' && obj !== null && 'iss' in obj && typeof (obj as any).iss === 'string';
 }
 
-export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClient, credential: string, parsedClaims: Record<string, unknown>): Promise<{ credentialMetadata: any; warnings: MetadataWarning[] } | MetadataError> {
+export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClient, credential: string, parsedClaims: Record<string, unknown>, warnings: MetadataWarning[] = []): Promise<{ credentialMetadata: any; warnings: MetadataWarning[] } | MetadataError> {
 	try {
-
-		const warnings: MetadataWarning[] = [];
 
 		// Decode Header
 		let credentialHeader: any;
@@ -334,18 +310,18 @@ export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClien
 			credentialHeader = JSON.parse(new TextDecoder().decode(fromBase64Url(credential.split('.')[0] as string)));
 		} catch (e) {
 			console.warn('Failed to decode credential header:', e);
-			const resultCode = handleMetadataCode("HEADER_FAIL", "Failed to decode credential header", warnings);
+			const resultCode = handleMetadataCode(CredentialParsingError.HeaderFail, warnings);
 			if (resultCode) return resultCode;
 		}
 
 		if (!credentialHeader || typeof credentialHeader !== 'object') {
 			console.warn('Invalid or missing credential header structure.');
-			return { error: "HEADER_FAIL", message: "Invalid or missing credential header structure." };
+			return { error: CredentialParsingError.HeaderFail };
 		}
 		const credentialPayload = parsedClaims;
 
 		if (!credentialPayload || !isCredentialPayload(credentialPayload)) {
-			return { error: "PAYLOAD_FAIL", message: "Invalid or missing credential payload structure." };
+			return { error: CredentialParsingError.PayloadFail };
 		}
 		const vct = credentialPayload.vct;
 		if (vct && typeof vct === 'string' && isValidHttpUrl(vct)) {
@@ -353,7 +329,7 @@ export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClien
 			// Check jwt-vc-issuer by iss 
 			const checkIssuer = await resolveIssuerMetadata(httpClient, credentialPayload.iss);
 			if (checkIssuer) {
-				const resultCode = handleMetadataCode(checkIssuer.code, checkIssuer.message, warnings);
+				const resultCode = handleMetadataCode(checkIssuer.code, warnings);
 				if (resultCode) return resultCode;
 			}
 
@@ -362,7 +338,7 @@ export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClien
 				const mergedMetadata = await fetchAndMergeMetadata(context, httpClient, vct, undefined, new Set(), vctIntegrity, credentialPayload, warnings);
 				if (mergedMetadata) {
 					if ('error' in mergedMetadata) {
-						return { error: mergedMetadata.error, message: mergedMetadata.message }
+						return { error: mergedMetadata.error }
 					} else {
 						return { credentialMetadata: mergedMetadata, warnings };
 					}
@@ -377,7 +353,7 @@ export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClien
 				try {
 					return JSON.parse(new TextDecoder().decode(fromBase64Url(encoded)));
 				} catch (err) {
-					return { error: "VCTM_DECODE_FAIL", message: "vctm decode fail" }
+					return { error: "VctmDecodeFail" }
 				}
 			});
 
@@ -386,7 +362,7 @@ export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClien
 
 			if (vctmMergedMetadata) {
 				if ('error' in vctmMergedMetadata) {
-					return { error: vctmMergedMetadata.error, message: vctmMergedMetadata.message }
+					return { error: vctmMergedMetadata.error }
 				} else {
 					console.log('Final vctm Metadata:', vctmMergedMetadata);
 					return { credentialMetadata: vctmMergedMetadata, warnings };
@@ -394,14 +370,14 @@ export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClien
 			}
 		}
 
-		// if no metafata found return NOT_FOUND
+		// if no metafata found return NotFound
 		// here you add more ways to find metadata (eg registry)
-		warnings.push({ code: "NOT_FOUND", message: "Not found any type metadata" });
+		warnings.push({ code: CredentialParsingError.NotFound });
 
 		return { credentialMetadata: undefined, warnings };
 	}
 	catch (err) {
 		console.log(err);
-		return { error: "UNKNOWN_ERROR", message: `${err}` };
+		return { error: CredentialParsingError.UnknownError };
 	}
 }

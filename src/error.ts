@@ -1,8 +1,38 @@
 export enum CredentialParsingError {
-	MissingIssuerIdentifier = "MissingIssuerIdentifier",
 	CouldNotParse = "CouldNotParse",
+	InvalidSdJwtVcPayload= "InvalidSdJwtVcPayload",
 	InvalidDatatype = "InvalidDatatype",
 	NotSupportedCredentialType = "NotSupportedCredentialType",
+	HeaderFail = "HeaderFail",
+	SchemaFetchFail = "SchemaFetchFail",
+	SchemaConflict = "SchemaConflict",
+	InfiniteRecursion = "InfiniteRecursion",
+	PayloadFail = "PayloadFail",
+	VctmDecodeFail = "VctmDecodeFail",
+	UnknownError = "UnknownError",
+	NotFound = "NotFound",
+	IntegrityMissing = "IntegrityMissing",
+	JwtVcIssuerMismatch = "JwtVcIssuerMismatch",
+	IntegrityFail = "IntegrityFail",
+	SchemaFail = "SchemaFail",
+	JwtVcIssuerFail = "JwtVcIssuerFail",
+	FailFetchIssuerMetadata = "FailFetchIssuerMetadata",
+	FailSchemaIssuerMetadata = "FailSchemaIssuerMetadata",
+}
+
+export const CredentialParsingWarnings = new Set<CredentialParsingError>([
+	CredentialParsingError.NotFound,
+	CredentialParsingError.IntegrityMissing,
+	CredentialParsingError.JwtVcIssuerMismatch,
+	CredentialParsingError.IntegrityFail,
+	CredentialParsingError.SchemaFail,
+	CredentialParsingError.JwtVcIssuerFail,
+	CredentialParsingError.FailFetchIssuerMetadata,
+	CredentialParsingError.FailSchemaIssuerMetadata,
+]);
+
+export function isCredentialParsingWarnings(code: CredentialParsingError): boolean {
+	return CredentialParsingWarnings.has(code);
 }
 
 export enum GetMatchingCredentialsError {

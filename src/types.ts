@@ -19,7 +19,7 @@ export type Result<T, E> = { success: true; value: T } | { success: false; error
 
 export type ParserResult =
 	| { success: true; value: ParsedCredential }
-	| { success: false; error: CredentialParsingError | MetadataCode; message?: string };
+	| { success: false; error: CredentialParsingError};
 
 export type CredentialPayload = {
 	iss: string;
@@ -27,29 +27,12 @@ export type CredentialPayload = {
 	[key: string]: unknown;
 };
 
-export type MetadataCode =
-	| "NOT_FOUND"
-	| "HEADER_FAIL"
-	| "INTEGRITY_MISSING"
-	| "JWT_VC_ISSUER_MISMATCH"
-	| "SCHEMA_FETCH_FAIL"
-	| "SCHEMA_CONFLICT"
-	| "INFINITE_RECURSION"
-	| "PAYLOAD_FAIL"
-	| "VCTM_DECODE_FAIL"
-	| "UNKNOWN_ERROR"
-	| "INTEGRITY_FAIL"
-	| "SCHEMA_FAIL"
-	| "JWT_VC_ISSUER_FAIL";
-
 export type MetadataError = {
-	error: MetadataCode;
-	message?: string;
+	error: CredentialParsingError;
 };
 
 export type MetadataWarning = {
-	code: MetadataCode;
-	message?: string;
+	code: CredentialParsingError;
 };
 
 export type ParsedCredential = {
