@@ -138,7 +138,7 @@ function isInvalidSchemaResponse(res: any): res is { status: number; data: Recor
 	);
 }
 
-async function fetchAndMergeMetadata(
+export async function fetchAndMergeMetadata(
 	context: Context,
 	httpClient: HttpClient,
 	metadataId: string,
@@ -301,6 +301,9 @@ function isCredentialPayload(obj: unknown): obj is CredentialPayload {
 	return typeof obj === 'object' && obj !== null && 'iss' in obj && typeof (obj as any).iss === 'string';
 }
 
+/**
+ * @deprecated in favor of `@sd-jwt/sd-jwt-vc` usage
+ */
 export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClient, credential: string, parsedClaims: Record<string, unknown>, warnings: MetadataWarning[] = []): Promise<{ credentialMetadata: any; warnings: MetadataWarning[] } | MetadataError> {
 	try {
 
@@ -326,7 +329,7 @@ export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClien
 		const vct = credentialPayload.vct;
 		if (vct && typeof vct === 'string' && isValidHttpUrl(vct)) {
 
-			// Check jwt-vc-issuer by iss 
+			// Check jwt-vc-issuer by iss
 			const checkIssuer = await resolveIssuerMetadata(httpClient, credentialPayload.iss);
 			if (checkIssuer) {
 				const resultCode = handleMetadataCode(checkIssuer.code, warnings);
