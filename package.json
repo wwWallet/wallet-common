@@ -4,13 +4,14 @@
 	"main": "dist/index.js",
 	"license": "MIT",
 	"scripts": {
-		"vitest": "vitest run",
+		"vitest": "tsc && vitest run",
 		"vitest-start": "vitest",
 		"build": "rm -rf dist/ && tsc"
 	},
 	"dependencies": {
 		"@auth0/mdl": "^2.2.0",
-		"@sd-jwt/core": "^0.10.0",
+		"@sd-jwt/core": "^0.11.0",
+		"@sd-jwt/sd-jwt-vc": "^0.11.0",
 		"ajv": "^8.17.1",
 		"ajv-formats": "^3.0.1",
 		"asn1js": "^3.0.5",

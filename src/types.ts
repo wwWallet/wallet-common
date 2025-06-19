@@ -63,3 +63,11 @@ export type ParsedCredential = {
 	signedClaims: CredentialClaims,
 	warnings?: Array<MetadataWarning>;
 };
+
+// NOTE waiting for the release of vctm types https://github.com/openwallet-foundation/sd-jwt-js/pull/286
+export type CredentialMetadata = any | {
+	display?: {
+		lang: string
+		name: string
+	}
+}
