@@ -3,7 +3,7 @@ import { SDJwt } from "@sd-jwt/core";
 import { SDJwtVcInstance } from "@sd-jwt/sd-jwt-vc";
 import type { HasherAndAlg } from "@sd-jwt/types";
 import { Context, CredentialVerifier, PublicKeyResolverEngineI } from "../interfaces";
-import { CredentialVerificationError } from "../error";
+import { OauthError, CredentialVerificationError } from "../error";
 import { Result, Vct, VctUrls } from "../types";
 import { exportJWK, importJWK, importX509, JWK, jwtVerify, KeyLike } from "jose";
 import { fromBase64Url, toBase64Url } from "../utils/util";
@@ -217,35 +217,13 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 			vctFetcher: (urn) => {
 				const url = VctUrls[urn as Vct]
 				if (!url) {
-					throw new Error(CredentialVerificationError.VctUrnNotFoundError);
+					throw new OauthError(CredentialVerificationError.VctUrnNotFoundError);
 				}
 				return axios.get(url).then(({ data }) => data)
 			}
 		});
 
-		try {
-			const verified = await SdJwtVc.verify(rawCredential);
-
-			if (!verified.payload) {
-				return {
-					success: false,
-					error: CredentialVerificationError.VctSchemaError,
-				}
-			}
-		} catch (error) {
-			console.error(error);
-			if (error instanceof Error && error.message == CredentialVerificationError.VctUrnNotFoundError) {
-				return {
-					success: true,
-					value: {},
-				}
-			} else {
-				return {
-					success: false,
-					error: CredentialVerificationError.VctSchemaError,
-				}
-			}
-		}
+		const sdjwt = await SdJwtVc.verify(rawCredential);
 
 		return {
 			success: true,
