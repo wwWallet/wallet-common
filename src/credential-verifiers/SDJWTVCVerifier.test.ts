@@ -100,7 +100,7 @@ describe("The SDJWTVerifier", () => {
 
 	['urn:eu.europa.ec.eudi:pid:1', 'urn:eudi:pid:1'].forEach(vct => {
 		it(`should successfully verify ${vct} credential issued by Wallet Enterprise Issuer`, async () => {
-			const { sdJwt, certPem } = await sdJwtFixture('urn:wwwallet:test');
+			const { sdJwt, certPem } = await sdJwtFixture(vct);
       console.log(sdJwt);
 			const resolverEngine = PublicKeyResolverEngine();
 			resolverEngine.register({ resolve: () => {
@@ -201,7 +201,8 @@ describe("The SDJWTVerifier", () => {
 				value: certPem
 			}
 		}});
-		const result = await SDJWTVCVerifier({
+		try {
+			await SDJWTVCVerifier({
 			context: {
 				clockTolerance: 0,
 				lang: 'en-US',
@@ -219,7 +220,10 @@ describe("The SDJWTVerifier", () => {
 			rawCredential: sdJwt, opts: { verifySchema: true }
 		});
 
-		assert(result.success === true);
+		assert(false);
+		} catch (err) {
+			expect(err.message).to.eq('VctUrnNotFoundError');
+		}
 	});
 
 	it("should successfully verify unknown credential issued by Wallet Enterprise Issuer", async () => {
