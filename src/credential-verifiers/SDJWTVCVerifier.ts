@@ -3,7 +3,7 @@ import { SDJwt } from "@sd-jwt/core";
 import { SDJwtVcInstance } from "@sd-jwt/sd-jwt-vc";
 import type { HasherAndAlg } from "@sd-jwt/types";
 import { Context, CredentialVerifier, PublicKeyResolverEngineI } from "../interfaces";
-import { CredentialVerificationError } from "../error";
+import { OauthError, CredentialVerificationError } from "../error";
 import { Result, Vct, VctUrls } from "../types";
 import { exportJWK, importJWK, importX509, JWK, jwtVerify, KeyLike } from "jose";
 import { fromBase64Url, toBase64Url } from "../utils/util";
@@ -210,44 +210,34 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 		}
 	}
 
-	const verifyCredential = async (rawCredential: string, verifySchema: boolean = false): Promise<Result<{}, CredentialVerificationError>> => {
+  const fetchVctFromRegistry = async function (urn: string) {
+    console.log(urn)
+    const uri = args.context.config.vctRegistryUri;
+
+    const vctm = await axios.get<{ urn: string, vct: string }[]>(uri)
+    .then(({ data }) => data)
+    .then(vctmList => {
+      console.log(vctmList)
+      return vctmList.find(({ vct: current }) => current === urn)
+    });
+
+    if (!vctm) {
+      throw new Error(CredentialVerificationError.VctUrnNotFoundError);
+    }
+
+    return vctm
+  }
+
+	const verifyCredentialVct = async (rawCredential: string): Promise<Result<{}, CredentialVerificationError>> => {
 		const SdJwtVc = new SDJwtVcInstance({
 			verifier: () => true,
 		  hasher: hasherAndAlgorithm.hasher,
 		  hashAlg: hasherAndAlgorithm.alg as 'sha-256',
-		  loadTypeMetadataFormat: verifySchema,
-			vctFetcher: (urn) => {
-				const url = VctUrls[urn as Vct]
-				if (!url) {
-					throw new Error(CredentialVerificationError.VctUrnNotFoundError);
-				}
-				return axios.get(url).then(({ data }) => data)
-			}
+		  loadTypeMetadataFormat: true,
+			vctFetcher: fetchVctFromRegistry,
 		});
 
-		try {
-			const verified = await SdJwtVc.verify(rawCredential);
-
-			if (!verified.payload) {
-				return {
-					success: false,
-					error: CredentialVerificationError.VctSchemaError,
-				}
-			}
-		} catch (error) {
-      console.error(error)
-			if (error instanceof Error && error.message == CredentialVerificationError.VctUrnNotFoundError) {
-				return {
-					success: true,
-					value: {},
-				}
-			} else {
-				return {
-					success: false,
-					error: CredentialVerificationError.VctSchemaError,
-				}
-			}
-		}
+		const sdjwt = await SdJwtVc.verify(rawCredential);
 
 		return {
 			success: true,
@@ -347,11 +337,13 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 			}
 
 			// Credential vct validation
-			const credentialVctVerificationResult = await verifyCredential(rawCredential, opts.verifySchema);
-			if (!credentialVctVerificationResult.success) {
-				return {
-					success: false,
-					error: errors.length > 0 ?  errors[0].error : CredentialVerificationError.UnknownProblem,
+			if (opts.verifySchema) {
+				const credentialVctVerificationResult = await verifyCredentialVct(rawCredential);
+				if (!credentialVctVerificationResult.success) {
+					return {
+						success: false,
+						error: errors.length > 0 ?  errors[0].error : CredentialVerificationError.UnknownProblem,
+					}
 				}
 			}
 

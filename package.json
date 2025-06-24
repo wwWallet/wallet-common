@@ -4,7 +4,7 @@
 	"main": "dist/index.js",
 	"license": "MIT",
 	"scripts": {
-		"vitest": "vitest run",
+		"vitest": "tsc && vitest run",
 		"vitest-start": "vitest",
 		"build": "rm -rf dist/ && tsc"
 	},
