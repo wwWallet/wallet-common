@@ -3,7 +3,7 @@ import { SDJwt } from "@sd-jwt/core";
 import { SDJwtVcInstance } from "@sd-jwt/sd-jwt-vc";
 import type { HasherAndAlg } from "@sd-jwt/types";
 import { Context, CredentialVerifier, PublicKeyResolverEngineI } from "../interfaces";
-import { OauthError, CredentialVerificationError } from "../error";
+import { CredentialVerificationError } from "../error";
 import { Result } from "../types";
 import { exportJWK, importJWK, importX509, JWK, jwtVerify, KeyLike } from "jose";
 import { fromBase64Url, toBase64Url } from "../utils/util";
@@ -228,7 +228,29 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 			vctFetcher: fetchVctFromRegistry,
 		});
 
-		const sdjwt = await SdJwtVc.verify(rawCredential);
+		try {
+			const verified = await SdJwtVc.verify(rawCredential);
+
+			if (!verified.payload) {
+				return {
+					success: false,
+					error: CredentialVerificationError.VctSchemaError,
+				}
+			}
+		} catch (error) {
+			console.error(error);
+			if (error instanceof Error && error.message == CredentialVerificationError.VctUrnNotFoundError) {
+				return {
+					success: true,
+					value: {},
+				}
+			} else {
+				return {
+					success: false,
+					error: CredentialVerificationError.VctSchemaError,
+				}
+			}
+		}
 
 		return {
 			success: true,

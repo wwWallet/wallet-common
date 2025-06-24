@@ -20,7 +20,7 @@ const httpClient: HttpClient = {
 
 describe("The openID4VCICredentialRendering", () => {
 
-	it.skip("can render credential in svg format", async () => {
+	it("can render credential in svg format", async () => {
 		const renderer = OpenID4VCICredentialRendering({ httpClient });
 
 		const result = await renderer.renderCustomSvgTemplate({
