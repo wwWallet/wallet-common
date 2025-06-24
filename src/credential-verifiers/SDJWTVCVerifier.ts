@@ -4,7 +4,7 @@ import { SDJwtVcInstance } from "@sd-jwt/sd-jwt-vc";
 import type { HasherAndAlg } from "@sd-jwt/types";
 import { Context, CredentialVerifier, PublicKeyResolverEngineI } from "../interfaces";
 import { OauthError, CredentialVerificationError } from "../error";
-import { Result, Vct, VctUrls } from "../types";
+import { Result } from "../types";
 import { exportJWK, importJWK, importX509, JWK, jwtVerify, KeyLike } from "jose";
 import { fromBase64Url, toBase64Url } from "../utils/util";
 import { verifyCertificate } from "../utils/verifyCertificate";
@@ -206,7 +206,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
       throw new Error(CredentialVerificationError.VctRegistryNotConfigured);
     }
 
-    const vctm = await axios.get<{ urn: string, vct: string }[]>(uri)
+    const vctm = await axios.get<{ vct: string }[]>(uri)
     .then(({ data }) => data)
     .then(vctmList => {
       return vctmList.find(({ vct: current }) => current === urn)
