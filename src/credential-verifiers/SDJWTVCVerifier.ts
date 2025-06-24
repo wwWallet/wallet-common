@@ -9,15 +9,6 @@ import { exportJWK, importJWK, importX509, JWK, jwtVerify, KeyLike } from "jose"
 import { fromBase64Url, toBase64Url } from "../utils/util";
 import { verifyCertificate } from "../utils/verifyCertificate";
 
-
-const VctUrls: VctUrls = {
-	'urn:eu.europa.ec.eudi:pid:1': 'https://demo-issuer.wwwallet.org/public/creds/pid/person-identification-data-arf-15-vctm-example-01.json',
-	'urn:eudi:pid:1': 'https://demo-issuer.wwwallet.org/public/creds/pid/person-identification-data-arf-18-vctm-example-01.json',
-	'urn:eudi:ehic:1': 'https://demo-issuer.wwwallet.org/public/creds/ehic/european-health-insurance-card-vctm-dc4eu-01.json',
-	'urn:eudi:pda1:1': 'https://demo-issuer.wwwallet.org/public/creds/pda1/portable-document-a1-vctm-dc4eu-01.json',
-	'urn:eu.europa.ec.eudi:por:1': 'https://demo-issuer.wwwallet.org/public/creds/por/power-of-representation-vctm-potential-01.json',
-};
-
 export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: PublicKeyResolverEngineI }): CredentialVerifier {
 	let errors: { error: CredentialVerificationError, message: string }[] = [];
 	const logError = (error: CredentialVerificationError, message: string): void => {
@@ -209,7 +200,11 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 	}
 
   const fetchVctFromRegistry = async function (urn: string) {
-    const uri = args.context.config.vctRegistryUri;
+    const uri = args.context.config?.vctRegistryUri;
+
+    if (!uri) {
+      throw new Error(CredentialVerificationError.VctRegistryNotConfigured);
+    }
 
     const vctm = await axios.get<{ urn: string, vct: string }[]>(uri)
     .then(({ data }) => data)
