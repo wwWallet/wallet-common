@@ -214,7 +214,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
     const vctm = await axios.get<{ urn: string, vct: string }[]>(uri)
     .then(({ data }) => data)
     .then(vctmList => {
-      return vctmList.find(({ urn: current }) => current === urn)
+      return vctmList.find(({ vct: current }) => current === urn)
     });
 
     if (!vctm) {
