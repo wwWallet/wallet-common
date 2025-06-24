@@ -66,4 +66,7 @@ export interface Context {
 	 * each string is Base64-encoded DER representation without line breaks or headers like -----BEGIN CERTIFICATE----- and -----END CERTIFICATE-----
 	 */
 	trustedCertificates: string[];
+	config: {
+		vctRegistryUri: string;
+	};
 }

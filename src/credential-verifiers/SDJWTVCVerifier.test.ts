@@ -35,6 +35,8 @@ MIICdDCCAhugAwIBAgIBAjAKBggqhkjOPQQDAjCBiDELMAkGA1UEBhMCREUxDzANBgNVBAcMBkJlcmxp
 
 
 describe("The SDJWTVerifier", () => {
+	const vctRegistryUri = 'https://qa.wwwallet.org/public/registry/all.json'
+
 	it("should handle the case where the input is not an SDJWT", async () => {
 		const pkResolverEngine = PublicKeyResolverEngine();
 		pkResolverEngine.register({ resolve: () => {
@@ -53,6 +55,9 @@ describe("The SDJWTVerifier", () => {
 			lang: 'en-US',
 			subtle: crypto.subtle,
 			trustedCertificates: [],
+			config: {
+				vctRegistryUri
+			},
 		};
 		const result = await SDJWTVCVerifier({ context, pkResolverEngine })
 			.verify({
@@ -79,6 +84,9 @@ describe("The SDJWTVerifier", () => {
 				trustedCertificates: [
 					exampleCert
 				],
+				config: {
+					vctRegistryUri
+				},
 			},
 			pkresolverEngine: resolverEngine
 		})

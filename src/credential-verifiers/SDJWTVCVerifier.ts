@@ -208,19 +208,29 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 		}
 	}
 
+  const fetchVctFromRegistry = async function (urn: string) {
+    const uri = args.context.config.vctRegistryUri;
+
+    const vctm = await axios.get<{ urn: string, vct: string }[]>(uri)
+    .then(({ data }) => data)
+    .then(vctmList => {
+      return vctmList.find(({ urn: current }) => current === urn)
+    });
+
+    if (!vctm) {
+      throw new Error(CredentialVerificationError.VctUrnNotFoundError);
+    }
+
+    return vctm
+  }
+
 	const verifyCredentialVct = async (rawCredential: string): Promise<Result<{}, CredentialVerificationError>> => {
 		const SdJwtVc = new SDJwtVcInstance({
 			verifier: () => true,
 		  hasher: hasherAndAlgorithm.hasher,
 		  hashAlg: hasherAndAlgorithm.alg as 'sha-256',
 		  loadTypeMetadataFormat: true,
-			vctFetcher: (urn) => {
-				const url = VctUrls[urn as Vct]
-				if (!url) {
-					throw new OauthError(CredentialVerificationError.VctUrnNotFoundError);
-				}
-				return axios.get(url).then(({ data }) => data)
-			}
+			vctFetcher: fetchVctFromRegistry,
 		});
 
 		const sdjwt = await SdJwtVc.verify(rawCredential);
