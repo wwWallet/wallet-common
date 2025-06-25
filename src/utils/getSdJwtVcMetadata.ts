@@ -326,7 +326,7 @@ export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClien
 		const vct = credentialPayload.vct;
 		if (vct && typeof vct === 'string' && isValidHttpUrl(vct)) {
 
-			// Check jwt-vc-issuer by iss 
+			// Check jwt-vc-issuer by iss
 			const checkIssuer = await resolveIssuerMetadata(httpClient, credentialPayload.iss);
 			if (checkIssuer) {
 				const resultCode = handleMetadataCode(checkIssuer.code, warnings);

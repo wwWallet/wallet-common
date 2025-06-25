@@ -5,42 +5,42 @@ import { MetadataWarning } from "../types";
 import { CredentialParsingError } from "../error";
 
 export async function getIssuerMetadata(
-  httpClient: HttpClient,
-  issuer: string,
-  warnings: MetadataWarning[],
-  useCache: boolean = true
+	httpClient: HttpClient,
+	issuer: string,
+	warnings: MetadataWarning[],
+	useCache: boolean = true
 ): Promise<{
-  metadata: z.infer<typeof OpenidCredentialIssuerMetadataSchema> | null;
+	metadata: z.infer<typeof OpenidCredentialIssuerMetadataSchema> | null;
 }> {
-  const url = `${issuer}/.well-known/openid-credential-issuer`;
+	const url = `${issuer}/.well-known/openid-credential-issuer`;
 
-  let issuerResponse = null;
+	let issuerResponse = null;
 
-  try {
-    issuerResponse = await httpClient.get(url, {}, { useCache });
-  } catch (err) {
-    warnings.push({
-      code: CredentialParsingError.FailFetchIssuerMetadata,
-    });
-    return { metadata: null };
-  }
+	try {
+		issuerResponse = await httpClient.get(url, {}, { useCache });
+	} catch (err) {
+		warnings.push({
+			code: CredentialParsingError.FailFetchIssuerMetadata,
+		});
+		return { metadata: null };
+	}
 
-  if (!issuerResponse || issuerResponse.status !== 200 || !issuerResponse.data) {
-    warnings.push({
-      code: CredentialParsingError.FailFetchIssuerMetadata,
-    });
-    return { metadata: null };
-  }
+	if (!issuerResponse || issuerResponse.status !== 200 || !issuerResponse.data) {
+		warnings.push({
+			code: CredentialParsingError.FailFetchIssuerMetadata,
+		});
+		return { metadata: null };
+	}
 
-  const parsed = OpenidCredentialIssuerMetadataSchema.safeParse(issuerResponse.data);
+	const parsed = OpenidCredentialIssuerMetadataSchema.safeParse(issuerResponse.data);
 
-  if (!parsed.success) {
-    warnings.push({
-      code: CredentialParsingError.FailSchemaIssuerMetadata,
-    });
-    return { metadata: null };
-  }
+	if (!parsed.success) {
+		warnings.push({
+			code: CredentialParsingError.FailSchemaIssuerMetadata,
+		});
+		return { metadata: null };
+	}
 
-  return { metadata: parsed.data };
+	return { metadata: parsed.data };
 }
 
