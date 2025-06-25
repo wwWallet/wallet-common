@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import Crypto from 'node:crypto'
 import { exec } from 'child_process'
 import { SignJWT } from 'jose'
+import axios from 'axios'
 
 function generateCertificate () {
 	return new Promise(resolve => {
@@ -88,7 +89,9 @@ const vctClaims =  {
   }
 };
 
-export function sdJwtFixture (vct: string = 'urn:eu.europa.ec.eudi:pid:1') {
+const vctRegistryUri = 'https://qa.wwwallet.org/public/registry/all.json'
+
+export function sdJwtFixture (vct: string = 'urn:eu.europa.ec.eudi:pid:1', opts: { vctmInHeader?: boolean } = { vctmInHeader: false }) {
 	const claims = vctClaims[vct];
 
 	return new Promise(async resolve => {
@@ -110,6 +113,10 @@ export function sdJwtFixture (vct: string = 'urn:eu.europa.ec.eudi:pid:1') {
       "x5c": x5c
 		};
 
+		if (opts.vctmInHeader) {
+			const vctms = await axios.get(vctRegistryUri).then(({ data }) => data);
+			header["vctm"] = vctms.map(vctm => Buffer.from(JSON.stringify(vctm)).toString('base64url'));
+		}
 
 		const disclosures = Object.keys(claims).map(key => {
 			const salt = (Math.random() + 1).toString(36)

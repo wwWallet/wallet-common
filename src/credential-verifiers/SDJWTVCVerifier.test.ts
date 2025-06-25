@@ -99,7 +99,7 @@ describe("The SDJWTVerifier", () => {
 	});
 
 	['urn:eu.europa.ec.eudi:pid:1', 'urn:eudi:pid:1'].forEach(vct => {
-		it(`should successfully verify ${vct} credential issued by Wallet Enterprise Issuer`, async () => {
+		it(`should successfully verify ${vct} credential`, async () => {
 			const { sdJwt, certPem } = await sdJwtFixture(vct);
       console.log(sdJwt);
 			const resolverEngine = PublicKeyResolverEngine();
@@ -127,7 +127,37 @@ describe("The SDJWTVerifier", () => {
 				rawCredential: sdJwt, opts: { verifySchema: true }
 			});
 
-      console.log(result)
+			assert(result.success === true);
+		});
+
+		it(`should successfully verify ${vct} credential (vctm header)`, async () => {
+			const { sdJwt, certPem } = await sdJwtFixture(vct, { vctmInHeader: true });
+      console.log(sdJwt);
+			const resolverEngine = PublicKeyResolverEngine();
+			resolverEngine.register({ resolve: () => {
+				return {
+					success: true,
+					value: certPem
+				}
+			}});
+			const result = await SDJWTVCVerifier({
+				context: {
+					clockTolerance: 0,
+					lang: 'en-US',
+					subtle: crypto.subtle,
+					trustedCertificates: [
+						certPem
+					],
+					config: {
+						vctRegistryUri
+					},
+				},
+				pkResolverEngine: resolverEngine
+			})
+			.verify({
+				rawCredential: sdJwt, opts: { verifySchema: true }
+			});
+
 			assert(result.success === true);
 		});
 	});
