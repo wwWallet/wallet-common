@@ -4,6 +4,7 @@ import { CredentialConfigurationSupportedSchema } from './CredentialConfiguratio
 export const OpenidCredentialIssuerMetadataSchema = z.object({
 	credential_issuer: z.string(),
 	credential_endpoint: z.string(),
+	nonce_endpoint: z.string().optional(),
 	authorization_servers: z.array(z.string()).optional(),
 	display: z.array(z.object({
 		name: z.string(),
