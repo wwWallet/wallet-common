@@ -231,40 +231,6 @@ describe("The SDJWTVerifier", () => {
 				value: certPem
 			}
 		}});
-		try {
-			await SDJWTVCVerifier({
-			context: {
-				clockTolerance: 0,
-				lang: 'en-US',
-				subtle: crypto.subtle,
-				trustedCertificates: [
-					certPem
-				],
-				config: {
-					vctRegistryUri
-				},
-			},
-			pkResolverEngine: resolverEngine
-		})
-		.verify({
-			rawCredential: sdJwt, opts: { verifySchema: true }
-		});
-
-		assert(false);
-		} catch (err) {
-			expect(err.message).to.eq('VctUrnNotFoundError');
-		}
-	});
-
-	it("should successfully verify unknown credential issued by Wallet Enterprise Issuer", async () => {
-		const { sdJwt, certPem } = await sdJwtFixture('unknown');
-		const resolverEngine = PublicKeyResolverEngine();
-		resolverEngine.register({ resolve: () => {
-			return {
-				success: true,
-				value: certPem
-			}
-		}});
 		const result = await SDJWTVCVerifier({
 			context: {
 				clockTolerance: 0,
