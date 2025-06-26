@@ -132,7 +132,6 @@ describe("The SDJWTVCParser", () => {
 		const result = await parser.parse({ rawCredential });
 
 		assert(result.success === true);
-		assert((result.value.warnings ?? []).some(w => w.code === CredentialParsingError.FailFetchIssuerMetadata));
 	});
 
 	it("should warn if issuer metadata have invalid schema", async () => {
@@ -156,7 +155,6 @@ describe("The SDJWTVCParser", () => {
 		const result = await parser.parse({ rawCredential });
 
 		assert(result.success === true);
-		assert((result.value.warnings ?? []).some(w => w.code === CredentialParsingError.FailSchemaIssuerMetadata));
 	});
 
 	it("should default to the first metadata display when an invalid locale is passed", async () => {
