@@ -12,6 +12,6 @@ export async function verifyX5C(x5c: string[], trustedCertificates: string[]): P
 	if (!certificateValidationResult && !lastCertificateIsRootCa) {
 		return false;
 	}
-	
+
 	return await verifyX5C(x5c.slice(0, -1), [lastCertificate]);
 }

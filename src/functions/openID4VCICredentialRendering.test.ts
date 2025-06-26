@@ -20,7 +20,7 @@ const httpClient: HttpClient = {
 
 describe("The openID4VCICredentialRendering", () => {
 
-	it.skip("can render credential in svg format", async () => {
+	it("can render credential in svg format", async () => {
 		const renderer = OpenID4VCICredentialRendering({ httpClient });
 
 		const result = await renderer.renderCustomSvgTemplate({
@@ -47,6 +47,7 @@ describe("The openID4VCICredentialRendering", () => {
 			}
 		});
 
+		console.log('result!',result)
 		assert(result != null);
 		assert(typeof result === 'string');
 		convertDataUriToImage(result, path.join(__dirname, "../../output/openID4VCIRenderingResult"));

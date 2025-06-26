@@ -3,20 +3,11 @@ import { SDJwt } from "@sd-jwt/core";
 import { SDJwtVcInstance } from "@sd-jwt/sd-jwt-vc";
 import type { HasherAndAlg } from "@sd-jwt/types";
 import { Context, CredentialVerifier, PublicKeyResolverEngineI } from "../interfaces";
-import { OauthError, CredentialVerificationError } from "../error";
-import { Result, Vct, VctUrls } from "../types";
+import { CredentialVerificationError } from "../error";
+import { Result } from "../types";
 import { exportJWK, importJWK, importX509, JWK, jwtVerify, KeyLike } from "jose";
 import { fromBase64Url, toBase64Url } from "../utils/util";
 import { verifyCertificate } from "../utils/verifyCertificate";
-
-
-const VctUrls: VctUrls = {
-	'urn:eu.europa.ec.eudi:pid:1': 'https://demo-issuer.wwwallet.org/public/creds/pid/person-identification-data-arf-15-vctm-example-01.json',
-	'urn:eudi:pid:1': 'https://demo-issuer.wwwallet.org/public/creds/pid/person-identification-data-arf-18-vctm-example-01.json',
-	'urn:eudi:ehic:1': 'https://demo-issuer.wwwallet.org/public/creds/ehic/european-health-insurance-card-vctm-dc4eu-01.json',
-	'urn:eudi:pda1:1': 'https://demo-issuer.wwwallet.org/public/creds/pda1/portable-document-a1-vctm-dc4eu-01.json',
-	'urn:eu.europa.ec.eudi:por:1': 'https://demo-issuer.wwwallet.org/public/creds/por/power-of-representation-vctm-potential-01.json',
-};
 
 export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: PublicKeyResolverEngineI }): CredentialVerifier {
 	let errors: { error: CredentialVerificationError, message: string }[] = [];
@@ -210,20 +201,29 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 		}
 	}
 
-  const fetchVctFromRegistry = async function (urn: string) {
-    console.log(urn)
-    const uri = args.context.config.vctRegistryUri;
+  const fetchVctFromRegistry = async function (urn: string, integrity?: string) {
+		const SdJwtVc = new SDJwtVcInstance({
+			hasher: hasherAndAlgorithm.hasher,
+		})
 
-    const vctm = await axios.get<{ urn: string, vct: string }[]>(uri)
-    .then(({ data }) => data)
-    .then(vctmList => {
-      console.log(vctmList)
-      return vctmList.find(({ vct: current }) => current === urn)
-    });
+		const uri = args.context.config?.vctRegistryUri;
+
+		if (!uri) {
+			throw new Error(CredentialVerificationError.VctRegistryNotConfigured);
+		}
+
+		const vctm = await axios.get<{ vct: string }[]>(uri)
+		.then(({ data }) => data)
+		.then(vctmList => {
+			return vctmList.find(({ vct: current }) => current === urn)
+		});
 
     if (!vctm) {
       throw new Error(CredentialVerificationError.VctUrnNotFoundError);
     }
+
+		// @ts-ignore
+		const isIntegrityValid = await SdJwtVc.validateIntegrity(vctm, uri, integrity)
 
     return vctm
   }
@@ -237,7 +237,29 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 			vctFetcher: fetchVctFromRegistry,
 		});
 
-		const sdjwt = await SdJwtVc.verify(rawCredential);
+		try {
+			const verified = await SdJwtVc.verify(rawCredential);
+
+			if (!verified.payload) {
+				return {
+					success: false,
+					error: CredentialVerificationError.VctSchemaError,
+				}
+			}
+		} catch (error) {
+			console.error(error);
+			if (error instanceof Error && error.message == CredentialVerificationError.VctUrnNotFoundError) {
+				return {
+					success: true,
+					value: {},
+				}
+			} else {
+				return {
+					success: false,
+					error: CredentialVerificationError.VctSchemaError,
+				}
+			}
+		}
 
 		return {
 			success: true,
