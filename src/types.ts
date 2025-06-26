@@ -1,3 +1,4 @@
+import { CredentialParsingError } from "./error";
 
 export enum VerifiableCredentialFormat {
 	VC_SDJWT = "vc+sd-jwt",
@@ -15,6 +16,24 @@ export type CredentialIssuer = {
 export type CredentialClaims = Record<string, unknown>;
 
 export type Result<T, E> = { success: true; value: T } | { success: false; error: E };
+
+export type ParserResult =
+	| { success: true; value: ParsedCredential }
+	| { success: false; error: CredentialParsingError};
+
+export type CredentialPayload = {
+	iss: string;
+	vct: string;
+	[key: string]: unknown;
+};
+
+export type MetadataError = {
+	error: CredentialParsingError;
+};
+
+export type MetadataWarning = {
+	code: CredentialParsingError;
+};
 
 export type ParsedCredential = {
 	metadata: {
@@ -42,4 +61,5 @@ export type ParsedCredential = {
 		signed?: Date,
 	}
 	signedClaims: CredentialClaims,
+	warnings?: Array<MetadataWarning>;
 };
