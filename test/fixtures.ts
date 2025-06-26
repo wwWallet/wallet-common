@@ -112,10 +112,11 @@ export function sdJwtFixture (vct: string = 'urn:eu.europa.ec.eudi:pid:1', opts:
 			"alg": "ES256",
       "x5c": x5c
 		};
+    const vctms = await axios.get(vctRegistryUri).then(({ data }) => data);
+    const vctm = vctms.map(vctm => Buffer.from(JSON.stringify(vctm)).toString('base64url'));
 
 		if (opts.vctmInHeader) {
-			const vctms = await axios.get(vctRegistryUri).then(({ data }) => data);
-			header["vctm"] = vctms.map(vctm => Buffer.from(JSON.stringify(vctm)).toString('base64url'));
+			header["vctm"] = vctm
 		}
 
 		const disclosures = Object.keys(claims).map(key => {
@@ -130,11 +131,16 @@ export function sdJwtFixture (vct: string = 'urn:eu.europa.ec.eudi:pid:1', opts:
 			return { _sd, disclosure, rawDisclosure }
 		});
 
+	  const hash = Crypto.createHash('sha256')
+	  const integrity = hash.update(JSON.stringify(vctm)).digest('hex');
+
+
 		const body = {
 			"cnf": {
 				"jwk": cert.export({ format: 'jwk' })
 			},
 			"vct": vct,
+			"vct#integrity": `SHA256-${integrity}`,
 			"jti": "urn:vid:95611a1e-73cf-4fa7-8a27-f14c8251a54e",
 			"iat": 1741106975,
 			"exp": 1772642975,
