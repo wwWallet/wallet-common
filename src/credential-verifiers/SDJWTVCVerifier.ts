@@ -199,7 +199,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 		}
 	}
 
-  const fetchVctFromRegistry = async function (urn: string, integrity?: string) {
+	const fetchVctFromRegistry = async function (urn: string, integrity?: string) {
 		const SdJwtVc = new SDJwtVcInstance({
 			hasher: hasherAndAlgorithm.hasher,
 		})
@@ -216,22 +216,22 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 			return vctmList.find(({ vct: current }) => current === urn)
 		});
 
-    if (!vctm) {
-      throw new Error(CredentialVerificationError.VctUrnNotFoundError);
-    }
+		if (!vctm) {
+			throw new Error(CredentialVerificationError.VctUrnNotFoundError);
+		}
 
 		// @ts-ignore
 		const isIntegrityValid = await SdJwtVc.validateIntegrity(vctm, uri, integrity)
 
-    return vctm
-  }
+		return vctm
+	}
 
 	const verifyCredentialVct = async (rawCredential: string): Promise<Result<{}, CredentialVerificationError>> => {
 		const SdJwtVc = new SDJwtVcInstance({
 			verifier: () => true,
-		  hasher: hasherAndAlgorithm.hasher,
-		  hashAlg: hasherAndAlgorithm.alg as 'sha-256',
-		  loadTypeMetadataFormat: true,
+			hasher: hasherAndAlgorithm.hasher,
+			hashAlg: hasherAndAlgorithm.alg as 'sha-256',
+			loadTypeMetadataFormat: true,
 			vctFetcher: fetchVctFromRegistry,
 		});
 
