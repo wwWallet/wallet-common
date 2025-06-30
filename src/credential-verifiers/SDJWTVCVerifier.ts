@@ -12,7 +12,6 @@ import { verifyCertificate } from "../utils/verifyCertificate";
 export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: PublicKeyResolverEngineI }): CredentialVerifier {
 	let errors: { error: CredentialVerificationError, message: string }[] = [];
 	const logError = (error: CredentialVerificationError, message: string): void => {
-    console.log(error)
 		errors.push({ error, message });
 	}
 
@@ -165,7 +164,6 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 		};
 
 		const issuerPublicKeyResult = await getIssuerPublicKey();
-    console.log(issuerPublicKeyResult)
 
 		if (!issuerPublicKeyResult.success) {
 			logError(CredentialVerificationError.CannotResolveIssuerPublicKey, "CannotResolveIssuerPublicKey");

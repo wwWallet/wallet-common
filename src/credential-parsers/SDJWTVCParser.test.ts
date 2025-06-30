@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { assert, describe, it } from "vitest";
 import { SDJWTVCParser } from "./SDJWTVCParser";
 import { Context, HttpClient } from "../interfaces";

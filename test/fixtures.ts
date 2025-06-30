@@ -8,7 +8,7 @@ function generateCertificate () {
 	return new Promise(resolve => {
 		exec('openssl ecparam -name prime256v1 -genkey -noout -out ./test/fixtures/cert.key', () => {
 			exec('openssl req -new -x509 -key ./test/fixtures/cert.key -out ./test/fixtures/cert.pem -days 3650 -subj /CN=test/C=FR/ST=test/L=test/O=test', () => {
-        return resolve('ok');
+				return resolve('ok');
 			});
 		});
 	});
@@ -33,60 +33,60 @@ const vctClaims =  {
 		"issuing_country": "GR",
 		"sex": 1,
 	},
-  "urn:eudi:pid:1": {
-    "family_name": "test",
-    "given_name": "test",
-    "birthdate": "1923-12-25",
-    "place_of_birth": {
-      "locality": "test",
-      "region": "test",
-      "country": "GR",
-    },
-    "nationalities": ["GR"],
-    "personal_administrative_number": "test",
-    "birth_given_name": "test",
-    "sex": 0,
-    "email": "test@test.test",
-    "date_of_expiry": "1925-01-17",
-    "issuing_authority": "test",
-    "issuing_country": "GR",
-  },
-  "urn:eudi:ehic:1": {
-    "personal_administrative_number": "test",
-    "issuing_authority": {
-      "id": "test",
-      "name": "test",
-    },
-    "issuing_country": "GR",
-    "date_of_expiry": "1925-01-17",
-    "document_number": "test",
-  },
-  "urn:eudi:pda1:1": {
-    "personal_administrative_number": "test",
-    "employer": "test",
-    "work_address": {
-      "formatted": "",
-      "street_address": "",
-    },
-    "legislation_country": "GR",
-    "issuing_authority": {
-      "id": "test",
-      "name": "test",
-    },
-    "issuing_country": "GR",
-    "date_of_expiry": "1925-01-17",
-    "date_of_issuance": "1925-01-17",
-    "document_number": "test",
-  },
-  "urn:eu.europa.ec.eudi:por:1": {
-    "legal_person_identifier": "test",
-  },
+	"urn:eudi:pid:1": {
+		"family_name": "test",
+		"given_name": "test",
+		"birthdate": "1923-12-25",
+		"place_of_birth": {
+			"locality": "test",
+			"region": "test",
+			"country": "GR",
+		},
+		"nationalities": ["GR"],
+		"personal_administrative_number": "test",
+		"birth_given_name": "test",
+		"sex": 0,
+		"email": "test@test.test",
+		"date_of_expiry": "1925-01-17",
+		"issuing_authority": "test",
+		"issuing_country": "GR",
+	},
+	"urn:eudi:ehic:1": {
+		"personal_administrative_number": "test",
+		"issuing_authority": {
+			"id": "test",
+			"name": "test",
+		},
+		"issuing_country": "GR",
+		"date_of_expiry": "1925-01-17",
+		"document_number": "test",
+	},
+	"urn:eudi:pda1:1": {
+		"personal_administrative_number": "test",
+		"employer": "test",
+		"work_address": {
+			"formatted": "",
+			"street_address": "",
+		},
+		"legislation_country": "GR",
+		"issuing_authority": {
+			"id": "test",
+			"name": "test",
+		},
+		"issuing_country": "GR",
+		"date_of_expiry": "1925-01-17",
+		"date_of_issuance": "1925-01-17",
+		"document_number": "test",
+	},
+	"urn:eu.europa.ec.eudi:por:1": {
+		"legal_person_identifier": "test",
+	},
 	"unknown": {
 		"unknown": true,
 	},
-  "urn:wwwallet:test": {
-    "someKey": "SomeValue"
-  }
+	"urn:wwwallet:test": {
+		"someKey": "SomeValue"
+	}
 };
 
 const vctRegistryUri = 'https://qa.wwwallet.org/public/registry/all.json'
@@ -110,10 +110,10 @@ export function sdJwtFixture (vct: string = 'urn:eu.europa.ec.eudi:pid:1', opts:
 		const header = {
 			"typ": "vc+sd-jwt",
 			"alg": "ES256",
-      "x5c": x5c
+			"x5c": x5c
 		};
-    const vctms = await axios.get(vctRegistryUri).then(({ data }) => data);
-    const vctm = vctms.map(vctm => Buffer.from(JSON.stringify(vctm)).toString('base64url'));
+		const vctms = await axios.get(vctRegistryUri).then(({ data }) => data);
+		const vctm = vctms.map(vctm => Buffer.from(JSON.stringify(vctm)).toString('base64url'));
 
 		if (opts.vctmInHeader) {
 			header["vctm"] = vctm
@@ -131,8 +131,8 @@ export function sdJwtFixture (vct: string = 'urn:eu.europa.ec.eudi:pid:1', opts:
 			return { _sd, disclosure, rawDisclosure }
 		});
 
-	  const hash = Crypto.createHash('sha256')
-	  const integrity = hash.update(JSON.stringify(vctm)).digest('hex');
+		const hash = Crypto.createHash('sha256');
+		const integrity = hash.update(JSON.stringify(vctm)).digest('hex');
 
 
 		const body = {
@@ -151,9 +151,9 @@ export function sdJwtFixture (vct: string = 'urn:eu.europa.ec.eudi:pid:1', opts:
 		}
 
 
-    const jwt = await new SignJWT(body)
-      .setProtectedHeader(header)
-      .sign(privateKey);
+		const jwt = await new SignJWT(body)
+		.setProtectedHeader(header)
+		.sign(privateKey);
 		const sdJwt = jwt + '~' + disclosures.map(({ disclosure }) => disclosure).join('~') + '~';
 
 		return resolve({ sdJwt, privateKey, cert, certPem });

@@ -1,4 +1,4 @@
-
+import crypto from "node:crypto";
 import { assert, describe, it } from "vitest";
 import { Context } from "../interfaces";
 import { PublicKeyResolverEngine } from "../PublicKeyResolverEngine";

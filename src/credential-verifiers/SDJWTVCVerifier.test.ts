@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { assert, describe, expect, it } from "vitest";
 import { Context } from "../interfaces";
 import { SDJWTVCVerifier } from "./SDJWTVCVerifier";
@@ -101,7 +102,6 @@ describe("The SDJWTVerifier", () => {
 	['urn:eu.europa.ec.eudi:pid:1', 'urn:eudi:pid:1'].forEach(vct => {
 		it(`should successfully verify ${vct} credential`, async () => {
 			const { sdJwt, certPem } = await sdJwtFixture(vct);
-      console.log(sdJwt);
 			const resolverEngine = PublicKeyResolverEngine();
 			resolverEngine.register({ resolve: () => {
 				return {
@@ -132,7 +132,6 @@ describe("The SDJWTVerifier", () => {
 
 		it(`should successfully verify ${vct} credential (vctm header)`, async () => {
 			const { sdJwt, certPem } = await sdJwtFixture(vct, { vctmInHeader: true });
-      console.log(sdJwt);
 			const resolverEngine = PublicKeyResolverEngine();
 			resolverEngine.register({ resolve: () => {
 				return {
