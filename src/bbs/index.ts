@@ -1158,7 +1158,6 @@ type CipherSuite = {
 
 export function getCipherSuite(
 	suiteId: SuiteId,
-	DST: BufferSource,
 	overrides?: {
 		mocked_random_scalars_params?: { SEED: BufferSource, DST: BufferSource },
 		create_generators_dsts?: CreateGeneratorsDsts,
@@ -1172,7 +1171,7 @@ export function getCipherSuite(
 				id: 'BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_',
 				octet_scalar_length: 32,
 				octet_point_length: 48,
-				hash_to_curve_suite: hashToCurve('BLS12381G1_XMD:SHA-256_SSWU_RO_', DST),
+				hash_to_curve_suite: hashToCurve('BLS12381G1_XMD:SHA-256_SSWU_RO_', new TextEncoder().encode('Irrelevant, unused')),
 				hash_to_curve_g1: (msg: BufferSource, DST: BufferSource) =>
 					(bls12_381.G1.hashToCurve(toU8(msg), { DST: toU8(DST) }) as PointG1),
 				expand_len: 48,
