@@ -201,7 +201,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 		}
 	}
 
-  const fetchVctFromRegistry = async function (urn: string, integrity?: string) {
+	const fetchVctFromRegistry = async function (urn: string, integrity?: string) {
 		const SdJwtVc = new SDJwtVcInstance({
 			hasher: hasherAndAlgorithm.hasher,
 		})
