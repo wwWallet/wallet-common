@@ -15,4 +15,4 @@ RUN yarn cache clean -f && yarn install
 FROM builder-base AS test
 
 COPY . .
-RUN yarn vitest
+RUN yarn test
