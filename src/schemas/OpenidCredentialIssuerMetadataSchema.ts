@@ -5,6 +5,11 @@ export const OpenidCredentialIssuerMetadataSchema = z.object({
 	credential_issuer: z.string(),
 	credential_endpoint: z.string(),
 	nonce_endpoint: z.string().optional(),
+	credential_response_encryption: z.object({
+		alg_values_supported: z.array(z.string()),
+		enc_values_supported: z.array(z.string()),
+		encryption_required: z.boolean(),
+	}).optional(),
 	authorization_servers: z.array(z.string()).optional(),
 	display: z.array(z.object({
 		name: z.string(),
