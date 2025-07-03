@@ -91,7 +91,10 @@ const vctClaims =  {
 
 const vctRegistryUri = 'https://qa.wwwallet.org/public/registry/all.json'
 
-export function sdJwtFixture (vct: string = 'urn:eu.europa.ec.eudi:pid:1', opts: { vctmInHeader?: boolean } = { vctmInHeader: false }) {
+export function sdJwtFixture (vct: string = 'urn:eu.europa.ec.eudi:pid:1', opts: {
+  vctmInHeader?: boolean,
+  vctUrl?: string
+} = { vctmInHeader: false }) {
 	const claims = vctClaims[vct];
 
 	return new Promise(async resolve => {
@@ -139,7 +142,7 @@ export function sdJwtFixture (vct: string = 'urn:eu.europa.ec.eudi:pid:1', opts:
 			"cnf": {
 				"jwk": cert.export({ format: 'jwk' })
 			},
-			"vct": vct,
+			"vct": opts.vctUrl || vct,
 			"vct#integrity": `SHA256-${integrity}`,
 			"jti": "urn:vid:95611a1e-73cf-4fa7-8a27-f14c8251a54e",
 			"iat": 1741106975,
@@ -156,6 +159,6 @@ export function sdJwtFixture (vct: string = 'urn:eu.europa.ec.eudi:pid:1', opts:
 		.sign(privateKey);
 		const sdJwt = jwt + '~' + disclosures.map(({ disclosure }) => disclosure).join('~') + '~';
 
-		return resolve({ sdJwt, privateKey, cert, certPem });
+		return resolve({ sdJwt, privateKey, cert, certPem, vctm: vctms.find(({ vct: current }) => current == vct) });
 	});
 }
