@@ -92,8 +92,8 @@ const vctClaims =  {
 const vctRegistryUri = 'https://qa.wwwallet.org/public/registry/all.json'
 
 export function sdJwtFixture (vct: string = 'urn:eu.europa.ec.eudi:pid:1', opts: {
-  vctmInHeader?: boolean,
-  vctUrl?: string
+	vctmInHeader?: boolean,
+	vctUrl?: string
 } = { vctmInHeader: false }) {
 	const claims = vctClaims[vct];
 
