@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
-import { assert, describe, expect, it } from "vitest";
+import nock from 'nock'
+import { assert, describe, afterEach, expect, it } from "vitest";
 import { Context } from "../interfaces";
 import { SDJWTVCVerifier } from "./SDJWTVCVerifier";
 import { PublicKeyResolverEngine } from "../PublicKeyResolverEngine";
@@ -38,6 +39,10 @@ MIICdDCCAhugAwIBAgIBAjAKBggqhkjOPQQDAjCBiDELMAkGA1UEBhMCREUxDzANBgNVBAcMBkJlcmxp
 
 describe("The SDJWTVerifier", () => {
 	const vctRegistryUri = 'https://qa.wwwallet.org/public/registry/all.json'
+
+	afterEach(() => {
+		nock.cleanAll()
+	})
 
 	it("should handle the case where the input is not an SDJWT", async () => {
 		const pkResolverEngine = PublicKeyResolverEngine();
@@ -94,6 +99,45 @@ describe("The SDJWTVerifier", () => {
 		})
 		.verify({
 			rawCredential: exampleCredential, opts: {}
+		});
+
+		assert(result.success === true);
+	});
+
+	it(`should successfully verify vct URL credential`, async () => {
+		const { sdJwt, certPem, vctm } = await sdJwtFixture('urn:eudi:pid:1', { vctUrl: 'https://vct.url/vctm' });
+		const resolverEngine = PublicKeyResolverEngine();
+		resolverEngine.register({ resolve: () => {
+			return {
+				success: true,
+				value: certPem
+			}
+		}});
+
+		nock('https://vct.url')
+			.get('/vctm')
+			.reply(200, vctm)
+
+		nock('https://demo-issuer.wwwallet.org')
+			.get('/public/creds/pid/person-identification-data-arf-18-schema-example-01.json')
+			.reply(200, { type: "object" })
+
+		const result = await SDJWTVCVerifier({
+			context: {
+				clockTolerance: 0,
+				lang: 'en-US',
+				subtle: crypto.subtle,
+				trustedCertificates: [
+					certPem
+				],
+				config: {
+					vctRegistryUri
+				},
+			},
+			pkResolverEngine: resolverEngine
+		})
+		.verify({
+			rawCredential: sdJwt, opts: { verifySchema: true }
 		});
 
 		assert(result.success === true);
