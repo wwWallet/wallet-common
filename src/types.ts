@@ -2,6 +2,7 @@ import { CredentialParsingError } from "./error";
 
 export enum VerifiableCredentialFormat {
 	VC_SDJWT = "vc+sd-jwt",
+	DC_JPT = "dc+jpt",
 	DC_SDJWT = "dc+sd-jwt",
 	MSO_MDOC = "mso_mdoc",
 }
