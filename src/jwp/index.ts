@@ -7,6 +7,10 @@ import { getCipherSuite, PointG1 } from "../bbs";
 import { fromBase64Url, I2OSP, OS2IP, toBase64Url, toU8 } from "../utils/util";
 
 
+/** https://www.ietf.org/archive/id/draft-ietf-jose-json-proof-algorithms-09.html#name-bbs-using-sha-256-algorithm */
+const ALG_IETF_BBS = 'BBS';
+const ALG_SPLIT_BBS = 'experimental/SplitBBSv2.1';
+
 /** Base64url-encoded binary string or raw binary data */
 type JoseBytes = string | BufferSource;
 
@@ -176,7 +180,7 @@ export async function issueBbs(SK: bigint, PK: BufferSource, header: JwpHeader, 
 	const { Sign } = getCipherSuite('BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_');
 	const jwpHeader = {
 		...header,
-		alg: 'BBS', // https://www.ietf.org/archive/id/draft-ietf-jose-json-proof-algorithms-09.html#name-bbs-using-sha-256-algorithm
+		alg: ALG_IETF_BBS,
 	};
 	const proof = await Sign(SK, PK, new TextEncoder().encode(JSON.stringify(jwpHeader)), payloads);
 	return assembleIssuedJwp(header, payloads, [proof]);
@@ -195,7 +199,7 @@ export async function issueSplitBbs(
 	const { SplitSign, params: { curves: { G1 } } } = getCipherSuite('BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_');
 	const jwpHeader = {
 		...header,
-		alg: 'experimental/SplitBBSv2.1',
+		alg: ALG_SPLIT_BBS,
 	};
 	const dpkPoint = G1.Point.fromBytes(toU8(dpk));
 	const proof = await SplitSign(
@@ -212,7 +216,7 @@ export async function issueSplitBbs(
 export async function confirm(PK: BufferSource, issuedJwp: string): Promise<true> {
 	const { raw: { header }, parsed: { header: { alg }, payloads, proof } } = parseIssuedJwp(issuedJwp);
 	switch (alg) {
-		case 'BBS':
+		case ALG_IETF_BBS:
 			{
 				// https://www.ietf.org/archive/id/draft-ietf-jose-json-proof-algorithms-09.html#name-bbs-using-sha-256-algorithm
 				const { Verify } = getCipherSuite('BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_');
@@ -220,7 +224,7 @@ export async function confirm(PK: BufferSource, issuedJwp: string): Promise<true
 				return valid;
 			}
 
-		case 'experimental/SplitBBSv2.1':
+		case ALG_SPLIT_BBS:
 			{
 				const { SplitVerify, params: { curves: { G1 } } } = getCipherSuite('BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_');
 				const issuerPK = toU8(PK).slice(0, 96);
@@ -287,7 +291,7 @@ export async function verify(PK: BufferSource, presentedJwp: string): Promise<tr
 		parsed: { issuerHeader: { alg }, payloads, proof },
 	} = parsePresentedJwp(presentedJwp);
 	switch (alg) {
-		case 'BBS':
+		case ALG_IETF_BBS:
 			// https://www.ietf.org/archive/id/draft-ietf-jose-json-proof-algorithms-09.html#name-bbs-using-sha-256-algorithm
 			{
 				const { ProofVerify } = getCipherSuite('BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_');
@@ -302,7 +306,7 @@ export async function verify(PK: BufferSource, presentedJwp: string): Promise<tr
 				return valid;
 			}
 
-		case 'experimental/SplitBBSv2.1':
+		case ALG_SPLIT_BBS:
 			{
 				const { SplitProofVerify, params: { curves: { G1 } } } = getCipherSuite('BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_');
 				const [p, sa_dpk, n] = proof;
