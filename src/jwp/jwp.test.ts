@@ -1,13 +1,34 @@
 import { assert, describe, it } from "vitest";
 
 import { getCipherSuite, PointG1 } from "../bbs";
-import { concat, fromBase64Url, toBase64Url, toHex } from "../utils/util";
+import { fromBase64Url, toBase64Url, toHex } from "../utils/util";
 import { asyncAssertThrows } from "../testutil";
-import { assembleIssuedJwp, assemblePresentationJwp, confirm, issueBbs, issueSplitBbs, parseIssuedJwp, parsePresentedJwp, presentBbs, presentSplitBbs, verify } from ".";
+import { assembleIssuedJwp, assemblePresentationJwp, confirm, exportHolderPrivateJwk, exportIssuerPrivateJwk, importHolderPublicJwk, importIssuerPublicJwk, issueBbs, issueSplitBbs, parseIssuedJwp, parsePresentedJwp, presentBbs, presentSplitBbs, verify } from ".";
 
+
+describe("JWK", () => {
+	it("encodes and decodes BBS issuer public keys correctly.", async () => {
+		const suiteId = 'BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_';
+		const { KeyGen, params: { curves: { G2 } } } = getCipherSuite(suiteId);
+		const SK = await KeyGen(crypto.getRandomValues(new Uint8Array(32)), new TextEncoder().encode('JWP test Split-BBS'), null);
+		const PK = G2.Point.BASE.multiply(SK).toBytes();
+		const jwk = exportIssuerPrivateJwk(SK, 'BBS');
+		const restoredPk = importIssuerPublicJwk(jwk, 'BBS');
+		assert.equal(toHex(restoredPk), toHex(PK));
+	});
+
+	it("encodes and decodes BBS holder public keys correctly.", async () => {
+		const suiteId = 'BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_';
+		const { KeyGen, params: { curves: { G1 } } } = getCipherSuite(suiteId);
+		const dsk = await KeyGen(crypto.getRandomValues(new Uint8Array(32)), new TextEncoder().encode('JWP test Split-BBS dsk'), null);
+		const pk = G1.Point.BASE.multiply(dsk);
+		const jwk = exportHolderPrivateJwk(dsk, 'BBS');
+		const restoredPk = importHolderPublicJwk(jwk, 'BBS');
+		assert.equal(toHex(restoredPk.toBytes()), toHex(pk.toBytes()));
+	});
+});
 
 describe("JWP", () => {
-
 	it("preserves zero-length payloads and proofs in issued JWPs.", () => {
 		const jwp = assembleIssuedJwp({ alg: '' }, [new Uint8Array([])], [new Uint8Array([])]);
 		const { parsed } = parseIssuedJwp(jwp);
@@ -78,6 +99,7 @@ describe("JWP", () => {
 		const { KeyGen, SkToPk } = getCipherSuite(suiteId);
 		const SK = await KeyGen(crypto.getRandomValues(new Uint8Array(32)), new TextEncoder().encode('JWP test BBS'), null);
 		const PK = SkToPk(SK);
+		const issuerJwk = exportIssuerPrivateJwk(SK, 'BBS');
 
 		describe("can issue and confirm a JWP", () => {
 			it("with a single payload.", async () => {
@@ -87,7 +109,7 @@ describe("JWP", () => {
 					[new TextEncoder().encode('Kom ihåg att du aldrig får snyta dig i mattan!')],
 				);
 
-				const valid = await confirm(PK, issuedJwp);
+				const valid = await confirm(issuerJwk, issuedJwp);
 				assert.equal(valid, true);
 				assert.equal(new TextDecoder().decode(fromBase64Url(issuedJwp.split(".")[1])), 'Kom ihåg att du aldrig får snyta dig i mattan!');
 			});
@@ -104,7 +126,7 @@ describe("JWP", () => {
 					],
 				);
 
-				const valid = await confirm(PK, issuedJwp);
+				const valid = await confirm(issuerJwk, issuedJwp);
 				assert.equal(valid, true);
 				const payloads = issuedJwp.split(".")[1].split('~').map(fromBase64Url);
 				assert.equal(new TextDecoder().decode(payloads[0]), 'Kom ihåg att du aldrig får snyta dig i mattan!');
@@ -138,23 +160,23 @@ describe("JWP", () => {
 			);
 
 			it("with a modified header.", async () => {
-				await asyncAssertThrows(() => confirm(PK, issuedJwp.slice(1)), "");
+				await asyncAssertThrows(() => confirm(issuerJwk, issuedJwp.slice(1)), "");
 			});
 
 			it("without signature.", async () => {
-				await asyncAssertThrows(() => confirm(PK, issuedJwp.split(".").slice(0, 2).join(".")), "");
+				await asyncAssertThrows(() => confirm(issuerJwk, issuedJwp.split(".").slice(0, 2).join(".")), "");
 			});
 
 			it("with truncated signature.", async () => {
-				await asyncAssertThrows(() => confirm(PK, issuedJwp.slice(0, issuedJwp.length - 4)), "");
+				await asyncAssertThrows(() => confirm(issuerJwk, issuedJwp.slice(0, issuedJwp.length - 4)), "");
 			});
 
 			it("with the payloads omitted.", async () => {
-				await asyncAssertThrows(() => confirm(PK, issuedJwp.split(".").map((s, i) => i === 1 ? '' : s).join(".")), "");
+				await asyncAssertThrows(() => confirm(issuerJwk, issuedJwp.split(".").map((s, i) => i === 1 ? '' : s).join(".")), "");
 			});
 
 			it("with modified payloads.", async () => {
-				await asyncAssertThrows(() => confirm(PK, issuedJwp.split(".").map((s, i) => i === 1 ? toBase64Url(new TextEncoder().encode('foo')) : s).join(".")), "");
+				await asyncAssertThrows(() => confirm(issuerJwk, issuedJwp.split(".").map((s, i) => i === 1 ? toBase64Url(new TextEncoder().encode('foo')) : s).join(".")), "");
 			});
 		});
 
@@ -323,29 +345,35 @@ describe("JWP", () => {
 	describe("With Split-BBS", async () => {
 
 		const suiteId = 'BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_';
-		const { KeyGen, SkToPk, SplitProofGenDevice, params: { curves: { G1 } } } = getCipherSuite(suiteId);
+		const { KeyGen, SplitProofGenDevice, params: { curves: { G1, G2 } }  } = getCipherSuite(suiteId);
 		const SK = await KeyGen(crypto.getRandomValues(new Uint8Array(32)), new TextEncoder().encode('JWP test Split-BBS'), null);
-		const PK = SkToPk(SK);
+		const PK = G2.Point.BASE.multiply(SK).toBytes();
+		const issuerJwk = exportIssuerPrivateJwk(SK, 'experimental/SplitBBSv2.1');
 		const dsk = await KeyGen(crypto.getRandomValues(new Uint8Array(32)), new TextEncoder().encode('JWP test Split-BBS dsk'), null);
-		const dpk = G1.Point.BASE.multiply(dsk).toBytes();
+		const dpk = exportHolderPrivateJwk(dsk, 'experimental/SplitBBSv2.1');
 		const deviceSign = (T2bar: PointG1, c_host: bigint) => SplitProofGenDevice(dsk, G1.Point.BASE, c_host, T2bar);
 
 		describe("can issue and confirm a JWP", () => {
 			it("with a single payload.", async () => {
 				const issuedJwp = await issueSplitBbs(
-					SK, PK,
+					issuerJwk,
 					{ alg: 'experimental/SplitBBSv2.1', aud: 'JWP test' },
 					dpk,
 					[new TextEncoder().encode('Kom ihåg att du aldrig får snyta dig i mattan!')],
 				);
 
-				const valid = await confirm(concat(PK, dpk), issuedJwp);
+				const valid = await confirm(issuerJwk, issuedJwp);
 				assert.equal(valid, true);
+
+				const [_header, payloads, proof] = issuedJwp.split('.');
+				assert.deepEqual(payloads, toBase64Url(new TextEncoder().encode('Kom ihåg att du aldrig får snyta dig i mattan!')));
+				const [_signature, dpkOut] = proof.split('~');
+				assert.deepEqual(dpkOut, toBase64Url(G1.Point.BASE.multiply(dsk).toBytes()));
 			});
 
 			it("with multiple payloads.", async () => {
 				const issuedJwp = await issueSplitBbs(
-					SK, PK,
+					issuerJwk,
 					{ alg: 'experimental/SplitBBSv2.1', aud: 'JWP test' },
 					dpk,
 					[
@@ -355,8 +383,11 @@ describe("JWP", () => {
 					],
 				);
 
-				const valid = await confirm(concat(PK, dpk), issuedJwp);
+				const valid = await confirm(issuerJwk, issuedJwp);
 				assert.equal(valid, true);
+
+				const [_header, payloads, _proof] = issuedJwp.split('.');
+				assert.equal(payloads.split('~').length, 3);
 			});
 		});
 
@@ -365,7 +396,7 @@ describe("JWP", () => {
 				await asyncAssertThrows(
 					() =>
 						issueSplitBbs(
-							SK, PK,
+							issuerJwk,
 							{ alg: 'BBS', aud: 'JWP test' },
 							dpk,
 							[],
@@ -375,47 +406,45 @@ describe("JWP", () => {
 			});
 		});
 
-
 		describe("rejects an issued JWP", async () => {
 			const issuedJwp = await issueSplitBbs(
-				SK, PK,
+				issuerJwk,
 				{ alg: 'experimental/SplitBBSv2.1', aud: 'JWP test' },
 				dpk,
 				[new TextEncoder().encode('Kom ihåg att du aldrig får snyta dig i mattan!')],
 			);
 
 			it("with a modified header.", async () => {
-				await asyncAssertThrows(() => confirm(concat(PK, dpk), issuedJwp.slice(1)), "");
+				await asyncAssertThrows(() => confirm(issuerJwk, issuedJwp.slice(1)), "");
 			});
 
 			it("without signature.", async () => {
-				await asyncAssertThrows(() => confirm(concat(PK, dpk), issuedJwp.split(".").slice(0, 2).join(".")), "");
+				await asyncAssertThrows(() => confirm(issuerJwk, issuedJwp.split(".").slice(0, 2).join(".")), "");
 			});
 
 			it("with truncated signature.", async () => {
-				await asyncAssertThrows(() => confirm(concat(PK, dpk), issuedJwp.slice(0, issuedJwp.length - 4)), "");
+				await asyncAssertThrows(() => confirm(issuerJwk, issuedJwp.slice(0, issuedJwp.length - 4)), "");
 			});
 
 			it("with the payloads omitted.", async () => {
-				await asyncAssertThrows(() => confirm(concat(PK, dpk), issuedJwp.split(".").map((s, i) => i === 1 ? '' : s).join(".")), "");
+				await asyncAssertThrows(() => confirm(issuerJwk, issuedJwp.split(".").map((s, i) => i === 1 ? '' : s).join(".")), "");
 			});
 
 			it("with modified payloads.", async () => {
-				await asyncAssertThrows(() => confirm(concat(PK, dpk), issuedJwp.split(".").map((s, i) => i === 1 ? toBase64Url(new TextEncoder().encode('foo')) : s).join(".")), "");
+				await asyncAssertThrows(() => confirm(issuerJwk, issuedJwp.split(".").map((s, i) => i === 1 ? toBase64Url(new TextEncoder().encode('foo')) : s).join(".")), "");
 			});
 		});
 
 		describe("can create and verify a JWP presentation", () => {
 			it("with a single payload, disclosed.", async () => {
 				const issuedJwp = await issueSplitBbs(
-					SK, PK,
+					issuerJwk,
 					{ alg: 'experimental/SplitBBSv2.1', aud: 'JWP test' },
 					dpk,
 					[new TextEncoder().encode('Kom ihåg att du aldrig får snyta dig i mattan!')],
 				);
 				const presentedJwp = await presentSplitBbs(
-					PK,
-					dpk,
+					issuerJwk,
 					issuedJwp,
 					{ alg: 'experimental/SplitBBSv2.1', nonce: toBase64Url(crypto.getRandomValues(new Uint8Array(32))) },
 					[0],
@@ -432,14 +461,13 @@ describe("JWP", () => {
 
 			it("with a single payload, not disclosed.", async () => {
 				const issuedJwp = await issueSplitBbs(
-					SK, PK,
+					issuerJwk,
 					{ alg: 'experimental/SplitBBSv2.1', aud: 'JWP test' },
 					dpk,
 					[new TextEncoder().encode('Kom ihåg att du aldrig får snyta dig i mattan!')],
 				);
 				const presentedJwp = await presentSplitBbs(
-					PK,
-					dpk,
+					issuerJwk,
 					issuedJwp,
 					{ alg: 'experimental/SplitBBSv2.1', nonce: toBase64Url(crypto.getRandomValues(new Uint8Array(32))) },
 					[],
@@ -454,7 +482,7 @@ describe("JWP", () => {
 			it("with multiple payloads, all disclosed.", async () => {
 				const randomMessage = crypto.getRandomValues(new Uint8Array(32));
 				const issuedJwp = await issueSplitBbs(
-					SK, PK,
+					issuerJwk,
 					{ alg: 'experimental/SplitBBSv2.1', aud: 'JWP test' },
 					dpk,
 					[
@@ -464,8 +492,7 @@ describe("JWP", () => {
 					],
 				);
 				const presentedJwp = await presentSplitBbs(
-					PK,
-					dpk,
+					issuerJwk,
 					issuedJwp,
 					{ alg: 'experimental/SplitBBSv2.1', nonce: toBase64Url(crypto.getRandomValues(new Uint8Array(32))) },
 					[0, 1, 2],
@@ -486,7 +513,7 @@ describe("JWP", () => {
 			it("with multiple payloads, some disclosed.", async () => {
 				const randomMessage = crypto.getRandomValues(new Uint8Array(32));
 				const issuedJwp = await issueSplitBbs(
-					SK, PK,
+					issuerJwk,
 					{ alg: 'experimental/SplitBBSv2.1', aud: 'JWP test' },
 					dpk,
 					[
@@ -496,8 +523,7 @@ describe("JWP", () => {
 					],
 				);
 				const presentedJwp = await presentSplitBbs(
-					PK,
-					dpk,
+					issuerJwk,
 					issuedJwp,
 					{ alg: 'experimental/SplitBBSv2.1', nonce: toBase64Url(crypto.getRandomValues(new Uint8Array(32))) },
 					[0, 2],
@@ -518,7 +544,7 @@ describe("JWP", () => {
 			it("with multiple payloads, none disclosed.", async () => {
 				const randomMessage = crypto.getRandomValues(new Uint8Array(32));
 				const issuedJwp = await issueSplitBbs(
-					SK, PK,
+					issuerJwk,
 					{ alg: 'experimental/SplitBBSv2.1', aud: 'JWP test' },
 					dpk,
 					[
@@ -528,8 +554,7 @@ describe("JWP", () => {
 					],
 				);
 				const presentedJwp = await presentSplitBbs(
-					PK,
-					dpk,
+					issuerJwk,
 					issuedJwp,
 					{ alg: 'experimental/SplitBBSv2.1', nonce: toBase64Url(crypto.getRandomValues(new Uint8Array(32))) },
 					[],
@@ -545,14 +570,13 @@ describe("JWP", () => {
 
 		describe("rejects a JWP presentation", async () => {
 			const issuedJwp = await issueSplitBbs(
-				SK, PK,
+				issuerJwk,
 				{ alg: 'experimental/SplitBBSv2.1', aud: 'JWP test' },
 				dpk,
 				[new TextEncoder().encode('Kom ihåg att du aldrig får snyta dig i mattan!')],
 			);
 			const presentedJwp = await presentSplitBbs(
-				PK,
-				dpk,
+				issuerJwk,
 				issuedJwp,
 				{ alg: 'experimental/SplitBBSv2.1', nonce: toBase64Url(crypto.getRandomValues(new Uint8Array(32))) },
 				[0],

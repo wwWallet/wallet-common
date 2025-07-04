@@ -3,13 +3,19 @@
 
 import { JWK } from "jose";
 
-import { getCipherSuite, PointG1 } from "../bbs";
-import { fromBase64Url, I2OSP, OS2IP, toBase64Url, toU8 } from "../utils/util";
+import { getCipherSuite, PointG1, PointG2 } from "../bbs";
+import { concat, fromBase64Url, I2OSP, OS2IP, toBase64Url, toU8 } from "../utils/util";
 
 
 /** https://www.ietf.org/archive/id/draft-ietf-jose-json-proof-algorithms-09.html#name-bbs-using-sha-256-algorithm */
 const ALG_IETF_BBS = 'BBS';
 const ALG_SPLIT_BBS = 'experimental/SplitBBSv2.1';
+const CRV_BLS12381G1 = 'BLS12381G1';
+const CRV_BLS12381G2 = 'BLS12381G2';
+type CRV_BLS12_381 = 'BLS12381G1' | 'BLS12381G2';
+
+type JwkBlsPublic = JWK & { kty: "EC", alg: any, crv: CRV_BLS12_381, x: any, y: any };
+type JwkBlsPrivate = JwkBlsPublic & { d: any };
 
 /** Base64url-encoded binary string or raw binary data */
 type JoseBytes = string | BufferSource;
@@ -62,6 +68,118 @@ function fromBase64u(data: string): BufferSource | null {
 	} else {
 		return fromBase64Url(data);
 	}
+}
+
+function assertJwkPublic(jwk: JWK, crv: CRV_BLS12_381, alg: string): jwk is JwkBlsPublic {
+	if (jwk.kty !== "EC") {
+		throw new Error(`Invalid key: wrong kty: expected EC, was: ${jwk.kty}`, { cause: { jwk } });
+	}
+	if (jwk.alg && jwk.alg !== alg) {
+		throw new Error(`Invalid key: wrong alg: expected ${alg}, was: ${jwk.alg}`, { cause: { jwk } });
+	}
+	if (jwk.crv !== crv) {
+		throw new Error(`Invalid key: wrong crv: expected ${crv}, was: ${jwk.crv}`, { cause: { jwk } });
+	}
+	if (!jwk.x) {
+		throw new Error('Invalid key: missing x', { cause: { jwk } });
+	}
+	if (!jwk.y) {
+		throw new Error('Invalid key: missing y', { cause: { jwk } });
+	}
+
+	return true;
+}
+
+function assertJwkPrivate(jwk: JWK, crv: CRV_BLS12_381, alg: string): jwk is JwkBlsPrivate {
+	assertJwkPublic(jwk, crv, alg);
+
+	if (!jwk.d) {
+		throw new Error('Invalid private key: missing d', { cause: { jwk } });
+	}
+
+	return true;
+}
+
+export function importPrivateJwk(jwk: JWK, crv: CRV_BLS12_381, alg: string): bigint {
+	if (!assertJwkPrivate(jwk, crv, alg)) {
+		throw new Error('Invalid private key', { cause: { jwk } });
+	}
+	return OS2IP(fromBase64Url(jwk.d));
+}
+
+export function importIssuerPublicJwk(jwk: JWK, alg: string): BufferSource {
+	if (!assertJwkPublic(jwk, CRV_BLS12381G2, alg)) {
+		throw new Error('Invalid issuer public key', { cause: { jwk } });
+	}
+
+	const { params: { curves: { G2, fields: { Fp2 } } } } = getCipherSuite('BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_');
+	const xBytes = fromBase64Url(jwk.x);
+	const yBytes = fromBase64Url(jwk.y);
+	// Fp2.toBytes emits coefficients in order c0, c1, ... cm while draft-ietf-lwig-curve-representations-23 uses order cm, ..., c1, c0
+	const Q = G2.Point.fromAffine({
+		x: Fp2.create({
+			c1: OS2IP(xBytes.slice(0, xBytes.length / 2)),
+			c0: OS2IP(xBytes.slice(xBytes.length / 2)),
+		}),
+		y: Fp2.create({
+			c1: OS2IP(yBytes.slice(0, yBytes.length / 2)),
+			c0: OS2IP(yBytes.slice(yBytes.length / 2)),
+		}),
+	});
+	Q.assertValidity();
+	return Q.toBytes();
+}
+
+export function importHolderPublicJwk(jwk: JWK, alg: string): PointG1 {
+	if (!assertJwkPublic(jwk, CRV_BLS12381G1, alg)) {
+		throw new Error('Invalid holder public key', { cause: { jwk } });
+	}
+	const { params: { curves: { G1, fields: { Fp } } } } = getCipherSuite('BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_');
+
+	const x = Fp.fromBytes(fromBase64Url(jwk.x));
+	const y = Fp.fromBytes(fromBase64Url(jwk.y));
+	return G1.Point.fromAffine({ x, y });
+}
+
+export function exportIssuerPublicJwk(pk: PointG2, alg: string): JwkBlsPublic {
+	const { params: { curves: { fields: { Fp } } } } = getCipherSuite('BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_');
+	const pkAff = pk.toAffine();
+	return {
+		kty: 'EC',
+		crv: CRV_BLS12381G2,
+		alg,
+		// Fp2.toBytes emits coefficients in order c0, c1, ... cm while draft-ietf-lwig-curve-representations-23 uses order cm, ..., c1, c0
+		x: toBase64Url(concat(Fp.toBytes(pkAff.x.c1), Fp.toBytes(pkAff.x.c0))),
+		y: toBase64Url(concat(Fp.toBytes(pkAff.y.c1), Fp.toBytes(pkAff.y.c0))),
+	};
+}
+
+export function exportIssuerPrivateJwk(sk: bigint, alg: string): JwkBlsPrivate {
+	const { params: { curves: { G2, fields: { Fr } } } } = getCipherSuite('BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_');
+	return {
+		...exportIssuerPublicJwk(G2.Point.BASE.multiply(sk), alg),
+		d: toBase64Url(Fr.toBytes(sk)),
+	};
+}
+
+export function exportHolderPublicJwk(pk: PointG1, alg: string): JwkBlsPublic {
+	const { params: { curves: { fields: { Fp } } } } = getCipherSuite('BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_');
+	const pkAff = pk.toAffine();
+	return {
+		kty: 'EC',
+		crv: CRV_BLS12381G1,
+		alg,
+		x: toBase64Url(Fp.toBytes(pkAff.x)),
+		y: toBase64Url(Fp.toBytes(pkAff.y)),
+	};
+}
+
+export function exportHolderPrivateJwk(sk: bigint, alg: string): JwkBlsPrivate {
+	const { params: { curves: { G1, fields: { Fr } } } } = getCipherSuite('BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_');
+	return {
+		...exportHolderPublicJwk(G1.Point.BASE.multiply(sk), alg),
+		d: toBase64Url(Fr.toBytes(sk)),
+	};
 }
 
 export function parseIssuedJwp(jwp: string): {
@@ -187,21 +305,24 @@ export async function issueBbs(SK: bigint, PK: BufferSource, header: JwpHeader, 
 }
 
 export async function issueSplitBbs(
-	SK: bigint,
-	PK: BufferSource,
+	issuerKey: JWK,
 	header: JwpHeader,
-	dpk: BufferSource,
+	dpk: JWK,
 	payloads: BufferSource[],
 ): Promise<string> {
 	if (payloads.length === 0) {
 		throw new Error('Cannot issue JWP with zero payloads');
 	}
-	const { SplitSign, params: { curves: { G1 } } } = getCipherSuite('BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_');
+
+	const { SkToPk, SplitSign, params: { curves: { G1 } } } = getCipherSuite('BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_');
+	const SK = importPrivateJwk(issuerKey, CRV_BLS12381G2, ALG_SPLIT_BBS);
+	const PK = SkToPk(SK);
+	const dpkPoint = importHolderPublicJwk(dpk, ALG_SPLIT_BBS);
+
 	const jwpHeader = {
 		...header,
 		alg: ALG_SPLIT_BBS,
 	};
-	const dpkPoint = G1.Point.fromBytes(toU8(dpk));
 	const proof = await SplitSign(
 		SK,
 		PK,
@@ -210,26 +331,26 @@ export async function issueSplitBbs(
 		G1.Point.BASE,
 		payloads,
 	);
-	return assembleIssuedJwp(header, payloads, [proof]);
+	return assembleIssuedJwp(header, payloads, [proof, dpkPoint.toBytes()]);
 }
 
-export async function confirm(PK: BufferSource, issuedJwp: string): Promise<true> {
+export async function confirm(PK: JWK, issuedJwp: string): Promise<true> {
 	const { raw: { header }, parsed: { header: { alg }, payloads, proof } } = parseIssuedJwp(issuedJwp);
 	switch (alg) {
 		case ALG_IETF_BBS:
 			{
 				// https://www.ietf.org/archive/id/draft-ietf-jose-json-proof-algorithms-09.html#name-bbs-using-sha-256-algorithm
 				const { Verify } = getCipherSuite('BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_');
-				const valid = await Verify(PK, proof[0], header, payloads);
+				const valid = await Verify(importIssuerPublicJwk(PK, ALG_IETF_BBS), proof[0], header, payloads);
 				return valid;
 			}
 
 		case ALG_SPLIT_BBS:
 			{
 				const { SplitVerify, params: { curves: { G1 } } } = getCipherSuite('BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_');
-				const issuerPK = toU8(PK).slice(0, 96);
-				const dpkPoint = G1.Point.fromBytes(toU8(PK).slice(96));
-				const valid = await SplitVerify(issuerPK, proof[0], header, dpkPoint, G1.Point.BASE, payloads);
+				const [signature, dpkBytes] = proof;
+				const dpkPoint = G1.Point.fromBytes(toU8(dpkBytes));
+				const valid = await SplitVerify(importIssuerPublicJwk(PK, ALG_SPLIT_BBS), signature, header, dpkPoint, G1.Point.BASE, payloads);
 				return valid;
 			}
 
@@ -259,16 +380,23 @@ export async function presentBbs(
 }
 
 export async function presentSplitBbs(
-	PK: BufferSource,
-	dpk: BufferSource,
+	issuerKey: JWK,
 	issuedJwp: string,
 	presentationHeader: JwpHeader,
 	discloseIndexes: number[],
 	deviceSign: (T2bar: PointG1, c_host: bigint) => Promise<BufferSource>,
 ): Promise<string> {
-	const { raw: { header }, parsed: { payloads, proof: [signature] } } = parseIssuedJwp(issuedJwp);
+	if (presentationHeader.alg !== ALG_SPLIT_BBS) {
+		throw new Error(`Bad alg in presentation header: expected ${ALG_SPLIT_BBS}, was: ${presentationHeader.alg}`, { cause: { presentationHeader } });
+	}
+
+	const { raw: { header }, parsed: { payloads: payloads, proof: [signature, dpk] } } = parseIssuedJwp(issuedJwp);
 	const { SplitProofGenBegin, SplitProofGenFinish, params: { curves: { G1 } } } = getCipherSuite('BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_');
-	const encodedPresentationHeader = new TextEncoder().encode(JSON.stringify(presentationHeader));
+	const encodedPresentationHeader = new TextEncoder().encode(JSON.stringify({
+		...presentationHeader,
+		alg: ALG_SPLIT_BBS,
+	}));
+	const PK = importIssuerPublicJwk(issuerKey, ALG_SPLIT_BBS);
 	const dpkPoint = G1.Point.fromBytes(toU8(dpk));
 	const [init_res, begin_res, T2bar, c_host] = await SplitProofGenBegin(
 		PK,
