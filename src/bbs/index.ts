@@ -1095,7 +1095,7 @@ function createSuite(suite: SuiteParams): CipherSuite {
 }
 
 export type PointG1 = WeierstrassPoint<bigint>;
-type PointG2 = WeierstrassPoint<Fp2>;
+export type PointG2 = WeierstrassPoint<Fp2>;
 type HashToScalarFunc = (msg_octets: BufferSource, dst: BufferSource) => Promise<bigint>;
 type MessagesToScalarsFunc = (messages: BufferSource[], api_id: BufferSource) => Promise<bigint[]>;
 type CreateGeneratorsFunc = (count: number, api_id: BufferSource) => Promise<PointG1[]>;
