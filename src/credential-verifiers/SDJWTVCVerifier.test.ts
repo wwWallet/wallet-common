@@ -1,3 +1,4 @@
+import axios from "axios";
 import { assert, describe, expect, it } from "vitest";
 import { Context } from "../interfaces";
 import { SDJWTVCVerifier } from "./SDJWTVCVerifier";
@@ -59,7 +60,7 @@ describe("The SDJWTVerifier", () => {
 				vctRegistryUri
 			},
 		};
-		const result = await SDJWTVCVerifier({ context, pkResolverEngine })
+		const result = await SDJWTVCVerifier({ context, pkResolverEngine, httpClient: axios })
 			.verify({
 				rawCredential: wrongFormatCredential, opts: {}
 			});
@@ -98,7 +99,7 @@ describe("The SDJWTVerifier", () => {
 	});
 
 	it.skip("should successfully verify SDJWT+KBJWT issued by Wallet Enterprise Issuer", async () => {
-		const result = await SDJWTVCVerifier({ context, pkResolverEngine })
+		const result = await SDJWTVCVerifier({ context, pkResolverEngine, httpClient: axios })
 		.verify({
 			rawCredential: sdJwtCredentialIssuedByWalletEnterpriseWithKbJwt, opts: {
 				expectedNonce: "9a0a06d0-0547-4106-b4c6-511937eb047f",
