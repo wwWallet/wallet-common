@@ -136,7 +136,7 @@ describe("The SDJWTVerifier", () => {
 				},
 			},
 			pkResolverEngine: resolverEngine,
-      httpClient: axios
+			httpClient: axios
 		})
 		.verify({
 			rawCredential: sdJwt, opts: { verifySchema: true }
@@ -168,7 +168,7 @@ describe("The SDJWTVerifier", () => {
 					},
 				},
 				pkResolverEngine: resolverEngine,
-        httpClient: axios
+				httpClient: axios
 			})
 			.verify({
 				rawCredential: sdJwt, opts: { verifySchema: true }
@@ -199,7 +199,7 @@ describe("The SDJWTVerifier", () => {
 					},
 				},
 				pkResolverEngine: resolverEngine,
-        httpClient: axios
+				httpClient: axios
 			})
 			.verify({
 				rawCredential: sdJwt, opts: { verifySchema: true }
@@ -231,7 +231,7 @@ describe("The SDJWTVerifier", () => {
 				},
 			},
 			pkResolverEngine: resolverEngine,
-      httpClient: axios
+			httpClient: axios
 		})
 		.verify({
 			rawCredential: sdJwt, opts: { verifySchema: true }
@@ -262,7 +262,7 @@ describe("The SDJWTVerifier", () => {
 				},
 			},
 			pkResolverEngine: resolverEngine,
-      httpClient: axios
+			httpClient: axios
 		})
 		.verify({
 			rawCredential: sdJwt, opts: { verifySchema: true }
@@ -293,7 +293,7 @@ describe("The SDJWTVerifier", () => {
 				},
 			},
 			pkResolverEngine: resolverEngine,
-      httpClient: axios
+			httpClient: axios
 		})
 		.verify({
 			rawCredential: sdJwt, opts: {}
