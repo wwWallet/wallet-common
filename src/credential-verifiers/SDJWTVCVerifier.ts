@@ -202,8 +202,8 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 		if (urnOrUrl.startsWith('https')) {
 			const url = urnOrUrl
 
-			return await axios.get<{ vct: string }>(url).then(({ data }) => {
-				return data
+			return await args.httpClient.get(url).then(({ data }) => {
+				return data as { vct: string }
 			})
 		}
 
