@@ -65,6 +65,10 @@ export enum CredentialVerificationError {
 	CannotResolveIssuerPublicKey = "CannotResolveIssuerPublicKey",
 	CannotImportIssuerPublicKey = "CannotImportIssuerPublicKey",
 	NotTrustedIssuer = "NotTrustedIssuer",
+	VctRegistryNotConfigured = "VctRegistryNotConfigured",
+	VctUrnNotFoundError = "VctUrnNotFoundError",
+	VctSchemaError = "VctSchemaError",
+	InvalidVctIntegrity = "InvalidVctIntegrity",
 
 	ExpiredCredential = "ExpiredCredential",
 
