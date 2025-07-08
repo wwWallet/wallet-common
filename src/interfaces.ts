@@ -22,7 +22,7 @@ export interface ParsingEngineI {
 
 export interface VerifyingEngineI {
 	register(credentialVerifier: CredentialVerifier): void;
-	verify({ rawCredential, opts }: { rawCredential: unknown, opts: { expectedNonce?: string, expectedAudience?: string, holderNonce?: string, responseUri?: string } }): Promise<Result<{ holderPublicKey: JWK; }, CredentialVerificationError>>;
+	verify({ rawCredential, opts }: { rawCredential: unknown, opts: { expectedNonce?: string, expectedAudience?: string, holderNonce?: string, responseUri?: string, verifySchema?: boolean } }): Promise<Result<{ holderPublicKey: JWK; }, CredentialVerificationError>>;
 }
 
 export interface PublicKeyResolverEngineI {
@@ -32,17 +32,15 @@ export interface PublicKeyResolverEngineI {
 	}, PublicKeyResolutionError>>;
 }
 
-
 export interface CredentialParser {
-	parse(args: { rawCredential: unknown }): Promise<ParserResult>;
+	parse(args: { rawCredential: string }): Promise<ParserResult>;
 }
 
 export interface CredentialVerifier {
-	verify(args: { rawCredential: unknown, opts: { expectedNonce?: string, expectedAudience?: string, holderNonce?: string, responseUri?: string } }): Promise<Result<{
+	verify(args: { rawCredential: unknown, opts: { expectedNonce?: string, expectedAudience?: string, holderNonce?: string, responseUri?: string, verifySchema?: boolean } }): Promise<Result<{
 		holderPublicKey: JWK,
 	}, CredentialVerificationError>>;
 }
-
 
 export interface PublicKeyResolver {
 	resolve(args: { identifier: string }): Promise<Result<{
@@ -66,4 +64,7 @@ export interface Context {
 	 * each string is Base64-encoded DER representation without line breaks or headers like -----BEGIN CERTIFICATE----- and -----END CERTIFICATE-----
 	 */
 	trustedCertificates: string[];
+	config?: {
+		vctRegistryUri: string;
+	};
 }
