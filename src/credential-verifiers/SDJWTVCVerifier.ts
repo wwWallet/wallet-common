@@ -1,15 +1,14 @@
-import axios from "axios"
 import { SDJwt } from "@sd-jwt/core";
 import { SDJwtVcInstance } from "@sd-jwt/sd-jwt-vc";
 import type { HasherAndAlg } from "@sd-jwt/types";
-import { Context, CredentialVerifier, PublicKeyResolverEngineI } from "../interfaces";
+import { Context, CredentialVerifier, PublicKeyResolverEngineI, HttpClient } from "../interfaces";
 import { CredentialVerificationError } from "../error";
 import { Result } from "../types";
 import { exportJWK, importJWK, importX509, JWK, jwtVerify, KeyLike } from "jose";
 import { fromBase64Url, toBase64Url } from "../utils/util";
 import { verifyCertificate } from "../utils/verifyCertificate";
 
-export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: PublicKeyResolverEngineI }): CredentialVerifier {
+export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: PublicKeyResolverEngineI, httpClient: HttpClient }): CredentialVerifier {
 	let errors: { error: CredentialVerificationError, message: string }[] = [];
 	const logError = (error: CredentialVerificationError, message: string): void => {
 		errors.push({ error, message });
@@ -210,10 +209,10 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 			throw new Error(CredentialVerificationError.VctRegistryNotConfigured);
 		}
 
-		const vctm = await axios.get<{ vct: string }[]>(uri)
+		const vctm = await args.httpClient.get(uri)
 		.then(({ data }) => data)
 		.then(vctmList => {
-			return vctmList.find(({ vct: current }) => current === urn)
+			return (vctmList as { vct: string }[]).find(({ vct: current }) => current === urn)
 		});
 
 		if (!vctm) {
