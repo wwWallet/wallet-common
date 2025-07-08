@@ -4,8 +4,8 @@
 	"main": "dist/index.js",
 	"license": "MIT",
 	"scripts": {
-		"vitest": "tsc && vitest run",
-		"vitest-start": "vitest",
+		"test": "tsc && vitest run",
+		"test-start": "vitest",
 		"build": "rm -rf dist/ && tsc"
 	},
 	"dependencies": {
@@ -30,7 +30,7 @@
 		"@types/xmldom": "^0.1.34",
 		"nock": "^14.0.5",
 		"typescript": "^5.7.3",
-		"vitest": "^2.1.8",
+		"vitest": "^3.2.4",
 		"xmldom": "^0.6.0"
 	}
 }

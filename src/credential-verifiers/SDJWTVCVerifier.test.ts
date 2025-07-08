@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import nock from 'nock'
 import { assert, describe, afterEach, expect, it } from "vitest";
+import axios from "axios";
 import { Context } from "../interfaces";
 import { SDJWTVCVerifier } from "./SDJWTVCVerifier";
 import { PublicKeyResolverEngine } from "../PublicKeyResolverEngine";
@@ -66,7 +67,7 @@ describe("The SDJWTVerifier", () => {
 				vctRegistryUri
 			},
 		};
-		const result = await SDJWTVCVerifier({ context, pkResolverEngine })
+		const result = await SDJWTVCVerifier({ context, pkResolverEngine, httpClient: axios })
 			.verify({
 				rawCredential: wrongFormatCredential, opts: {}
 			});
@@ -134,7 +135,8 @@ describe("The SDJWTVerifier", () => {
 					vctRegistryUri
 				},
 			},
-			pkResolverEngine: resolverEngine
+			pkResolverEngine: resolverEngine,
+      httpClient: axios
 		})
 		.verify({
 			rawCredential: sdJwt, opts: { verifySchema: true }
@@ -165,7 +167,8 @@ describe("The SDJWTVerifier", () => {
 						vctRegistryUri
 					},
 				},
-				pkResolverEngine: resolverEngine
+				pkResolverEngine: resolverEngine,
+        httpClient: axios
 			})
 			.verify({
 				rawCredential: sdJwt, opts: { verifySchema: true }
@@ -195,7 +198,8 @@ describe("The SDJWTVerifier", () => {
 						vctRegistryUri
 					},
 				},
-				pkResolverEngine: resolverEngine
+				pkResolverEngine: resolverEngine,
+        httpClient: axios
 			})
 			.verify({
 				rawCredential: sdJwt, opts: { verifySchema: true }
@@ -226,7 +230,8 @@ describe("The SDJWTVerifier", () => {
 					vctRegistryUri
 				},
 			},
-			pkResolverEngine: resolverEngine
+			pkResolverEngine: resolverEngine,
+      httpClient: axios
 		})
 		.verify({
 			rawCredential: sdJwt, opts: { verifySchema: true }
@@ -256,7 +261,8 @@ describe("The SDJWTVerifier", () => {
 					vctRegistryUri
 				},
 			},
-			pkResolverEngine: resolverEngine
+			pkResolverEngine: resolverEngine,
+      httpClient: axios
 		})
 		.verify({
 			rawCredential: sdJwt, opts: { verifySchema: true }
@@ -286,7 +292,8 @@ describe("The SDJWTVerifier", () => {
 					vctRegistryUri
 				},
 			},
-			pkResolverEngine: resolverEngine
+			pkResolverEngine: resolverEngine,
+      httpClient: axios
 		})
 		.verify({
 			rawCredential: sdJwt, opts: {}
@@ -296,7 +303,7 @@ describe("The SDJWTVerifier", () => {
 	});
 
 	it.skip("should successfully verify SDJWT+KBJWT issued by Wallet Enterprise Issuer", async () => {
-		const result = await SDJWTVCVerifier({ context, pkResolverEngine })
+		const result = await SDJWTVCVerifier({ context, pkResolverEngine, httpClient: axios })
 		.verify({
 			rawCredential: sdJwtCredentialIssuedByWalletEnterpriseWithKbJwt, opts: {
 				expectedNonce: "9a0a06d0-0547-4106-b4c6-511937eb047f",
