@@ -1,6 +1,7 @@
 export * from './rendering';
 
 export * from './ParsingEngine';
+export * from './credential-parsers/JptDcParser';
 export * from './credential-parsers/SDJWTVCParser';
 export * from './credential-parsers/MsoMdocParser';
 

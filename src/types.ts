@@ -1,4 +1,5 @@
 import { CredentialParsingError } from "./error";
+import { JptClaims } from "./jpt";
 
 export enum VerifiableCredentialFormat {
 	VC_SDJWT = "vc+sd-jwt",
@@ -15,6 +16,7 @@ export type CredentialIssuer = {
 }
 
 export type CredentialClaims = Record<string, unknown>;
+export type CredentialJptClaims = JptClaims;
 
 export type Result<T, E> = { success: true; value: T } | { success: false; error: E };
 
@@ -39,7 +41,20 @@ export type MetadataWarning = {
 export type CredentialClaimPath = Array<string>;
 export type ImageDataUriCallback = (filter?: Array<CredentialClaimPath>) => Promise<string | null>;
 
-export type ParsedCredential = {
+export type ParsedCredentialCommon = {
+	metadata: {
+		credential: unknown,
+		issuer: CredentialIssuer,
+	},
+	validityInfo: {
+		validUntil?: Date,
+		validFrom?: Date,
+		signed?: Date,
+	},
+	warnings?: Array<MetadataWarning>;
+};
+
+export type ParsedCredentialJwtOrMdoc = ParsedCredentialCommon & {
 	metadata: {
 		credential: {
 			format: VerifiableCredentialFormat.VC_SDJWT | VerifiableCredentialFormat.DC_SDJWT,
@@ -59,11 +74,23 @@ export type ParsedCredential = {
 		},
 		issuer: CredentialIssuer,
 	},
-	validityInfo: {
-		validUntil?: Date,
-		validFrom?: Date,
-		signed?: Date,
-	}
 	signedClaims: CredentialClaims,
-	warnings?: Array<MetadataWarning>;
 };
+
+export type ParsedCredentialJpt = ParsedCredentialCommon & {
+	metadata: {
+		credential: {
+			format: VerifiableCredentialFormat.DC_JPT,
+			vct: string,
+			name: string,
+			metadataDocuments: Record<string, unknown>[],
+			image: {
+				dataUri: ImageDataUriCallback,
+			},
+		},
+		issuer: CredentialIssuer,
+	},
+	signedJptClaims: CredentialJptClaims,
+};
+
+export type ParsedCredential = ParsedCredentialJwtOrMdoc | ParsedCredentialJpt;
