@@ -1,13 +1,14 @@
 import { SDJwt } from "@sd-jwt/core";
+import { SDJwtVcInstance } from "@sd-jwt/sd-jwt-vc";
 import type { HasherAndAlg } from "@sd-jwt/types";
-import { Context, CredentialVerifier, PublicKeyResolverEngineI } from "../interfaces";
+import { Context, CredentialVerifier, PublicKeyResolverEngineI, HttpClient } from "../interfaces";
 import { CredentialVerificationError } from "../error";
 import { Result } from "../types";
 import { exportJWK, importJWK, importX509, JWK, jwtVerify, KeyLike } from "jose";
 import { fromBase64Url, toBase64Url } from "../utils/util";
 import { verifyCertificate } from "../utils/verifyCertificate";
 
-export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: PublicKeyResolverEngineI }): CredentialVerifier {
+export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: PublicKeyResolverEngineI, httpClient: HttpClient }): CredentialVerifier {
 	let errors: { error: CredentialVerificationError, message: string }[] = [];
 	const logError = (error: CredentialVerificationError, message: string): void => {
 		errors.push({ error, message });
@@ -41,6 +42,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 		}
 
 	}
+
 	const getHolderPublicKey = async (rawCredential: string): Promise<Result<Uint8Array | KeyLike, CredentialVerificationError>> => {
 		const parseResult = await parse(rawCredential);
 		if (parseResult === CredentialVerificationError.InvalidFormat) {
@@ -74,7 +76,6 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 		}
 
 	}
-
 
 	const verifyIssuerSignature = async (rawCredential: string): Promise<Result<{}, CredentialVerificationError>> => {
 		const parsedSdJwt = await( async() => {
@@ -129,7 +130,6 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 						error: CredentialVerificationError.CannotImportIssuerPublicKey,
 					}
 				}
-
 			}
 			if (parsedSdJwt && parsedSdJwt.payload && typeof parsedSdJwt.payload.iss === 'string' && typeof alg === 'string') {
 				const publicKeyResolutionResult = await args.pkResolverEngine.resolve({ identifier: parsedSdJwt.payload.iss });
@@ -189,6 +189,86 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 			return {
 				success: false,
 				error: CredentialVerificationError.InvalidSignature,
+			}
+		}
+
+		return {
+			success: true,
+			value: {},
+		}
+	}
+
+	const fetchVctFromRegistry = async function (urnOrUrl: string, integrity?: string) {
+		if (urnOrUrl.startsWith('https')) {
+			const url = urnOrUrl
+
+			return await args.httpClient.get(url).then(({ data }) => {
+				return data as { vct: string }
+			})
+		}
+
+		if (urnOrUrl.startsWith('urn')) {
+			const urn = urnOrUrl
+
+			const SdJwtVc = new SDJwtVcInstance({
+				hasher: hasherAndAlgorithm.hasher,
+			})
+
+			const uri = args.context.config?.vctRegistryUri;
+
+			if (!uri) {
+				throw new Error(CredentialVerificationError.VctRegistryNotConfigured);
+			}
+
+			const vctm = await args.httpClient.get(uri)
+			.then(({ data }) => data)
+			.then(vctmList => {
+				return (vctmList as { vct: string }[]).find(({ vct: current }) => current === urn)
+			});
+
+			if (!vctm) {
+				throw new Error(CredentialVerificationError.VctUrnNotFoundError);
+			}
+
+			// @ts-ignore
+			const isIntegrityValid = await SdJwtVc.validateIntegrity(vctm, uri, integrity)
+
+			return vctm
+		}
+
+		throw new Error('vct is neither an URL nor an urn')
+	}
+
+	const verifyCredentialVct = async (rawCredential: string): Promise<Result<{}, CredentialVerificationError>> => {
+		const SdJwtVc = new SDJwtVcInstance({
+			verifier: () => true,
+			hasher: hasherAndAlgorithm.hasher,
+			hashAlg: hasherAndAlgorithm.alg as 'sha-256',
+			loadTypeMetadataFormat: true,
+			vctFetcher: fetchVctFromRegistry,
+		});
+
+		try {
+			const verified = await SdJwtVc.verify(rawCredential);
+
+			if (!verified.payload) {
+				return {
+					success: false,
+					error: CredentialVerificationError.VctSchemaError,
+				}
+			}
+		} catch (error) {
+			console.error(error);
+			if (error instanceof Error && error.message == CredentialVerificationError.VctUrnNotFoundError) {
+				return {
+					success: true,
+					value: {},
+				}
+			} else {
+				return {
+					success: false,
+					error: CredentialVerificationError.VctSchemaError,
+				}
 			}
 		}
 
@@ -286,6 +366,17 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 				return {
 					success: false,
 					error: errors.length > 0 ?  errors[0].error : CredentialVerificationError.UnknownProblem,
+				}
+			}
+
+			// Credential vct validation
+			if (opts.verifySchema) {
+				const credentialVctVerificationResult = await verifyCredentialVct(rawCredential);
+				if (!credentialVctVerificationResult.success) {
+					return {
+						success: false,
+						error: errors.length > 0 ?  errors[0].error : CredentialVerificationError.UnknownProblem,
+					}
 				}
 			}
 
