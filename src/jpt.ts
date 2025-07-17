@@ -80,6 +80,44 @@ export function extractPayloadsFromClaims(
 	});
 }
 
+function placeTreeValue(
+	tree: Record<string, unknown> | unknown[],
+	path: (string | number)[],
+	value: string | number | boolean | null,
+): unknown {
+	if (path.length === 0) {
+		return value;
+
+	} else {
+		const key = path[0];
+		switch (typeof tree) {
+			case 'object':
+				if (tree instanceof Array) {
+					if (typeof key !== 'number') {
+						throw new Error(`Invalid key type (${typeof key}) for parent type (${tree instanceof Array ? 'Array' : 'object'})`);
+					}
+					const tk = (tree[key] ?? (typeof path[1] === 'number' ? [] : {})) as Record<string, unknown> | unknown[];
+					tree[key] = placeTreeValue(tk, path.slice(1), value);
+
+				} else {
+					if (typeof key !== 'string') {
+						throw new Error(`Invalid key type (${typeof key}) for parent type (${tree instanceof Array ? 'Array' : 'object'})`);
+					}
+
+					const tk = (tree[key] ?? (typeof path[1] === 'number' ? [] : {})) as Record<string, unknown> | unknown[];
+					tree[key] = placeTreeValue(tk, path.slice(1), value);
+				}
+				return tree;
+
+			case 'string':
+			case 'number':
+			case 'boolean':
+			default:
+				throw new Error("Invalid parent type: " + (typeof tree));
+		}
+	}
+}
+
 function extractClaimsFromPayloads(
 	payloads: (BufferSource | null)[],
 	metadata: ClaimsMetadata,
@@ -93,16 +131,12 @@ function extractClaimsFromPayloads(
 				return claims; // Claim not issued
 			} else {
 				const value = JSON.parse(new TextDecoder().decode(payload));
-				if (meta.path.length === 1 && typeof meta.path[0] === 'string') {
-					const key = meta.path[0];
-					if (key in claims) {
-						throw new Error("Duplicate simple claim key: " + key);
-					} else {
-						claims.simple[key] = value;
-						return claims;
-					}
-				} else {
+				if (meta.path.includes(null)) {
 					claims.complex.push({ path: meta.path, value });
+					return claims;
+
+				} else {
+					placeTreeValue(claims.simple, meta.path as (string | number)[], value);
 					return claims;
 				}
 			}
