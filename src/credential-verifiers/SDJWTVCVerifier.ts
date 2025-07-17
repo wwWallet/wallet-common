@@ -198,31 +198,45 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 		}
 	}
 
-	const fetchVctFromRegistry = async function (urn: string, integrity?: string) {
-		const SdJwtVc = new SDJwtVcInstance({
-			hasher: hasherAndAlgorithm.hasher,
-		})
+	const fetchVctFromRegistry = async function (urnOrUrl: string, integrity?: string) {
+		if (urnOrUrl.startsWith('https')) {
+			const url = urnOrUrl
 
-		const uri = args.context.config?.vctRegistryUri;
-
-		if (!uri) {
-			throw new Error(CredentialVerificationError.VctRegistryNotConfigured);
+			return await args.httpClient.get(url).then(({ data }) => {
+				return data as { vct: string }
+			})
 		}
 
-		const vctm = await args.httpClient.get(uri)
-		.then(({ data }) => data)
-		.then(vctmList => {
-			return (vctmList as { vct: string }[]).find(({ vct: current }) => current === urn)
-		});
+		if (urnOrUrl.startsWith('urn')) {
+			const urn = urnOrUrl
 
-		if (!vctm) {
-			throw new Error(CredentialVerificationError.VctUrnNotFoundError);
+			const SdJwtVc = new SDJwtVcInstance({
+				hasher: hasherAndAlgorithm.hasher,
+			})
+
+			const uri = args.context.config?.vctRegistryUri;
+
+			if (!uri) {
+				throw new Error(CredentialVerificationError.VctRegistryNotConfigured);
+			}
+
+			const vctm = await args.httpClient.get(uri)
+			.then(({ data }) => data)
+			.then(vctmList => {
+				return (vctmList as { vct: string }[]).find(({ vct: current }) => current === urn)
+			});
+
+			if (!vctm) {
+				throw new Error(CredentialVerificationError.VctUrnNotFoundError);
+			}
+
+			// @ts-ignore
+			const isIntegrityValid = await SdJwtVc.validateIntegrity(vctm, uri, integrity)
+
+			return vctm
 		}
 
-		// @ts-ignore
-		const isIntegrityValid = await SdJwtVc.validateIntegrity(vctm, uri, integrity)
-
-		return vctm
+		throw new Error('vct is neither an URL nor an urn')
 	}
 
 	const verifyCredentialVct = async (rawCredential: string): Promise<Result<{}, CredentialVerificationError>> => {
