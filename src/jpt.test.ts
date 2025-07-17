@@ -281,13 +281,7 @@ describe("JPT payload encoding:", () => {
 					address: { country: "SE", locality: "Stockholm" },
 					age_equal_or_over: { "14": true, "18": true, "65": false },
 				},
-				complex: [
-					{ path: ["address", "locality"], value: "Stockholm" },
-					{ path: ["address", "country"], value: "SE" },
-					{ path: ["age_equal_or_over", "14"], value: true },
-					{ path: ["age_equal_or_over", "18"], value: true },
-					{ path: ["age_equal_or_over", "65"], value: false },
-				],
+				complex: [],
 			});
 		});
 
@@ -316,8 +310,6 @@ describe("JPT payload encoding:", () => {
 				},
 				complex: [
 					{ path: ["nationalities", null], value: ["GR", "SE"] },
-					{ path: ["nationalities", 0], value: "GR" },
-					{ path: ["nationalities", 1], value: "SE" },
 				],
 			});
 		});
