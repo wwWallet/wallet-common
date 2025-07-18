@@ -67,7 +67,7 @@ describe("The SDJWTVCParser", () => {
 
 		if (parsedCredential.success) {
 			// @ts-ignore
-			const image = parsedCredential.value.metadata?.credential?.image?.dataUri;
+			const image = await parsedCredential.value.metadata?.credential?.image?.dataUri();
 			if (!image || !image.startsWith('data:image/')) {
 				console.warn('No valid image data URI found:', image);
 			} else {
@@ -165,7 +165,7 @@ describe("The SDJWTVCParser", () => {
 		const parsedCredential = await parser.parse({ rawCredential });
 		let image;
 		if (parsedCredential.success) {
-			image = parsedCredential.value.metadata?.credential?.image?.dataUri;
+			image = await parsedCredential.value.metadata?.credential?.image?.dataUri();
 		}
 		assert(image);
 	});
@@ -176,7 +176,8 @@ describe("The SDJWTVCParser", () => {
 		const parsedCredential = await parser.parse({ rawCredential });
 		let image;
 		if (parsedCredential.success) {
-			image = parsedCredential.value.metadata?.credential?.image?.dataUri;
+			image = await parsedCredential.value.metadata?.credential?.image?.dataUri();
+			console.log("Image = ", image)
 		}
 		assert(image);
 	});

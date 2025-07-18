@@ -2,9 +2,10 @@ import jsonpointer from 'jsonpointer';
 import { formatDate } from './functions/formatDate';
 import { CredentialRendering } from './interfaces';
 import { escapeSVG } from './utils/escapeSVG';
+import { CredentialClaimPath } from './types';
 
 export function CredentialRenderingService(): CredentialRendering {
-	const renderSvgTemplate = async ({ json, credentialImageSvgTemplate, sdJwtVcMetadataClaims }: { json: any, credentialImageSvgTemplate: string, sdJwtVcMetadataClaims: any }) => {
+	const renderSvgTemplate = async ({ json, credentialImageSvgTemplate, sdJwtVcMetadataClaims, filter }: { json: any, credentialImageSvgTemplate: string, sdJwtVcMetadataClaims: any, filter?: Array<CredentialClaimPath> }) => {
 
 		let svgContent = null;
 		try {
@@ -28,6 +29,9 @@ export function CredentialRenderingService(): CredentialRendering {
 				// Retrieve the path array for the current svgId from pathMap
 				const pathArray = pathMap[svgId];
 
+				if (Array.isArray(pathArray) && filter && !filter.map(f => f.join('.')).includes(pathArray.join('.'))) {
+					return '-';
+				}
 				// If pathArray exists, convert it to a JSON pointer path
 				if (Array.isArray(pathArray)) {
 					const jsonPointerPath = `/${pathArray.join('/')}`;

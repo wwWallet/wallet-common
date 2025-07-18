@@ -2,7 +2,7 @@ import { CredentialParsingError } from "../error";
 import { Context, CredentialParser, HttpClient } from "../interfaces";
 import { DataItem, DeviceSignedDocument, parse } from "@auth0/mdl";
 import { fromBase64Url } from "../utils/util";
-import { ParsedCredential, VerifiableCredentialFormat } from "../types";
+import { ImageDataUriCallback, ParsedCredential, VerifiableCredentialFormat } from "../types";
 import { cborDecode, cborEncode } from "@auth0/mdl/lib/cbor";
 import { IssuerSigned } from "@auth0/mdl/lib/mdoc/model/types";
 import { OpenID4VCICredentialRendering } from "../functions/openID4VCICredentialRendering";
@@ -23,24 +23,25 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 
 			const attrValues = parsedDocument.getIssuerNameSpace(namespace);
 			const renderer = OpenID4VCICredentialRendering({ httpClient: args.httpClient });
-			let dataUri: string | null = null;
+			let dataUri: ImageDataUriCallback | null = null;
 
 			const mdocDisplayConfig = {
 				name: "mdoc Verifiable Credential"
 			}
 
-			const svgContent = await renderer.renderCustomSvgTemplate({ signedClaims: attrValues, displayConfig: mdocDisplayConfig })
-				.then((res) => res)
-				.catch((err) => { console.error(err); return null; });
+			dataUri = async (filter) => {
+				return await renderer.renderCustomSvgTemplate({ signedClaims: attrValues, displayConfig: mdocDisplayConfig })
+					.then((res) => res)
+					.catch((err) => { console.error(err); return null; });
+			}
 
-			dataUri = svgContent ? svgContent : "";
 			return {
 				metadata: {
 					credential: {
 						format: VerifiableCredentialFormat.MSO_MDOC,
 						doctype: parsedDocument.docType,
 						image: {
-							dataUri: dataUri ?? "",
+							dataUri: dataUri,
 						},
 						name: parsedDocument.issuerSignedNameSpaces[0]
 					},
@@ -85,23 +86,24 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 			const attrValues = parsedDocument.getIssuerNameSpace(namespace);
 
 			const renderer = OpenID4VCICredentialRendering({ httpClient: args.httpClient });
-			let dataUri: string | null = null;
+			let dataUri: ImageDataUriCallback | null = null;
 
 			const mdocDisplayConfig = {
 				name: "mdoc Verifiable Credential"
 			}
 
-			const svgContent = await renderer.renderCustomSvgTemplate({ signedClaims: attrValues, displayConfig: mdocDisplayConfig })
-				.then((res) => res)
-				.catch((err) => { console.error(err); return null; })
-			dataUri = svgContent ? svgContent : "";
+			dataUri = async (filter) => {
+				return await renderer.renderCustomSvgTemplate({ signedClaims: attrValues, displayConfig: mdocDisplayConfig })
+					.then((res) => res)
+					.catch((err) => { console.error(err); return null; })
+			}
 			return {
 				metadata: {
 					credential: {
 						format: VerifiableCredentialFormat.MSO_MDOC,
 						doctype: docType as string | undefined ?? "",
 						image: {
-							dataUri: dataUri ?? "",
+							dataUri: dataUri ?? (async () => null),
 						},
 						name: parsedDocument.issuerSignedNameSpaces[0],
 					},

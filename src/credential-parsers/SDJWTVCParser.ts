@@ -2,7 +2,7 @@ import { SDJwt } from "@sd-jwt/core";
 import type { HasherAndAlg } from "@sd-jwt/types";
 import { CredentialParsingError } from "../error";
 import { Context, CredentialParser, HttpClient } from "../interfaces";
-import { MetadataWarning, VerifiableCredentialFormat } from "../types";
+import { CredentialClaimPath, ImageDataUriCallback, MetadataWarning, VerifiableCredentialFormat } from "../types";
 import { SdJwtVcPayloadSchema } from "../schemas";
 import { CredentialRenderingService } from "../rendering";
 import { getSdJwtVcMetadata } from "../utils/getSdJwtVcMetadata";
@@ -61,7 +61,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 				};
 			}
 
-			let dataUri: string | null = null;
+			let dataUri: ImageDataUriCallback | null = null;
 			const warnings: MetadataWarning[] = [];
 
 			const { parsedClaims, parsedHeaders, err } = await (async () => {
@@ -152,34 +152,41 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 					const svgResponse = await args.httpClient.get(credentialImageSvgTemplateURL, {}, { useCache: true }).then((res) => res).catch(() => null);
 					if (svgResponse && svgResponse.status === 200) {
 						const svgdata = svgResponse.data as string;
-						dataUri = await cr
+						dataUri = async (filter?: Array<CredentialClaimPath>) => {
+							return await cr
 							.renderSvgTemplate({
 								json: validatedParsedClaims,
 								credentialImageSvgTemplate: svgdata,
 								sdJwtVcMetadataClaims: credentialMetadata.claims,
+								filter: filter,
 							})
 							.catch(() => null);
+						}
 					}
 				}
 
 				// 2. Fallback: render from simple config
 				if (!dataUri && simpleDisplayConfig) {
-					dataUri = await renderer
-						.renderCustomSvgTemplate({
-							signedClaims: validatedParsedClaims,
-							displayConfig: { ...credentialDisplayLocalized, ...simpleDisplayConfig },
-						})
-						.catch(() => null);
+					dataUri = async (filter?: Array<CredentialClaimPath>) => {
+						return await renderer
+							.renderCustomSvgTemplate({
+								signedClaims: validatedParsedClaims,
+								displayConfig: { ...credentialDisplayLocalized, ...simpleDisplayConfig },
+							})
+							.catch(() => null);
+					}
 				}
 
 				// 3. Fallback: render from issuer metadata display
 				if (!dataUri && issuerDisplayLocalized) {
-					dataUri = await renderer
-						.renderCustomSvgTemplate({
-							signedClaims: validatedParsedClaims,
-							displayConfig: issuerDisplayLocalized,
-						})
-						.catch(() => null);
+					dataUri = async (filter?: Array<CredentialClaimPath>) => {
+						return await renderer
+							.renderCustomSvgTemplate({
+								signedClaims: validatedParsedClaims,
+								displayConfig: { ...credentialDisplayLocalized, ...simpleDisplayConfig },
+							})
+							.catch(() => null);
+					}
 				}
 			}
 
@@ -194,7 +201,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 							// @ts-ignore
 							metadataDocuments: [getSdJwtMetadataResult.credentialMetadata],
 							image: {
-								dataUri: dataUri ?? "",
+								dataUri: dataUri ?? (async () => null),
 							},
 							name: credentialFriendlyName ?? "Credential",
 						},
