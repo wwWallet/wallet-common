@@ -9,7 +9,7 @@ import { concat, fromBase64Url, I2OSP, OS2IP, toBase64Url, toU8 } from "../utils
 
 /** https://www.ietf.org/archive/id/draft-ietf-jose-json-proof-algorithms-09.html#name-bbs-using-sha-256-algorithm */
 const ALG_IETF_BBS = 'BBS';
-const ALG_SPLIT_BBS = 'experimental/SplitBBSv2.1';
+export const ALG_SPLIT_BBS = 'experimental/SplitBBSv2.1';
 const CRV_BLS12381G1 = 'BLS12381G1';
 const CRV_BLS12381G2 = 'BLS12381G2';
 type CRV_BLS12_381 = 'BLS12381G1' | 'BLS12381G2';
@@ -331,7 +331,7 @@ export async function issueSplitBbs(
 		G1.Point.BASE,
 		payloads,
 	);
-	return assembleIssuedJwp(header, payloads, [proof, dpkPoint.toBytes()]);
+	return assembleIssuedJwp(header, payloads, [proof, new TextEncoder().encode(JSON.stringify(dpk))]);
 }
 
 export async function confirm(PK: JWK, issuedJwp: string): Promise<true> {
@@ -348,8 +348,8 @@ export async function confirm(PK: JWK, issuedJwp: string): Promise<true> {
 		case ALG_SPLIT_BBS:
 			{
 				const { SplitVerify, params: { curves: { G1 } } } = getCipherSuite('BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_');
-				const [signature, dpkBytes] = proof;
-				const dpkPoint = G1.Point.fromBytes(toU8(dpkBytes));
+				const [signature, dpkJwk] = proof;
+				const dpkPoint = importHolderPublicJwk(JSON.parse(new TextDecoder().decode(dpkJwk)), ALG_SPLIT_BBS);
 				const valid = await SplitVerify(importIssuerPublicJwk(PK, ALG_SPLIT_BBS), signature, header, dpkPoint, G1.Point.BASE, payloads);
 				return valid;
 			}
@@ -390,14 +390,14 @@ export async function presentSplitBbs(
 		throw new Error(`Bad alg in presentation header: expected ${ALG_SPLIT_BBS}, was: ${presentationHeader.alg}`, { cause: { presentationHeader } });
 	}
 
-	const { raw: { header }, parsed: { payloads: payloads, proof: [signature, dpk] } } = parseIssuedJwp(issuedJwp);
+	const { raw: { header }, parsed: { payloads: payloads, proof: [signature, dpkJwk] } } = parseIssuedJwp(issuedJwp);
 	const { SplitProofGenBegin, SplitProofGenFinish, params: { curves: { G1 } } } = getCipherSuite('BBS_BLS12381G1_XMD:SHA-256_SSWU_RO_');
 	const encodedPresentationHeader = new TextEncoder().encode(JSON.stringify({
 		...presentationHeader,
 		alg: ALG_SPLIT_BBS,
 	}));
 	const PK = importIssuerPublicJwk(issuerKey, ALG_SPLIT_BBS);
-	const dpkPoint = G1.Point.fromBytes(toU8(dpk));
+	const dpkPoint = importHolderPublicJwk(JSON.parse(new TextDecoder().decode(dpkJwk)), ALG_SPLIT_BBS);
 	const [init_res, begin_res, T2bar, c_host] = await SplitProofGenBegin(
 		PK,
 		signature,

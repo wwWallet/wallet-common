@@ -3,7 +3,7 @@ import { assert, describe, it } from "vitest";
 import { getCipherSuite, PointG1 } from "../bbs";
 import { fromBase64Url, toBase64Url, toHex } from "../utils/util";
 import { asyncAssertThrows } from "../testutil";
-import { assembleIssuedJwp, assemblePresentationJwp, confirm, exportHolderPrivateJwk, exportIssuerPrivateJwk, importHolderPublicJwk, importIssuerPublicJwk, issueBbs, issueSplitBbs, parseIssuedJwp, parsePresentedJwp, presentBbs, presentSplitBbs, verify } from ".";
+import { assembleIssuedJwp, assemblePresentationJwp, confirm, exportHolderPrivateJwk, exportHolderPublicJwk, exportIssuerPrivateJwk, importHolderPublicJwk, importIssuerPublicJwk, issueBbs, issueSplitBbs, parseIssuedJwp, parsePresentedJwp, presentBbs, presentSplitBbs, verify } from ".";
 
 
 describe("JWK", () => {
@@ -350,7 +350,7 @@ describe("JWP", () => {
 		const PK = G2.Point.BASE.multiply(SK).toBytes();
 		const issuerJwk = exportIssuerPrivateJwk(SK, 'experimental/SplitBBSv2.1');
 		const dsk = await KeyGen(crypto.getRandomValues(new Uint8Array(32)), new TextEncoder().encode('JWP test Split-BBS dsk'), null);
-		const dpk = exportHolderPrivateJwk(dsk, 'experimental/SplitBBSv2.1');
+		const dpk = exportHolderPublicJwk(G1.Point.BASE.multiply(dsk), 'experimental/SplitBBSv2.1');
 		const deviceSign = (T2bar: PointG1, c_host: bigint) => SplitProofGenDevice(dsk, G1.Point.BASE.toBytes(), c_host, T2bar.toBytes());
 
 		describe("can issue and confirm a JWP", () => {
@@ -368,7 +368,7 @@ describe("JWP", () => {
 				const [_header, payloads, proof] = issuedJwp.split('.');
 				assert.deepEqual(payloads, toBase64Url(new TextEncoder().encode('Kom ihåg att du aldrig får snyta dig i mattan!')));
 				const [_signature, dpkOut] = proof.split('~');
-				assert.deepEqual(dpkOut, toBase64Url(G1.Point.BASE.multiply(dsk).toBytes()));
+				assert.deepEqual(dpkOut, toBase64Url(new TextEncoder().encode(JSON.stringify(dpk))));
 			});
 
 			it("with multiple payloads.", async () => {
