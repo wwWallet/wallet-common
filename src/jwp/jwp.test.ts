@@ -351,7 +351,7 @@ describe("JWP", () => {
 		const issuerJwk = exportIssuerPrivateJwk(SK, 'experimental/SplitBBSv2.1');
 		const dsk = await KeyGen(crypto.getRandomValues(new Uint8Array(32)), new TextEncoder().encode('JWP test Split-BBS dsk'), null);
 		const dpk = exportHolderPrivateJwk(dsk, 'experimental/SplitBBSv2.1');
-		const deviceSign = (T2bar: PointG1, c_host: bigint) => SplitProofGenDevice(dsk, G1.Point.BASE, c_host, T2bar);
+		const deviceSign = (T2bar: PointG1, c_host: bigint) => SplitProofGenDevice(dsk, G1.Point.BASE.toBytes(), c_host, T2bar.toBytes());
 
 		describe("can issue and confirm a JWP", () => {
 			it("with a single payload.", async () => {

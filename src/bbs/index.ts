@@ -440,14 +440,14 @@ function createSuite(suite: SuiteParams): CipherSuite {
 	/** Split-BBS as proposed by Daniluk-Lehmann and adjusted by Lundberg */
 	async function SplitProofGenDevice(
 		dsk: bigint,
-		dpk_generator: PointG1,
+		dpk_generator: BufferSource,
 		c_host: bigint,
-		T2bar: PointG1,
+		T2bar: BufferSource,
 	): Promise<BufferSource> {
 		const n = get_random(octet_scalar_length);
 		const [rdsk] = await calculate_random_scalars(1); // Will compute same scalar as first message in tests, that's okay
-		const tdsk = dpk_generator.multiply(rdsk);
-		const T2 = T2bar.add(tdsk);
+		const tdsk = G1.Point.fromBytes(toU8(dpk_generator)).multiply(rdsk);
+		const T2 = G1.Point.fromBytes(toU8(T2bar)).add(tdsk);
 		const c = await SplitProofDeviceChallengeCalculate(n, T2, c_host);
 		const sa_dpk = Fr.sub(rdsk, Fr.mul(dsk, c));
 		return concat(I2OSP(sa_dpk, octet_scalar_length), I2OSP(c, octet_scalar_length), n);
@@ -1108,7 +1108,7 @@ type ProofVerifyFunction = (PK: BufferSource, proof: BufferSource, header: Buffe
 type SplitSignFunction = (SK: bigint, PK: BufferSource, header: BufferSource | null, dpk: PointG1, dpk_generator: PointG1, messages: BufferSource[] | null) => Promise<BufferSource>;
 type SplitVerifyFunction = (PK: BufferSource, signature: BufferSource, header: BufferSource | null, dpk: PointG1, dpk_generator: PointG1, messages: BufferSource[] | null) => Promise<true>;
 type SplitProofGenBeginFunction = (PK: BufferSource, signature: BufferSource, header: BufferSource | null, ph: BufferSource | null, dpk: PointG1, dpk_generator: PointG1, messages: BufferSource[] | null, disclosed_indexes: number[] | null) => Promise<[[PointG1, PointG1, PointG1, PointG1, bigint], [bigint, bigint[], bigint[], bigint[], PointG1, PointG1], PointG1, bigint]>;
-type SplitProofGenDeviceFunction = (dsk: bigint, dpk_generator: PointG1, c_host: bigint, T2bar: PointG1) => Promise<BufferSource>;
+type SplitProofGenDeviceFunction = (dsk: bigint, dpk_generator: BufferSource, c_host: bigint, T2bar: BufferSource) => Promise<BufferSource>;
 type SplitProofGenFinishFunction = (begin_res: [[PointG1, PointG1, PointG1, PointG1, bigint], [bigint, bigint[], bigint[], bigint[], PointG1, PointG1], PointG1, bigint], device_resp: BufferSource) => Promise<[BufferSource, bigint, BufferSource]>;
 type SplitProofVerifyFunction = (PK: BufferSource, proof: [BufferSource, bigint, BufferSource], dpk_generator: PointG1, header: BufferSource | null, ph: BufferSource | null, disclosed_messages: BufferSource[] | null, disclosed_indexes: number[] | null) => Promise<true>;
 
