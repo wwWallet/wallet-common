@@ -258,17 +258,18 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 				}
 			}
 		} catch (error) {
-			console.error(error);
-			if (error instanceof Error && error.message == CredentialVerificationError.VctUrnNotFoundError) {
-				return {
-					success: true,
-					value: {},
-				}
-			} else {
+			console.warn(error);
+
+			if (error instanceof Error && error.message == 'No schema or schema_uri found') {
 				return {
 					success: false,
-					error: CredentialVerificationError.VctSchemaError,
+					error: CredentialVerificationError.VctSchemaNotFound,
 				}
+			}
+
+			return {
+				success: false,
+				error: CredentialVerificationError.VctSchemaError,
 			}
 		}
 
@@ -375,7 +376,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 				if (!credentialVctVerificationResult.success) {
 					return {
 						success: false,
-						error: errors.length > 0 ?  errors[0].error : CredentialVerificationError.UnknownProblem,
+						error: credentialVctVerificationResult.error
 					}
 				}
 			}
