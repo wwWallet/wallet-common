@@ -1,14 +1,16 @@
 import { SDJwt } from "@sd-jwt/core";
+import { SDJwtVcInstance } from "@sd-jwt/sd-jwt-vc";
 import type { HasherAndAlg } from "@sd-jwt/types";
 import { CredentialParsingError } from "../error";
 import { Context, CredentialParser, HttpClient } from "../interfaces";
 import { MetadataWarning, VerifiableCredentialFormat } from "../types";
 import { SdJwtVcPayloadSchema } from "../schemas";
 import { CredentialRenderingService } from "../rendering";
-import { getSdJwtVcMetadata } from "../utils/getSdJwtVcMetadata";
+import { fetchAndMergeMetadata } from "../utils/getSdJwtVcMetadata";
 import { OpenID4VCICredentialRendering } from "../functions/openID4VCICredentialRendering";
 import { z } from 'zod';
 import { getIssuerMetadata } from "../utils/getIssuerMetadata";
+import { CredentialMetadata } from "../types";
 
 export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }): CredentialParser {
 	const encoder = new TextEncoder();
@@ -54,6 +56,25 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 
 	return {
 		async parse({ rawCredential }) {
+			const vctFetcher = async function (uri: string, integrity?: string) {
+				const { header } = await SDJwt.extractJwt<{ vctm?: string[] }>(rawCredential)
+				const result = await fetchAndMergeMetadata(
+					args.context,
+					args.httpClient,
+					uri,
+					header?.vctm?.map(vctm => JSON.parse(Buffer.from(vctm, 'base64url').toString('utf-8'))) || [],
+					new Set<string>(),
+					integrity)
+				if (!result || result.error) {
+					throw new Error('Could not fetch VCT Metadata')
+				}
+
+				return result as { vct: string }
+			}
+			const sdjwt = new SDJwtVcInstance({
+				vctFetcher
+			})
+
 			if (typeof rawCredential !== 'string') {
 				return {
 					success: false,
@@ -107,15 +128,9 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 
 			let credentialFriendlyName: string | null = null;
 
-			const getSdJwtMetadataResult = await getSdJwtVcMetadata(args.context, args.httpClient, rawCredential, validatedParsedClaims, warnings);
-			if ('error' in getSdJwtMetadataResult) {
-				return {
-					success: false,
-					error: getSdJwtMetadataResult.error,
-				}
-			} else if (getSdJwtMetadataResult.credentialMetadata) {
-
-				const { credentialMetadata } = getSdJwtMetadataResult;
+			let credentialMetadata: CredentialMetadata;
+			try {
+				credentialMetadata = await sdjwt.getVct(rawCredential);
 
 				// Get localized display metadata from issuer metadata
 				const issuerDisplay = issuerMetadata?.credential_configurations_supported?.[credentialMetadata.vct]?.display;
@@ -181,6 +196,8 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 						})
 						.catch(() => null);
 				}
+			} catch (err) {
+				console.error(err)
 			}
 
 			return {
@@ -192,7 +209,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 							format: typParseResult.data,
 							vct: validatedParsedClaims?.vct as string | undefined ?? "",
 							// @ts-ignore
-							metadataDocuments: [getSdJwtMetadataResult.credentialMetadata],
+							metadataDocuments: [credentialMetadata],
 							image: {
 								dataUri: dataUri ?? "",
 							},
@@ -206,7 +223,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 					validityInfo: {
 						...extractValidityInfo(validatedParsedClaims)
 					},
-					warnings: getSdJwtMetadataResult.warnings
+					warnings,
 				}
 			}
 		},
