@@ -183,6 +183,8 @@ export function JptDcParser(args: { context: Context, httpClient: HttpClient }):
 			return {
 				success: true,
 				value: {
+					issuerHeader: parsedJpt.issuerHeader,
+					presentationHeader: "presentationHeader" in parsedJpt ? parsedJpt.presentationHeader : null,
 					signedJptClaims: claims,
 					metadata: {
 						credential: {

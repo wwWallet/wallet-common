@@ -90,6 +90,8 @@ export type ParsedCredentialJpt = ParsedCredentialCommon & {
 		},
 		issuer: CredentialIssuer,
 	},
+	issuerHeader: Record<string, unknown>,
+	presentationHeader: Record<string, unknown> | null,
 	signedJptClaims: CredentialJptClaims,
 };
 
