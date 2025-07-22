@@ -1,12 +1,13 @@
 import { JWK } from "jose";
 import { CredentialParsingError, CredentialVerificationError, PublicKeyResolutionError, CredentialRenderingError, ValidatePresentationRequirementsError } from "./error";
-import { Result, ParsedCredential, CredentialClaims, ParserResult } from "./types";
+import { Result, ParsedCredential, CredentialClaims, ParserResult, CredentialClaimPath } from "./types";
 
 export interface CredentialRendering {
 	renderSvgTemplate(args: {
 		json: any;
 		credentialImageSvgTemplate: string;
 		sdJwtVcMetadataClaims: any;
+		filter?: Array<CredentialClaimPath>;
 	}): Promise<string | null>
 }
 

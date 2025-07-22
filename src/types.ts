@@ -35,6 +35,9 @@ export type MetadataWarning = {
 	code: CredentialParsingError;
 };
 
+export type CredentialClaimPath = Array<string>;
+export type ImageDataUriCallback = (filter?: Array<CredentialClaimPath>) => Promise<string | null>;
+
 export type ParsedCredential = {
 	metadata: {
 		credential: {
@@ -43,14 +46,14 @@ export type ParsedCredential = {
 			name: string,
 			metadataDocuments: Record<string, unknown>[],
 			image: {
-				dataUri: string,
+				dataUri: ImageDataUriCallback,
 			},
 		} | {
 			format: VerifiableCredentialFormat.MSO_MDOC,
 			doctype: string,
 			name: string,
 			image: {
-				dataUri: string,
+				dataUri: ImageDataUriCallback,
 			},
 		},
 		issuer: CredentialIssuer,
