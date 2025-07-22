@@ -260,13 +260,15 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 		} catch (error) {
 			console.warn(error);
 
-			if (error instanceof Error && error.message == 'No schema or schema_uri found') {
+			if (error instanceof Error && error.message == "No schema or schema_uri found") {
+				logError(CredentialVerificationError.VctSchemaNotFound, error.message);
 				return {
 					success: false,
 					error: CredentialVerificationError.VctSchemaNotFound,
 				}
 			}
 
+			logError(CredentialVerificationError.VctSchemaError, error.message);
 			return {
 				success: false,
 				error: CredentialVerificationError.VctSchemaError,
@@ -376,7 +378,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 				if (!credentialVctVerificationResult.success) {
 					return {
 						success: false,
-						error: credentialVctVerificationResult.error
+						error: errors.length > 0 ?  errors[0].error : CredentialVerificationError.UnknownProblem,
 					}
 				}
 			}
