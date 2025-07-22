@@ -177,7 +177,6 @@ describe("The SDJWTVCParser", () => {
 		let image;
 		if (parsedCredential.success) {
 			image = await parsedCredential.value.metadata?.credential?.image?.dataUri();
-			console.log("Image = ", image)
 		}
 		assert(image);
 	});
