@@ -202,9 +202,14 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 		if (urnOrUrl.startsWith('https')) {
 			const url = urnOrUrl
 
-			return await args.httpClient.get(url).then(({ data }) => {
+			const vctm = await args.httpClient.get(url).then(({ data }) => {
 				return data as { vct: string }
 			})
+
+			// @ts-ignore
+			const isIntegrityValid = await SdJwtVc.validateIntegrity(vctm, uri, integrity)
+
+			return vctm
 		}
 
 		if (urnOrUrl.startsWith('urn')) {
