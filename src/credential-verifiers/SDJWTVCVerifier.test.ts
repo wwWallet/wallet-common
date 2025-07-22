@@ -145,6 +145,37 @@ describe("The SDJWTVerifier", () => {
 		assert(result.success === true);
 	});
 
+	it(`should return an error with no schema in vctm`, async () => {
+		const { sdJwt, certPem } = await sdJwtFixture('urn:no-schema', { vctmInHeader: true });
+		const resolverEngine = PublicKeyResolverEngine();
+		resolverEngine.register({ resolve: () => {
+			return {
+				success: true,
+				value: certPem
+			}
+		}});
+		const result = await SDJWTVCVerifier({
+			context: {
+				clockTolerance: 0,
+				lang: 'en-US',
+				subtle: crypto.subtle,
+				trustedCertificates: [
+					certPem
+				],
+				config: {
+					vctRegistryUri
+				},
+			},
+			pkResolverEngine: resolverEngine,
+			httpClient: axios
+		})
+		.verify({
+			rawCredential: sdJwt, opts: { verifySchema: true }
+		});
+
+		assert(result.error === 'VctSchemaNotFound');
+	});
+
 	['urn:eu.europa.ec.eudi:pid:1', 'urn:eudi:pid:1'].forEach(vct => {
 		it(`should successfully verify ${vct} credential`, async () => {
 			const { sdJwt, certPem } = await sdJwtFixture(vct);

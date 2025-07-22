@@ -86,6 +86,9 @@ const vctClaims =  {
 	},
 	"urn:wwwallet:test": {
 		"someKey": "SomeValue"
+	},
+	"urn:no-schema": {
+		"someKey": "SomeValue"
 	}
 };
 
@@ -116,6 +119,10 @@ export function sdJwtFixture (vct: string = 'urn:eu.europa.ec.eudi:pid:1', opts:
 			"x5c": x5c
 		};
 		const vctms = await axios.get(vctRegistryUri).then(({ data }) => data);
+		vctms.push({
+			vct: 'urn:no-schema',
+			claims: []
+		})
 		const vctm = vctms.map(vctm => Buffer.from(JSON.stringify(vctm)).toString('base64url'));
 
 		if (opts.vctmInHeader) {
@@ -152,7 +159,6 @@ export function sdJwtFixture (vct: string = 'urn:eu.europa.ec.eudi:pid:1', opts:
 			"_sd_alg": "sha-256",
 			"_sd": disclosures.map(({ _sd }) => _sd)
 		}
-
 
 		const jwt = await new SignJWT(body)
 		.setProtectedHeader(header)
