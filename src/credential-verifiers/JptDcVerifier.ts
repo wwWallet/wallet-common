@@ -1,9 +1,10 @@
 import { Context, CredentialVerifier, PublicKeyResolverEngineI, HttpClient } from "../interfaces";
 import { CredentialVerificationError } from "../error";
 import { JWK } from "jose";
-import { parseJpt } from "../jpt";
+import { JptClaims, parseJpt, PresentedJpt } from "../jpt";
 import { importIssuerPublicJwk } from "../jwp";
 import * as jwp from "../jwp";
+import { Result } from "../types";
 
 export function JptDcVerifier(args: {
 	context: Context,
@@ -20,53 +21,61 @@ export function JptDcVerifier(args: {
 				};
 			}
 
+			const verifyPresentation = async ({ presentationHeader, claims }: PresentedJpt): Promise<Result<{
+				valid: true,
+				presentationHeader: jwp.JwpHeader,
+				claims: JptClaims,
+				holderPublicKey: JWK,
+			}, CredentialVerificationError>> => {
+				if (opts.expectedAudience && (presentationHeader.aud !== opts.expectedAudience)) {
+					return {
+						success: false,
+						error: CredentialVerificationError.KbJwtVerificationFailedUnexpectedAudience,
+					};
+				}
+				if (opts.expectedNonce && (presentationHeader.nonce !== opts.expectedNonce)) {
+					return {
+						success: false,
+						error: CredentialVerificationError.KbJwtVerificationFailedUnexpectedNonce,
+					};
+				}
+
+				for (const issuerPublicKey of args.issuerPublicKeys) {
+					const PK = importIssuerPublicJwk(issuerPublicKey, 'experimental/SplitBBSv2.1');
+					try {
+						await jwp.verify(PK, rawCredential);
+					} catch (e) {
+						// Invalid signature
+						continue;
+					}
+
+					return {
+						success: true,
+						value: {
+							valid: true,
+							presentationHeader,
+							claims,
+							holderPublicKey: null as unknown as JWK, // TODO: Eliminate horrible hack
+						},
+					};
+				}
+
+				return {
+					success: false,
+					error: CredentialVerificationError.InvalidSignature,
+				};
+			}
+
 			const parsedCredential = parseJpt(rawCredential);
-			if (!("presentationHeader" in parsedCredential)) {
+			if ("presentationHeader" in parsedCredential) {
+				return verifyPresentation(parsedCredential);
+			} else {
 				return {
 					success: false,
 					error: CredentialVerificationError.InvalidDatatype,
 				};
 			}
 
-			const { presentationHeader, claims } = parsedCredential;
-
-			if (opts.expectedAudience && (presentationHeader.aud !== opts.expectedAudience)) {
-				return {
-					success: false,
-					error: CredentialVerificationError.KbJwtVerificationFailedUnexpectedAudience,
-				};
-			}
-			if (opts.expectedNonce && (presentationHeader.nonce !== opts.expectedNonce)) {
-				return {
-					success: false,
-					error: CredentialVerificationError.KbJwtVerificationFailedUnexpectedNonce,
-				};
-			}
-
-			for (const issuerPublicKey of args.issuerPublicKeys) {
-				const PK = importIssuerPublicJwk(issuerPublicKey, 'experimental/SplitBBSv2.1');
-				try {
-					await jwp.verify(PK, rawCredential);
-				} catch (e) {
-					// Invalid signature
-					continue;
-				}
-
-				return {
-					success: true,
-					value: {
-						valid: true,
-						presentationHeader,
-						claims,
-						holderPublicKey: null as unknown as JWK, // TODO: Eliminate horrible hack
-					},
-				};
-			}
-
-			return {
-				success: false,
-				error: CredentialVerificationError.InvalidSignature,
-			};
 		},
 	}
 }
