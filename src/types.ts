@@ -36,7 +36,10 @@ export type MetadataWarning = {
 };
 
 export type CredentialClaimPath = Array<string>;
-export type ImageDataUriCallback = (filter?: Array<CredentialClaimPath>) => Promise<string | null>;
+export type ImageDataUriCallback = (
+	filter?: Array<CredentialClaimPath>,
+	preferredLangs?: string[]
+) => Promise<string | null>;
 
 export type ParsedCredential = {
 	metadata: {

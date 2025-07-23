@@ -152,7 +152,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 					const svgResponse = await args.httpClient.get(credentialImageSvgTemplateURL, {}, { useCache: true }).then((res) => res).catch(() => null);
 					if (svgResponse && svgResponse.status === 200) {
 						const svgdata = svgResponse.data as string;
-						dataUri = async (filter?: Array<CredentialClaimPath>) => {
+						dataUri = async (filter?: Array<CredentialClaimPath>, preferredLangs: string[] = ['en-US']) => {
 							return await cr
 							.renderSvgTemplate({
 								json: validatedParsedClaims,
@@ -167,7 +167,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 
 				// 2. Fallback: render from simple config
 				if (!dataUri && simpleDisplayConfig) {
-					dataUri = async (filter?: Array<CredentialClaimPath>) => {
+					dataUri = async (filter?: Array<CredentialClaimPath>, preferredLangs: string[] = ['en-US']) => {
 						return await renderer
 							.renderCustomSvgTemplate({
 								signedClaims: validatedParsedClaims,
@@ -179,7 +179,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 
 				// 3. Fallback: render from issuer metadata display
 				if (!dataUri && issuerDisplayLocalized) {
-					dataUri = async (filter?: Array<CredentialClaimPath>) => {
+					dataUri = async (filter?: Array<CredentialClaimPath>, preferredLangs: string[] = ['en-US']) => {
 						return await renderer
 							.renderCustomSvgTemplate({
 								signedClaims: validatedParsedClaims,
