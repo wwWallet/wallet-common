@@ -148,3 +148,30 @@ export function parseJpt(jpt: string | IssuedJwp | PresentedJwp): IssuedJpt | Pr
 		};
 	}
 }
+
+export async function presentSplitBbs(
+	issuedJpt: string,
+	presentationHeader: JwpHeader,
+	claims: ClaimPath[],
+	deviceSign: (T2bar: PointG1, c_host: bigint) => Promise<BufferSource>,
+): Promise<string> {
+	if (presentationHeader.alg !== ALG_SPLIT_BBS) {
+		throw new Error(`Bad alg in presentation header: expected ${ALG_SPLIT_BBS}, was: ${presentationHeader.alg}`, { cause: { presentationHeader } });
+	}
+
+	const { issuerHeader } = parseJpt(issuedJpt);
+	if (!issuerHeader.jwk) {
+		throw new Error("Missing jwk in issuer header", { cause: { presentationHeader } });
+	}
+	const metadata: ClaimsMetadata = JSON.parse(new TextDecoder().decode(fromBase64Url(issuerHeader.vctm[0])));
+
+	const discloseIndexes = metadata.claims.flatMap((claimMeta, i) => {
+		if (claims.some(claimQueryPath => pathEquals(claimMeta.path, claimQueryPath))) {
+			return [i];
+		} else {
+			return [];
+		}
+	});
+
+	return jwp.presentSplitBbs(issuerHeader.jwk, issuedJpt, presentationHeader, discloseIndexes, deviceSign);
+}
