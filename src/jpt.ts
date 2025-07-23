@@ -1,5 +1,33 @@
+import { PointG1 } from "./bbs";
+import { ALG_SPLIT_BBS, IssuedJwp, JwpHeader, parseJwp, PresentedJwp } from "./jwp";
+import * as jwp from "./jwp";
+import { fromBase64Url } from "./utils/util";
+
 export type ClaimPath = (string | null | number)[];
 export type ClaimsMetadata = { claims: { path: ClaimPath }[] };
+
+export type JptComplexClaim = { path: ClaimPath, value: unknown };
+export type JptClaims = {
+	simple: Record<string, unknown>,
+	complex: JptComplexClaim[],
+};
+
+export type IssuedJpt = {
+	issuerHeader: JwpHeader,
+	claims: JptClaims,
+	proof: BufferSource[],
+}
+
+export type PresentedJpt = {
+	presentationHeader: JwpHeader,
+	issuerHeader: JwpHeader,
+	claims: JptClaims,
+	proof: BufferSource[],
+}
+
+function pathEquals(a: ClaimPath, b: ClaimPath): boolean {
+	return (a === b) || ((a && b) && (a.length === b.length) && a.every((va, i) => va === b[i]));
+}
 
 export function extractPayloadsFromClaims(
 	claims: { [key: string]: any },
@@ -52,30 +80,71 @@ export function extractPayloadsFromClaims(
 	});
 }
 
-export function extractClaimFromPayloads(
+function extractClaimsFromPayloads(
 	payloads: (BufferSource | null)[],
-	path: ClaimPath,
 	metadata: ClaimsMetadata,
-): { value: any } | "undisclosed" | "not-found" {
-	function pathEquals(a: ClaimPath, b: ClaimPath): boolean {
-		return (a === b) || ((a && b) && (a.length === b.length) && a.every((va, i) => va === b[i]));
+): JptClaims {
+	return metadata.claims.reduce(
+		(claims: JptClaims, meta, i) => {
+			const payload = payloads[i];
+			if (payload === null) {
+				return claims; // Undisclosed claim
+			} else if (payload.byteLength === 0) {
+				return claims; // Claim not issued
+			} else {
+				const value = JSON.parse(new TextDecoder().decode(payload));
+				if (meta.path.length === 1 && typeof meta.path[0] === 'string') {
+					const key = meta.path[0];
+					if (key in claims) {
+						throw new Error("Duplicate simple claim key: " + key);
+					} else {
+						claims.simple[key] = value;
+						return claims;
+					}
+				} else {
+					claims.complex.push({ path: meta.path, value });
+					return claims;
+				}
+			}
+		},
+		{
+			simple: {},
+			complex: [],
+		},
+	);
+}
+
+export function findComplexClaim(jpt: IssuedJpt | PresentedJpt, path: ClaimPath): JptComplexClaim | undefined {
+	return jpt.claims.complex.find(claim => pathEquals(claim.path, path));
+}
+
+export function parseJpt(jpt: string | IssuedJwp | PresentedJwp): IssuedJpt | PresentedJpt {
+	const parsedJpt = parseJwp(jpt);
+	const { issuerHeader, payloads, proof } = parsedJpt;
+	const vctm = issuerHeader.vctm;
+	if (!vctm) {
+		throw new Error("No metadata in JPT issuer header: " + jpt);
 	}
 
-	const payloadIndex = metadata.claims.findIndex(meta => pathEquals(meta.path, path));
-	if (payloadIndex >= 0) {
-		if (payloadIndex < payloads.length) {
-			const payload = payloads[payloadIndex];
-			if (payload === null) {
-				return "undisclosed";
-			} else if (payload.byteLength === 0) {
-				return "not-found";
-			} else {
-				return { value: JSON.parse(new TextDecoder().decode(payload)) };
-			}
-		} else {
-			return "not-found";
-		}
+	const metadata: ClaimsMetadata = JSON.parse(new TextDecoder().decode(fromBase64Url(vctm[0])));
+	if (!metadata?.claims) {
+		throw new Error("Unrecognized metadata in JPT issuer header: " + jpt);
+	}
+
+	const claims = extractClaimsFromPayloads(payloads, metadata);
+	if ("presentationHeader" in parsedJpt) {
+		return {
+			issuerHeader,
+			presentationHeader: parsedJpt.presentationHeader,
+			claims,
+			proof,
+		};
+
 	} else {
-		throw new Error("Claim not found in metadata: " + path);
+		return {
+			issuerHeader,
+			claims,
+			proof,
+		};
 	}
 }

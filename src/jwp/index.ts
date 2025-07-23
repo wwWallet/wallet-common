@@ -4,13 +4,13 @@
 import { JWK } from "jose";
 
 import { getCipherSuite, PointG1, PointG2 } from "../bbs";
-import { concat, fromBase64Url, I2OSP, OS2IP, toBase64Url, toU8 } from "../utils/util";
+import { concat, fromBase64Url, I2OSP, OS2IP, toBase64Url } from "../utils/util";
 
 
 /** https://www.ietf.org/archive/id/draft-ietf-jose-json-proof-algorithms-09.html#name-bbs-using-sha-256-algorithm */
 const ALG_IETF_BBS = 'BBS';
 export const ALG_SPLIT_BBS = 'experimental/SplitBBSv2.1';
-const CRV_BLS12381G1 = 'BLS12381G1';
+export const CRV_BLS12381G1 = 'BLS12381G1';
 const CRV_BLS12381G2 = 'BLS12381G2';
 type CRV_BLS12_381 = 'BLS12381G1' | 'BLS12381G2';
 
@@ -20,7 +20,7 @@ type JwkBlsPrivate = JwkBlsPublic & { d: any };
 /** Base64url-encoded binary string or raw binary data */
 type JoseBytes = string | BufferSource;
 
-type JwpHeader = {
+export type JwpHeader = {
 	alg: string,
 	kid?: string,
 	typ?: string,
@@ -33,13 +33,13 @@ type JwpHeader = {
 	[key: string]: any,
 }
 
-type IssuedJwp = {
-	header: JwpHeader,
+export type IssuedJwp = {
+	issuerHeader: JwpHeader,
 	payloads: BufferSource[],
 	proof: BufferSource[],
 }
 
-type PresentedJwp = {
+export type PresentedJwp = {
 	presentationHeader: JwpHeader,
 	issuerHeader: JwpHeader,
 	payloads: (BufferSource | null)[],
@@ -182,6 +182,20 @@ export function exportHolderPrivateJwk(sk: bigint, alg: string): JwkBlsPrivate {
 	};
 }
 
+export function parseJwp(jwp: string | IssuedJwp | PresentedJwp): IssuedJwp | PresentedJwp {
+	if (typeof jwp === 'string') {
+		try {
+			const { parsed } = parseIssuedJwp(jwp);
+			return parsed;
+		} catch (e) {
+			const { parsed } = parsePresentedJwp(jwp);
+			return parsed;
+		}
+	} else {
+		return jwp;
+	}
+}
+
 export function parseIssuedJwp(jwp: string): {
 	raw: { header: BufferSource, payloads: BufferSource[], proof: BufferSource[] },
 	parsed: IssuedJwp,
@@ -216,7 +230,7 @@ export function parseIssuedJwp(jwp: string): {
 			proof,
 		},
 		parsed: {
-			header: JSON.parse(new TextDecoder().decode(rawHeader)),
+			issuerHeader: JSON.parse(new TextDecoder().decode(rawHeader)),
 			payloads,
 			proof,
 		}
@@ -341,7 +355,7 @@ export async function issueSplitBbs(
 }
 
 export async function confirm(PK: JWK, issuedJwp: string): Promise<true> {
-	const { raw: { header }, parsed: { header: { alg }, payloads, proof } } = parseIssuedJwp(issuedJwp);
+	const { raw: { header }, parsed: { issuerHeader: { alg }, payloads, proof } } = parseIssuedJwp(issuedJwp);
 	switch (alg) {
 		case ALG_IETF_BBS:
 			{
