@@ -1,7 +1,7 @@
 import { Context, CredentialVerifier, PublicKeyResolverEngineI, HttpClient } from "../interfaces";
 import { CredentialVerificationError } from "../error";
 import { JWK } from "jose";
-import { JptClaims, parseJpt, PresentedJpt } from "../jpt";
+import { IssuedJpt, JptClaims, parseJpt, PresentedJpt } from "../jpt";
 import { importIssuerPublicJwk } from "../jwp";
 import * as jwp from "../jwp";
 import { Result } from "../types";
@@ -21,9 +21,10 @@ export function JptDcVerifier(args: {
 				};
 			}
 
-			const verifyPresentation = async ({ presentationHeader, claims }: PresentedJpt): Promise<Result<{
+			const verifyPresentation = async ({ presentationHeader, issuerHeader, claims }: PresentedJpt): Promise<Result<{
 				valid: true,
 				presentationHeader: jwp.JwpHeader,
+				issuerHeader: jwp.JwpHeader,
 				claims: JptClaims,
 				holderPublicKey: JWK,
 			}, CredentialVerificationError>> => {
@@ -54,8 +55,50 @@ export function JptDcVerifier(args: {
 						value: {
 							valid: true,
 							presentationHeader,
+							issuerHeader,
 							claims,
 							holderPublicKey: null as unknown as JWK, // TODO: Eliminate horrible hack
+						},
+					};
+				}
+
+				return {
+					success: false,
+					error: CredentialVerificationError.InvalidSignature,
+				};
+			}
+
+			const verifyIssuance = async ({ issuerHeader, claims, proof }: IssuedJpt): Promise<Result<{
+				valid: true,
+				issuerHeader: jwp.JwpHeader,
+				claims: JptClaims,
+				holderPublicKey: JWK,
+			}, CredentialVerificationError>> => {
+				for (const issuerPublicKey of [issuerHeader.jwk, ...args.issuerPublicKeys]) {
+					try {
+						await jwp.confirm(issuerPublicKey, rawCredential);
+					} catch (e) {
+						// Invalid signature
+						continue;
+					}
+
+					let dpk;
+					try {
+						dpk = JSON.parse(new TextDecoder().decode(proof[1]));
+					} catch (e) {
+						return {
+							success: false,
+							error: CredentialVerificationError.CannotExtractHolderPublicKey,
+						};
+					}
+
+					return {
+						success: true,
+						value: {
+							valid: true,
+							issuerHeader,
+							claims,
+							holderPublicKey: dpk,
 						},
 					};
 				}
@@ -70,10 +113,7 @@ export function JptDcVerifier(args: {
 			if ("presentationHeader" in parsedCredential) {
 				return verifyPresentation(parsedCredential);
 			} else {
-				return {
-					success: false,
-					error: CredentialVerificationError.InvalidDatatype,
-				};
+				return verifyIssuance(parsedCredential);
 			}
 
 		},
