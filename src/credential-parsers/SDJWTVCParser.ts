@@ -173,6 +173,12 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 						if (rendered) return rendered;
 					}
 
+					const rendered = await renderer.renderCustomSvgTemplate({
+						signedClaims: validatedParsedClaims,
+						displayConfig: { name: "SD-JWT Verifiable Credential" },
+					}).catch(() => null);
+					if (rendered) return rendered;
+
 					// All attempts failed
 					return null;
 				};
