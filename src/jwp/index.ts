@@ -331,6 +331,12 @@ export async function issueSplitBbs(
 		G1.Point.BASE,
 		payloads,
 	);
+
+	// dpk is needed here as part of issuer "proof" in order for the confirm
+	// function to satisfy the function signature confirm(PK, jwp) implied by
+	// https://www.ietf.org/archive/id/draft-ietf-jose-json-proof-algorithms-10.html#name-jpa-algorithms
+	// and in turn https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-signatures-09#name-signature-verification-veri
+	// dpk will not be part of the presentation proof.
 	return assembleIssuedJwp(header, payloads, [proof, new TextEncoder().encode(JSON.stringify(dpk))]);
 }
 
