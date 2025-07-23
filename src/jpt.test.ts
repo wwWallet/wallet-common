@@ -1,53 +1,9 @@
 import { assert, describe, it } from "vitest";
 
-import { assembleIssuedJwp, assemblePresentationJwp, parseIssuedJwp, parsePresentedJwp } from "./jwp";
-import { extractPayloadsFromClaims, extractClaimFromPayloads } from "./jpt";
+import { assembleIssuedJwp } from "./jwp";
+import { extractPayloadsFromClaims, parseJpt } from "./jpt";
+import { toBase64Url } from "./utils/util";
 
-
-const metadata = {
-	"claims": [
-		{ "path": ["iat"] },
-		{ "path": ["family_name"] },
-		{ "path": ["given_name"] },
-		{ "path": ["birthdate"] },
-		{ "path": ["place_of_birth"] },
-		{ "path": ["place_of_birth", "locality"] },
-		{ "path": ["place_of_birth", "region"] },
-		{ "path": ["place_of_birth", "country"] },
-		{ "path": ["nationalities", null] },
-		{ "path": ["nationalities"] },
-		{ "path": ["personal_administrative_number"] },
-		{ "path": ["picture"] },
-		{ "path": ["birth_family_name"] },
-		{ "path": ["birth_given_name"] },
-		{ "path": ["sex"] },
-		{ "path": ["email"] },
-		{ "path": ["phone_number"] },
-		{ "path": ["address"] },
-		{ "path": ["address", "formatted"] },
-		{ "path": ["address", "street_address"] },
-		{ "path": ["address", "house_number"] },
-		{ "path": ["address", "postal_code"] },
-		{ "path": ["address", "locality"] },
-		{ "path": ["address", "region"] },
-		{ "path": ["address", "country"] },
-		{ "path": ["age_equal_or_over"] },
-		{ "path": ["age_equal_or_over", "14"] },
-		{ "path": ["age_equal_or_over", "16"] },
-		{ "path": ["age_equal_or_over", "18"] },
-		{ "path": ["age_equal_or_over", "21"] },
-		{ "path": ["age_equal_or_over", "65"] },
-		{ "path": ["age_in_years"] },
-		{ "path": ["age_birth_year"] },
-		{ "path": ["issuing_authority"] },
-		{ "path": ["issuing_country"] },
-		{ "path": ["date_of_expiry"] },
-		{ "path": ["date_of_issuance"] },
-		{ "path": ["document_number"] },
-		{ "path": ["issuing_jurisdiction"] },
-		{ "path": ["trust_anchor"] }
-	],
-};
 
 describe("JPT payload encoding:", () => {
 	describe("extractPayloadsFromClaims", () => {
@@ -207,8 +163,8 @@ describe("JPT payload encoding:", () => {
 		});
 	});
 
-	describe("extractClaimFromPayloads", () => {
-		it("extracts primitive claims correctly.", () => {
+	describe("parseJpt", () => {
+		it("parses primitive claims correctly.", () => {
 			const metadata = {
 				"claims": [
 					{ "path": ["email"] },
@@ -218,23 +174,29 @@ describe("JPT payload encoding:", () => {
 					{ "path": ["nullfield"] },
 				],
 			};
-			const claims = {
+			const inputClaims = {
 				email: "a",
 				iat: 42,
 				family_name: "bb",
 				age_over_18: true,
 				nullfield: null,
 			};
-			const jwp = assembleIssuedJwp({ alg: '' }, extractPayloadsFromClaims(claims, metadata), []);
-			const { parsed: { payloads } } = parseIssuedJwp(jwp);
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["email"], metadata), { value: "a" });
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["iat"], metadata), { value: 42 });
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["family_name"], metadata), { value: "bb" });
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["age_over_18"], metadata), { value: true });
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["nullfield"], metadata), { value: null });
+			const header = { alg: '', vctm: [toBase64Url(new TextEncoder().encode(JSON.stringify(metadata)))] };
+			const jwp = assembleIssuedJwp(header, extractPayloadsFromClaims(inputClaims, metadata), []);
+			const { claims } = parseJpt(jwp);
+			assert.deepEqual(claims, {
+				simple: {
+					email: "a",
+					iat: 42,
+					family_name: "bb",
+					age_over_18: true,
+					nullfield: null,
+				},
+				complex: [],
+			});
 		});
 
-		it("extracts zero-length payloads as omitted claims.", () => {
+		it("parses zero-length payloads as omitted claims.", () => {
 			const metadata = {
 				"claims": [
 					{ "path": ["jti"] },
@@ -244,19 +206,19 @@ describe("JPT payload encoding:", () => {
 					{ "path": ["age_over_18"] },
 				],
 			};
-			const claims = {
+			const inputClaims = {
 				family_name: "Testsson",
 			};
-			const jwp = assembleIssuedJwp({ alg: '' }, extractPayloadsFromClaims(claims, metadata), []);
-			const { parsed: { payloads } } = parseIssuedJwp(jwp);
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["jti"], metadata), "not-found");
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["sub"], metadata), "not-found");
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["iat"], metadata), "not-found");
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["family_name"], metadata), { value: "Testsson" });
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["age_over_18"], metadata), "not-found");
+			const header = { alg: '', vctm: [toBase64Url(new TextEncoder().encode(JSON.stringify(metadata)))] };
+			const jwp = assembleIssuedJwp(header, extractPayloadsFromClaims(inputClaims, metadata), []);
+			const { claims } = parseJpt(jwp);
+			assert.deepEqual(claims, {
+				simple: { family_name: "Testsson", },
+				complex: [],
+			});
 		});
 
-		it("extracts null payloads as undisclosed claims.", () => {
+		it("parses null payloads as undisclosed claims.", () => {
 			const metadata = {
 				"claims": [
 					{ "path": ["jti"] },
@@ -266,48 +228,19 @@ describe("JPT payload encoding:", () => {
 					{ "path": ["age_over_18"] },
 				],
 			};
-			const claims = {
+			const inputClaims = {
 				family_name: "Testsson",
 			};
-			const issuedJwp = assembleIssuedJwp({ alg: '' }, extractPayloadsFromClaims(claims, metadata), []);
-			const jwp = assemblePresentationJwp(issuedJwp, { alg: '' }, [3], []);
-			const { parsed: { payloads } } = parsePresentedJwp(jwp);
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["jti"], metadata), "undisclosed");
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["sub"], metadata), "undisclosed");
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["iat"], metadata), "undisclosed");
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["family_name"], metadata), { value: "Testsson" });
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["age_over_18"], metadata), "undisclosed");
+			const header = { alg: '', vctm: [toBase64Url(new TextEncoder().encode(JSON.stringify(metadata)))] };
+			const jwp = assembleIssuedJwp(header, extractPayloadsFromClaims(inputClaims, metadata), []);
+			const { claims } = parseJpt(jwp);
+			assert.deepEqual(claims, {
+				simple: { family_name: "Testsson", },
+				complex: [],
+			});
 		});
 
-		it("throws an error for claim paths not present in metadata.", () => {
-			const metadata = {
-				"claims": [
-					{ "path": ["jti"] },
-					{ "path": ["sub"] },
-					{ "path": ["iat"] },
-					{ "path": ["family_name"] },
-					{ "path": ["age_over_18"] },
-					{ "path": ["address", "formatted"] },
-					{ "path": ["nationalities", 0] },
-					{ "path": ["nationalities", 1] },
-					{ "path": ["nationalities", 3] },
-				],
-			};
-			const claims = {
-				family_name: "Testsson",
-			};
-			const issuedJwp = assembleIssuedJwp({ alg: '' }, extractPayloadsFromClaims(claims, metadata), []);
-			const jwp = assemblePresentationJwp(issuedJwp, { alg: '' }, [3], []);
-			const { parsed: { payloads } } = parsePresentedJwp(jwp);
-			assert.throws(() => extractClaimFromPayloads(payloads, ["given_name"], metadata), /^Claim not found in metadata: /);
-			assert.throws(() => extractClaimFromPayloads(payloads, ["address"], metadata), /^Claim not found in metadata: /);
-			assert.throws(() => extractClaimFromPayloads(payloads, ["nationalities", 2], metadata), /^Claim not found in metadata: /);
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["nationalities", 0], metadata), "undisclosed");
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["nationalities", 1], metadata), "undisclosed");
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["nationalities", 3], metadata), "undisclosed");
-		});
-
-		it("extracts object claims correctly.", () => {
+		it("parses object claims correctly.", () => {
 			const metadata = {
 				"claims": [
 					{ "path": ["family_name"] },
@@ -327,7 +260,7 @@ describe("JPT payload encoding:", () => {
 					{ "path": ["age_equal_or_over", "65"] },
 				],
 			};
-			const claims = {
+			const inputClaims = {
 				family_name: "Testsson",
 				address: {
 					country: "SE",
@@ -339,26 +272,26 @@ describe("JPT payload encoding:", () => {
 					"65": false,
 				},
 			};
-			const jwp = assembleIssuedJwp({ alg: '' }, extractPayloadsFromClaims(claims, metadata), []);
-			const { parsed: { payloads } } = parseIssuedJwp(jwp);
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["family_name"], metadata), { value: "Testsson" });
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["address"], metadata), { value: { country: "SE", locality: "Stockholm" } });
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["address", "formatted"], metadata), "not-found");
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["address", "street_address"], metadata), "not-found");
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["address", "house_number"], metadata), "not-found");
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["address", "postal_code"], metadata), "not-found");
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["address", "locality"], metadata), { value: "Stockholm" });
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["address", "region"], metadata), "not-found");
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["address", "country"], metadata), { value: "SE" });
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["age_equal_or_over"], metadata), { value: { "14": true, "18": true, "65": false } });
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["age_equal_or_over", "14"], metadata), { value: true });
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["age_equal_or_over", "16"], metadata), "not-found");
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["age_equal_or_over", "18"], metadata), { value: true });
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["age_equal_or_over", "21"], metadata), "not-found");
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["age_equal_or_over", "65"], metadata), { value: false });
+			const header = { alg: '', vctm: [toBase64Url(new TextEncoder().encode(JSON.stringify(metadata)))] };
+			const jwp = assembleIssuedJwp(header, extractPayloadsFromClaims(inputClaims, metadata), []);
+			const { claims } = parseJpt(jwp);
+			assert.deepEqual(claims, {
+				simple: {
+					family_name: "Testsson",
+					address: { country: "SE", locality: "Stockholm" },
+					age_equal_or_over: { "14": true, "18": true, "65": false },
+				},
+				complex: [
+					{ path: ["address", "locality"], value: "Stockholm" },
+					{ path: ["address", "country"], value: "SE" },
+					{ path: ["age_equal_or_over", "14"], value: true },
+					{ path: ["age_equal_or_over", "18"], value: true },
+					{ path: ["age_equal_or_over", "65"], value: false },
+				],
+			});
 		});
 
-		it("extracts array claims correctly.", () => {
+		it("parses array claims correctly.", () => {
 			const metadata = {
 				"claims": [
 					{ "path": ["family_name"] },
@@ -369,21 +302,27 @@ describe("JPT payload encoding:", () => {
 					{ "path": ["nationalities", 2] },
 				],
 			};
-			const claims = {
+			const inputClaims = {
 				family_name: "Testsson",
 				nationalities: ['GR', 'SE'],
 			};
-			const jwp = assembleIssuedJwp({ alg: '' }, extractPayloadsFromClaims(claims, metadata), []);
-			const { parsed: { payloads } } = parseIssuedJwp(jwp);
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["family_name"], metadata), { value: "Testsson" });
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["nationalities", null], metadata), { value: ["GR", "SE"] });
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["nationalities"], metadata), { value: ["GR", "SE"] });
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["nationalities", 0], metadata), { value: "GR" });
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["nationalities", 1], metadata), { value: "SE" });
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["nationalities", 2], metadata), "not-found");
+			const header = { alg: '', vctm: [toBase64Url(new TextEncoder().encode(JSON.stringify(metadata)))] };
+			const jwp = assembleIssuedJwp(header, extractPayloadsFromClaims(inputClaims, metadata), []);
+			const { claims } = parseJpt(jwp);
+			assert.deepEqual(claims, {
+				simple: {
+					family_name: "Testsson",
+					nationalities: ["GR", "SE"],
+				},
+				complex: [
+					{ path: ["nationalities", null], value: ["GR", "SE"] },
+					{ path: ["nationalities", 0], value: "GR" },
+					{ path: ["nationalities", 1], value: "SE" },
+				],
+			});
 		});
 
-		it("extracts complex claim paths correctly.", () => {
+		it("parses complex claim paths correctly.", () => {
 			const metadata = {
 				"claims": [
 					{ "path": ["family_name"] },
@@ -393,7 +332,7 @@ describe("JPT payload encoding:", () => {
 					{ "path": ["test/addresses", null, "test/extra", null, "none"] },
 				],
 			};
-			const claims = {
+			const inputClaims = {
 				family_name: "Testsson",
 				"test/addresses": [
 					{ country: "GR", locality: "Αθήνα" },
@@ -402,13 +341,20 @@ describe("JPT payload encoding:", () => {
 					{ "test/extra": [{ foo: "bar4", boo: "far4" }, { boo: "far5" }] },
 				],
 			};
-			const jwp = assembleIssuedJwp({ alg: '' }, extractPayloadsFromClaims(claims, metadata), []);
-			const { parsed: { payloads } } = parseIssuedJwp(jwp);
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["family_name"], metadata), { value: "Testsson" });
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["test/addresses", null, "country"], metadata), { value: ["GR", "SE"] });
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["test/addresses", null, "locality"], metadata), { value: ["Αθήνα"] });
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["test/addresses", null, "test/extra", 1, "foo"], metadata), { value: ["bar3"] });
-			assert.deepEqual(extractClaimFromPayloads(payloads, ["test/addresses", null, "test/extra", null, "none"], metadata), { value: [] });
+			const header = { alg: '', vctm: [toBase64Url(new TextEncoder().encode(JSON.stringify(metadata)))] };
+			const jwp = assembleIssuedJwp(header, extractPayloadsFromClaims(inputClaims, metadata), []);
+			const { claims } = parseJpt(jwp);
+			assert.deepEqual(claims, {
+				simple: {
+					family_name: "Testsson",
+				},
+				complex: [
+					{ path: ["test/addresses", null, "country"], value: ["GR", "SE"] },
+					{ path: ["test/addresses", null, "locality"], value: ["Αθήνα"] },
+					{ path: ["test/addresses", null, "test/extra", 1, "foo"], value: ["bar3"] },
+					{ path: ["test/addresses", null, "test/extra", null, "none"], value: [] },
+				],
+			});
 		});
 	});
 });
