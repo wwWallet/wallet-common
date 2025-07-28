@@ -18,8 +18,6 @@ const rawCredential2 = `eyJ0eXAiOiJ2YytzZC1qd3QiLCJ2Y3RtIjpbImV5SjJZM1FpT2lKMWNt
 
 const rawCredentialWithoutMetadata = `eyJ0eXAiOiJ2YytzZC1qd3QiLCJhbGciOiJFUzI1NiIsIng1YyI6WyJNSUlDUmpDQ0FlMmdBd0lCQWdJVWMweFRYeHJRdkdwdkJJMHB0VlVCbHFDYkFyb3dDZ1lJS29aSXpqMEVBd0l3TERFTE1Ba0dBMVVFQmhNQ1FWUXhEakFNQmdOVkJBb01CVUV0VTBsVU1RMHdDd1lEVlFRRERBUkpRVU5CTUI0WERUSTFNRFV3TlRFek1qQXpOVm9YRFRJMk1EVXdOVEV6TWpBek5Wb3dPakVMTUFrR0ExVUVCaE1DUVZReERqQU1CZ05WQkFvTUJVRXRVMGxVTVJzd0dRWURWUVFEREJKRWIyTjFiV1Z1ZENCVGFXZHVaWElnVFRZd1dUQVRCZ2NxaGtqT1BRSUJCZ2dxaGtqT1BRTUJCd05DQUFTTU5XcDFRSDhiM1hwQmVNT3Y5cGRTeHV4QjI0TDZDMXJ5OEhWUmFmWEJLdm4yQkpnWm9CTm53eVhiSURnakJReVhYejUwNFlEdWxWdWljS2JZR1dnT280SGVNSUhiTUE0R0ExVWREd0VCL3dRRUF3SUhnREFWQmdOVkhTVUJBZjhFQ3pBSkJnY29nWXhkQlFFQ01ESUdBMVVkSHdRck1Da3dKNkFsb0NPR0lXaDBkSEJ6T2k4dmQyRnNiR1YwTG1FdGMybDBMbUYwTDJOeWJDOHhMbU55YkRBYUJnTlZIUkVFRXpBUmdnOTNZV3hzWlhRdVlTMXphWFF1WVhRd0lnWURWUjBTQkJzd0dZWVhhSFIwY0hNNkx5OTNZV3hzWlhRdVlTMXphWFF1WVhRd0h3WURWUjBqQkJnd0ZvQVVEUUY1SzQ2WVZnekxwZlY1c3RvdXRCZXpLNlF3SFFZRFZSME9CQllFRk8ya2c0VUxBU1FaNkYrT0N1WmdNamVWVmYvOE1Bb0dDQ3FHU000OUJBTUNBMGNBTUVRQ0lINnhCNkZ1UkVpSVgzbkY4ZERjdkMvS1JjN1FoZTdhSW5LM3VBa1FXaDN1QWlBVmRSUnl5ZmoweTgwSm96SndCTGpncEk5THIwNk1OWXlGRnc4V3I3Si90dz09Il19.eyJhZ2VfZXF1YWxfb3Jfb3ZlciI6eyJfc2QiOlsicjBkNlYzTnJoTFQ4eWphLWFZOFRiRy1aMW5CTEY0VnF4dkNJV2VtMzBFWSIsIjhJdnk4RWJtWHdudW1HZ3hzOFZsbUVlTkQ3TUVFbmhlTzRucmxTelpZU0UiLCJIU052M2JYWlk2T2RYTmNBS09qY1ZkeWNwS3ZYRGRvOEFMRXFfVklqWXhRIiwiOVF2M3daemtUTHQtemg1aWluN0syV3pQWlhveDZLQWpvZXNmbEhtMEtKVSIsIlhTVWtla2hreGs0Z2pjdXlnUzJoWkRrTzdRNVN2ejhSOUVvZWROZ2h4aXciLCI2d3VWUXRrZVRUaE1qT2wyZWJPWUZCMXo1NElETnBiWUNKcE5FUGtncTJzIiwicEdua003cjFDTENLaUxQR285cWlrODRNYkRRM1pCVTRiQXhTN2phR3ZGcyIsIlEtX3JFQlFfUTlSb2pjTnVsaEdKLXlfLVc3Q1ZhN1hBdkM3YkRWZnJZbzgiLCJhMG11Mm5SeG4wejVMc2FnYVpmTDY2eEI2LTRybThmRlVXRUJmUzJ1UWRJIiwiTDk3SXlPUklsb0o0dl8yZHNVZFpRMEo5enBkcm9FNThsVmNPekNxWWRkZyIsInp1UkhrclRMcUJOeVFta0NHd21CVzRRNE83bkpINnBoUjVFd3MyeEoxUUUiXX0sInBsYWNlX29mX2JpcnRoIjp7Il9zZCI6WyJJMjBveUNNRTByQ1ZFMFF3d091c0NtZHduYnpEdTZ1QmRuNEZ6aFhlaFRrIl19LCJhZGRyZXNzIjp7Il9zZCI6WyJUM2pSYkVNal85aVhVNHdleWRZem93dHQzcF8zb3lUNXZISHFjd0tCUjBzIiwiMjRjZGJua3IwallNOU9TdjJ5NkRBekdVakRUOS11cXpHNHVXOEc3aTlRZyIsIkplTkRCRWNSM0JMbTRsSG1nVEROdF9objM1eWdUX2xXci1namU1dG1VQ3MiLCJwYU1ZcVl3YnB4dm55c3J3WnNzNGVTTVRpdERDNWpoS2xFSmppVFFXWGQwIiwiTWstVmpxVTJnZUxoWTBpWmNWTXBoSGxUVnpvUnBwN0E1WGQ4dGlPRDBzbyIsInYwVTE4V2tYOUZ5a1h3NW1OZlFqZV82YUdoODFkT3RDVGxXbXM1dDlEUVUiLCJZNmEyLUhENWRsek9hUjhpbGRncXhaRDRMSUJVVEFlNzgxbjNlVVpaX2JZIl19LCJfc2QiOlsiZFhtR29SUVEzbTFZQXlZWVp3eU1YWlZOcVpkQkxuNnVzblpLSXVfbDVZQSIsIno3VFJCS2h1Uk1xSTg3Z2JhQ09WMnNiWEJZRmhyUW5TeWNwOHdZZTNRMjQiLCJGVV8xZ2ZTR29RamJJU1FOYW1JY213SFNrWWxzNkliSVIzUGFHWGVYYlZ3IiwiRzQzRXpWN1ZiakdlVGhKcF95OFJZOTdhWEdtZUx1eFgyTjFPZmRYQndTWSIsIklyQXZxVWwwdjNOaS15WkhqSG92Y004SU5iNzBjbU9KM0tKbTdHcDB2a0EiLCJCdmJQQ2VvMVV0UGVDQXpFc05aUHBIYkNKZEpieTg2Tl9ETXdKRVNhN3JzIiwiU1Rra3hXRzVBWWJnQUIzMW52M21QNWRVX0c1ZmppY1FxM05PY0ZTX3pwQSIsIlM4M3pfRi1FQmh2ZWxRdERQVTh5MGlIdThyaVdVT2dCYmtYbDVhM0FmTjAiLCJsR3ZBMW13ckVIT3ZhYkhUaWhjUlZ0Ml9YTzZxbEtLSTFqSkNWN3UzZG13IiwiMVlXckVBZzF5QzNwVnpCbzVjVTN5WllReHlJNEM4ajhlVEdvVExzZ3JmYyIsIld0Yi1vNE9TNDNMdDdvcmhYd2VZYksxUUtlRmpNNERZLVNYc3BMNUFxYnciLCJZOWtVWWNmSjd0VDNrNXZQbHpPcENfY2diR2JuSFRTeXY0bHlBclBIelBBIiwiVUdCZDVaS3g4Vm5hdGtNR0tHY3lTVDlVVGd0cnBJVTczVnk4eUhnOXFVZyIsInl1VHhoZEtqWk1obVIxWlJkU2R3WTlwRjc5Z2Z0Tmt6cW5MSlRwdGI2WW8iLCJDRWd6aFQ5ck45R3N2NXZ0b3VOZXVlVlBtci1hYkNrNGp0TVI3OEFwVmlnIiwiZ05jdnlBNURzVkV3T1UxTVVJLXV3N2tiZHRSeldTOFNDbWVUTjNxX1phayIsImFNbXB6UjFsREd1Y2FkLTJDLUNGRVZ3WnQ2a2NUeE1Ja3BPR0cwaHZGbU0iLCJXNG4zTU5vUXZsZEhuVVVGTkVYM0pGRFVldHh2czJSckZlRGVzWGVjUk9RIiwiZDhUdnkwU1NYNGdMOV9NMWhRVUJZRkQ2YUxDcE5jMDljc3BLZ0lZak1DQSIsImNUZkVzQXQwVVZZVklrS1pWMHhWbDNLcWtGVGxCbVRtZnlxWDJ6OHl3Q1EiLCJWNVVKX1hPcTZUUldHajJpVll3RjNFRTJLTHc0VVh3YmxLZUJZR2hqUnFJIiwieEw3Y2pYRmF6WmZFWXEzTlhzOUEzMWlGdThEX0VHUjNfek4yOW5NWGFwWSIsIi1kZ1lOa01DMzZndEZGZXVhdnNYalo1aEZzakJxUGF3S2trSTZ2ODMyRzgiLCJQLWZ1RXdlWm0yd3VfZUhfS29HYTFMNXJJNEJEOG5sMFlBUUhZWkdNRmFBIiwiN0NUVU02SkFmZ0hmSk9LbnM3bEk2R1ZlSTF3dE4xUjVVZUZuRHdLSmtMSSIsImR5REdtZWZEN0tpazRkOTVadlhTS2Q3WGl2QlhaaHNjWFRqSVBub2tVMVUiXSwic3ViIjoiZGlkOmtleTp6RG5hZVg5RGtIMnluWkFUclhwREs3VFo3UDU1RHhMMlZvMzF6MzVBUEREZTh2VGJrIiwibmJmIjoxNzQ3Mzg2NTc1LCJpc3MiOiJodHRwczovL3dhbGxldC5hLXNpdC5hdC9tNiIsImV4cCI6MTc0Nzk5MTM3NSwiaWF0IjoxNzQ3Mzg2NTc1LCJqdGkiOiJ1cm46dXVpZDo4ZjJmNGMyOC04ZGI3LTQ2ZjktYTY0Mi0zYzc0N2I2OTI3N2UiLCJ2Y3QiOiJ1cm46ZXVkaTpwaWQ6MSIsInN0YXR1cyI6eyJzdGF0dXNfbGlzdCI6eyJpZHgiOjIwNDIsInVyaSI6Imh0dHBzOi8vd2FsbGV0LmEtc2l0LmF0L202L2NyZWRlbnRpYWxzL3N0YXR1cy8xIn19LCJfc2RfYWxnIjoic2hhLTI1NiIsImNuZiI6eyJqd2siOnsiY3J2IjoiUC0yNTYiLCJraWQiOiJkaWQ6a2V5OnpEbmFlWDlEa0gyeW5aQVRyWHBESzdUWjdQNTVEeEwyVm8zMXozNUFQRERlOHZUYmsiLCJrdHkiOiJFQyIsIngiOiJZN2VPbEtMMjhNRlRITTctNHIyWHpwSzlfcmRmMDV3RlVUWWMwbmpUZkY4IiwieSI6InloMFFCVkVIajVTUS10a1NBRU5EVVBYOG15WDhpdm9JZzEyX0RxcGY3NlEifX19.RNPgq6LfnA9L16ena21Wyc5zR42aobSltP1WxbOTqzYtVbuv2hmsJST2TuWNoMK8yeMezw5CapLKui9T0_YPLg~WyJTbjBRdDhscXR3dFBMM1d1UnV2eG9DdDFwVmc1S2E1Q1Nkck85clpIMThnIiwiZ2l2ZW5fbmFtZSIsIkJlcm5kIl0~eyJ0eXAiOiJrYitqd3QiLCJhbGciOiJFUzI1NiJ9.eyJpYXQiOjE3NDc0MDI4NDQsImF1ZCI6InFhLXZlcmlmaWVyLnd3d2FsbGV0Lm9yZyIsIm5vbmNlIjoiMmUwZWNmODEtYzE1OC00OGRmLThhNjUtNTAzYTZiYzNhNjhjIiwic2RfaGFzaCI6IjdwMmFtVmh0TkpCeXpSbnB2ZVhWaUJVS0J4N29tUHVERDJYWE1VYUptbVkifQ.-J9Wiwg0H4HT8NT-s3q-fkO020JTiFsSTnMgupfHOmx9h6vrSfI1JWMlBTrLQvVdaCNrM9P1fWtI85DTDuIdgQ`
 
-const rawCredential3=`eyJ0eXAiOiJkYytzZC1qd3QiLCJ2Y3RtIjpbImV5SjJZM1FpT2lKMWNtNDZaWFZrYVRwbGFHbGpPakVpTENKdVlXMWxJam9pUlVoSlF5QlRSQzFLVjFRZ1ZGbFFSU0JOUlZSQlJFRlVRU0lzSW1SbGMyTnlhWEIwYVc5dUlqb2lSWFZ5YjNCbFlXNGdTR1ZoYkhSb0lFbHVjM1Z5WVc1alpTQkRZWEprSUNoRlNFbERLU0JUUkMxS1YxUWdWbVZ5YVdacFlXSnNaU0JEY21Wa1pXNTBhV0ZzSUZSNWNHVWdUV1YwWVdSaGRHRXNJR0poYzJWa0lHOXVJR2xsZEdZdGIyRjFkR2d0YzJRdGFuZDBMWFpqSUNoa2NtRm1kQ0F3T1Nrc0lIVnphVzVuSUdFZ2MybHVaMnhsSUd4aGJtZDFZV2RsSUhSaFp5QW9aVzR0VlZNcExpSXNJaVJqYjIxdFpXNTBJam9pU1cxd2JHVnRaVzUwWVhScGIyNGdiMllnZEdocGN5QmxlR0Z0Y0d4bElGUjVjR1VnVFdWMFlXUmhkR0VnYldGNUlISmxjWFZwY21VZ1RXVnRZbVZ5SUZOMFlYUmxMWE53WldOcFptbGpJR05zWVhKcFptbGpZWFJwYjI1eklIUnZJR0ZzYVdkdUlIZHBkR2dnYm1GMGFXOXVZV3dnY0c5c2FXTnBaWE1nWjI5MlpYSnVhVzVuSUhSb1pTQmthWE53YkdGNUlHOW1JR2x1WTJ4MVpHVmtJR05zWVdsdGN5NGlMQ0prYVhOd2JHRjVJanBiZXlKc1lXNW5Jam9pWlc0dFZWTWlMQ0p1WVcxbElqb2lSVWhKUXlCVFJDMUtWMVFnVmtNaUxDSmtaWE5qY21sd2RHbHZiaUk2SWtWMWNtOXdaV0Z1SUVobFlXeDBhQ0JKYm5OMWNtRnVZMlVnUTJGeVpDQW9SVWhKUXlrZ1UwUXRTbGRVSUZaRElpd2ljbVZ1WkdWeWFXNW5JanA3SW5OcGJYQnNaU0k2ZXlKaVlXTnJaM0p2ZFc1a1gyTnZiRzl5SWpvaUl6RmlNall6WWlJc0luUmxlSFJmWTI5c2IzSWlPaUlqUmtaR1JrWkdJbjBzSW5OMloxOTBaVzF3YkdGMFpYTWlPbHQ3SW5WeWFTSTZJbWgwZEhBNkx5OTNZV3hzWlhRdFpXNTBaWEp3Y21selpTMXBjM04xWlhJNk9EQXdNeTlwYldGblpYTXZkR1Z0Y0d4aGRHVXRaV2hwWXk1emRtY2lMQ0oxY21ramFXNTBaV2R5YVhSNUlqb2ljMmhoTWpVMkxVNU9RMEpGUTFaYWR6VkplRkpMTDNaeEx5dDRaakpQWTBoMllWSkxla05yZUdoeGVHaFlhbHBZYTJjOUlpd2ljSEp2Y0dWeWRHbGxjeUk2ZXlKdmNtbGxiblJoZEdsdmJpSTZJbXhoYm1SelkyRndaU0lzSW1OdmJHOXlYM05qYUdWdFpTSTZJbXhwWjJoMElpd2lZMjl1ZEhKaGMzUWlPaUp1YjNKdFlXd2lmWDFkZlgwc2V5SnNZVzVuSWpvaVpXd2lMQ0p1WVcxbElqb2l6cHJPck0tQno0VE9zU0JGU0VsRElGTkVMVXBYVkNJc0ltUmxjMk55YVhCMGFXOXVJam9penBYUGhjLUJ6NG5QZ002eHo0ck91czZ1SU02YXpxelBnYy1FenJFZ3pwSFBnOC1HenF6T3U4NjV6NFBPdDgtQ0lNNlJ6NFBPdU02dHpyM090YzY1enJIUGdpQW9SVWhKUXlrZ1UwUXRTbGRVSUZaRElpd2ljbVZ1WkdWeWFXNW5JanA3SW5OcGJYQnNaU0k2ZXlKaVlXTnJaM0p2ZFc1a1gyTnZiRzl5SWpvaUl6RmlNall6WWlJc0luUmxlSFJmWTI5c2IzSWlPaUlqUmtaR1JrWkdJbjE5ZlYwc0ltTnNZV2x0Y3lJNlczc2ljR0YwYUNJNld5SnFkR2tpWFN3aWMyUWlPaUp1WlhabGNpSjlMSHNpY0dGMGFDSTZXeUp6ZFdJaVhTd2ljMlFpT2lKdVpYWmxjaUo5TEhzaWNHRjBhQ0k2V3lKcFlYUWlYU3dpYzJRaU9pSnVaWFpsY2lKOUxIc2ljR0YwYUNJNld5SndaWEp6YjI1aGJGOWhaRzFwYm1semRISmhkR2wyWlY5dWRXMWlaWElpWFN3aWMyUWlPaUpoYkhkaGVYTWlMQ0p6ZG1kZmFXUWlPaUp3WlhKemIyNWhiRjloWkcxcGJtbHpkSEpoZEdsMlpWOXVkVzFpWlhJaUxDSmthWE53YkdGNUlqcGJleUpzWVc1bklqb2laVzR0VlZNaUxDSnNZV0psYkNJNklsTnZZMmxoYkNCVFpXTjFjbWwwZVNCUVNVNGlMQ0prWlhOamNtbHdkR2x2YmlJNklsVnVhWEYxWlNCd1pYSnpiMjVoYkNCcFpHVnVkR2xtYVdWeUlIVnpaV1FnWW5rZ2MyOWphV0ZzSUhObFkzVnlhWFI1SUhObGNuWnBZMlZ6TGlKOUxIc2liR0Z1WnlJNkltVnNMVWRTSWl3aWJHRmlaV3dpT2lMT2tjLUJ6cm5PdU02OHo0elBnaURPbXM2X3pybk92Yy1KenIzT3VjNjZ6cTdQZ2lET2tjLUR6NGJPck02N3pyblBnODYzejRJaUxDSmtaWE5qY21sd2RHbHZiaUk2SXM2Y3pyX092YzZ4enJUT3VjNjZ6NHpQZ2lEUGdNLUJ6cl9QZzgtSno0RE91YzY2ejR6UGdpRE9zYy1CenJuT3VNNjh6NHpQZ2lEUGdNNl96NFVnejRmUGdjNjN6NFBPdWM2OHpyX1BnTTZfenJuT3RjNnZ6NFRPc2M2NUlNNnh6NERQakNEUGhNNjV6NElnejRYUGdNNjN6NEhPdGMtRHpxX090Yy1DSU02NnpyX091YzY5ejRuT3ZjNjV6cnJPcnMtQ0lNNnh6NFBQaHM2c3pydk91Yy1EenJmUGdpNGlmVjE5TEhzaWNHRjBhQ0k2V3lKcGMzTjFhVzVuWDJOdmRXNTBjbmtpWFN3aWMyUWlPaUp1WlhabGNpSXNJbk4yWjE5cFpDSTZJbWx6YzNWbGNsOWpiM1Z1ZEhKNUlpd2laR2x6Y0d4aGVTSTZXM3NpYkdGdVp5STZJbVZ1TFZWVElpd2liR0ZpWld3aU9pSkpjM04xYVc1bklHTnZkVzUwY25raUxDSmtaWE5qY21sd2RHbHZiaUk2SWtWSVNVTWdhWE56ZFdsdVp5QmpiM1Z1ZEhKNUxpSjlMSHNpYkdGdVp5STZJbVZzTFVkU0lpd2liR0ZpWld3aU9pTE9wOC1PejRIT3NTRE9yYzY2enJUT3Y4LUR6cmZQZ2lJc0ltUmxjMk55YVhCMGFXOXVJam9penFmUGpzLUJ6ckVnejRET3Y4LUZJTTYxenI3T3JjNjB6NG5QZzg2MUlNLUV6cmZPdlNCRlNFbERMaUo5WFgwc2V5SndZWFJvSWpwYkltbHpjM1ZwYm1kZllYVjBhRzl5YVhSNUlsMHNJbk5rSWpvaWJtVjJaWElpZlN4N0luQmhkR2dpT2xzaWFYTnpkV2x1WjE5aGRYUm9iM0pwZEhraUxDSnBaQ0pkTENKelpDSTZJbTVsZG1WeUlpd2laR2x6Y0d4aGVTSTZXM3NpYkdGdVp5STZJbVZ1TFZWVElpd2liR0ZpWld3aU9pSkpjM04xYVc1bklHRjFkR2h2Y21sMGVTQnBaQ0lzSW1SbGMyTnlhWEIwYVc5dUlqb2lSVWhKUXlCcGMzTjFhVzVuSUdGMWRHaHZjbWwwZVNCMWJtbHhkV1VnYVdSbGJuUnBabWxsY2k0aWZTeDdJbXhoYm1jaU9pSmxiQzFIVWlJc0lteGhZbVZzSWpvaXpwSE92YzZ4enJQT3ZjLUp6NEhPdWMtRHo0VE91YzY2ejR3Z3pySFBnYy1IenE3UGdpRE9yYzY2enJUT3Y4LUR6cmZQZ2lJc0ltUmxjMk55YVhCMGFXOXVJam9penB6T3Y4Njl6ckhPdE02NXpyclBqTS1DSU02eHpyM09zYzZ6enIzUGljLUJ6cm5QZzgtRXpybk91cy1NejRJZ3pySFBnYzY1enJqT3ZNLU16NElnejRUT3Q4LUNJTTZ4ejRIUGg4NnV6NElnejRET3Y4LUZJTTYxenI3T3JjNjB6NG5QZzg2MUlNLUV6cmZPdlNCRlNFbERMaUo5WFgwc2V5SndZWFJvSWpwYkltbHpjM1ZwYm1kZllYVjBhRzl5YVhSNUlpd2libUZ0WlNKZExDSnpaQ0k2SW01bGRtVnlJaXdpWkdsemNHeGhlU0k2VzNzaWJHRnVaeUk2SW1WdUxWVlRJaXdpYkdGaVpXd2lPaUpKYzNOMWFXNW5JR0YxZEdodmNtbDBlU0J1WVcxbElpd2laR1Z6WTNKcGNIUnBiMjRpT2lKRlNFbERJR2x6YzNWcGJtY2dZWFYwYUc5eWFYUjVJRzVoYldVdUluMHNleUpzWVc1bklqb2laV3d0UjFJaUxDSnNZV0psYkNJNklzNk16cjNPdjg2OHpyRWd6ckhQZ2MtSHpxN1BnaURPcmM2NnpyVE92OC1EenJmUGdpSXNJbVJsYzJOeWFYQjBhVzl1SWpvaXpwX092YzZfenJ6T3NjLUR6cV9Pc1NEUGhNNjN6NElnenJIUGdjLUh6cTdQZ2lEUGdNNl96NFVnenJYT3ZzNnR6clRQaWMtRHpyVWd6NFRPdDg2OUlFVklTVU11SW4xZGZTeDdJbkJoZEdnaU9sc2laR0YwWlY5dlpsOWxlSEJwY25raVhTd2ljMlFpT2lKdVpYWmxjaUlzSW5OMloxOXBaQ0k2SW1SaGRHVmZiMlpmWlhod2FYSjVJaXdpWkdsemNHeGhlU0k2VzNzaWJHRnVaeUk2SW1WdUxWVlRJaXdpYkdGaVpXd2lPaUpGZUhCcGNua2daR0YwWlNJc0ltUmxjMk55YVhCMGFXOXVJam9pUlVoSlF5QmxlSEJwY21GMGFXOXVJR1JoZEdVdUluMHNleUpzWVc1bklqb2laV3d0UjFJaUxDSnNZV0psYkNJNklzNlh6cnpPdGMtQnpyX092TTYzenIzT3I4NnhJTTY3enE3T3ZzNjN6NElpTENKa1pYTmpjbWx3ZEdsdmJpSTZJczZYenJ6T3RjLUJ6cl9Pdk02M3pyM09yODZ4SU02N3pxN092czYzejRJZ3o0VE90OC1DSUVWSVNVTXVJbjFkZlN4N0luQmhkR2dpT2xzaVpHRjBaVjl2Wmw5cGMzTjFZVzVqWlNKZExDSnpaQ0k2SW01bGRtVnlJaXdpWkdsemNHeGhlU0k2VzNzaWJHRnVaeUk2SW1WdUxWVlRJaXdpYkdGaVpXd2lPaUpKYzNOMVpTQmtZWFJsSWl3aVpHVnpZM0pwY0hScGIyNGlPaUpGU0VsRElIWmhiR2xrYVhSNUlITjBZWEowSUdSaGRHVXVJbjBzZXlKc1lXNW5Jam9pWld3dFIxSWlMQ0pzWVdKbGJDSTZJczZYenJ6T3RjLUJ6cl9Pdk02M3pyM09yODZ4SU02dHpyck90TTZfejRQT3Q4LUNJaXdpWkdWelkzSnBjSFJwYjI0aU9pTE9sODY4enJYUGdjNl96cnpPdDg2OXpxX09zU0RPcmM2OXpySFBnYzYtenJmUGdpRE91Yy1EejRmUGpjNl96NElnejRUT3Q4LUNJRVZJU1VNdUluMWRmU3g3SW5CaGRHZ2lPbHNpWVhWMGFHVnVkR2xqWDNOdmRYSmpaU0pkTENKelpDSTZJbTVsZG1WeUluMHNleUp3WVhSb0lqcGJJbUYxZEdobGJuUnBZMTl6YjNWeVkyVWlMQ0pwWkNKZExDSnpaQ0k2SW01bGRtVnlJaXdpYzNablgybGtJam9pWVhWMGFHVnVkR2xqWDNOdmRYSmpaVjlwWkNJc0ltUnBjM0JzWVhraU9sdDdJbXhoYm1jaU9pSmxiaTFWVXlJc0lteGhZbVZzSWpvaVEyOXRjR1YwWlc1MElHbHVjM1JwZEhWMGFXOXVJR2xrSWl3aVpHVnpZM0pwY0hScGIyNGlPaUpKWkdWdWRHbG1hV1Z5SUc5bUlIUm9aU0JqYjIxd1pYUmxiblFnYVc1emFYUjFkR2x2YmlCaGN5QnlaV2RwYzNSbGNtVmtJR2x1SUhSb1pTQkZSVk5UU1NCSmJuTjBhWFIxZEdsdmJpQlNaWEJ2YzJsMGIzSjVMaUo5TEhzaWJHRnVaeUk2SW1Wc0xVZFNJaXdpYkdGaVpXd2lPaUxPa2M2OXpySE9zODY5ejRuUGdjNjV6NFBQaE02NXpyclBqQ0RPc2MtQnpyelBqTTYwenJuT3Y4LUZJTTZfejRIT3M4Nnh6cjNPdWMtRHpyek92OC1OSWl3aVpHVnpZM0pwY0hScGIyNGlPaUxPa2M2OXpySE9zODY5ejRuUGdjNjV6NFBQaE02NXpyclBqQ0RQaE02X3o0VWd6ckhQZ2M2OHo0ek90TTY1enJfUGhTRE92OC1CenJQT3NjNjl6cm5QZzg2OHpyX1BqU0RQak0tQXo0blBnaURPdGM2dnpyM09zYzY1SU02NnpySFBoTTZ4ejRmUGljLUJ6cmZPdk02dHpyM092eURQZzgtRXpyOGdSVVZUVTBrdUluMWRmU3g3SW5CaGRHZ2lPbHNpWVhWMGFHVnVkR2xqWDNOdmRYSmpaU0lzSW01aGJXVWlYU3dpYzJRaU9pSnVaWFpsY2lJc0luTjJaMTlwWkNJNkltRjFkR2hsYm5ScFkxOXpiM1Z5WTJWZmJtRnRaU0lzSW1ScGMzQnNZWGtpT2x0N0lteGhibWNpT2lKbGJpMVZVeUlzSW14aFltVnNJam9pUTI5dGNHVjBaVzUwSUdsdWMzUnBkSFYwYVc5dUlHNWhiV1VpTENKa1pYTmpjbWx3ZEdsdmJpSTZJazVoYldVZ2IyWWdkR2hsSUdOdmJYQmxkR1Z1ZENCcGJuTnBkSFYwYVc5dUlHRnpJSEpsWjJsemRHVnlaV1FnYVc0Z2RHaGxJRVZGVTFOSklFbHVjM1JwZEhWMGFXOXVJRkpsY0c5emFYUnZjbmt1SW4wc2V5SnNZVzVuSWpvaVpXd3RSMUlpTENKc1lXSmxiQ0k2SXM2TXpyM092ODY4enJFZ3pySFBnYzY4ejR6T3RNNjV6cl9QaFNET3Y4LUJ6clBPc2M2OXpyblBnODY4enJfUGpTSXNJbVJsYzJOeWFYQjBhVzl1SWpvaXpwX092YzZfenJ6T3NjLUR6cV9Pc1NEUGhNNl96NFVnenJIUGdjNjh6NHpPdE02NXpyX1BoU0RPdjgtQnpyUE9zYzY5enJuUGc4Njh6cl9QalNEUGpNLUF6NG5QZ2lET3RjNnZ6cjNPc2M2NUlNNjZ6ckhQaE02eHo0ZlBpYy1CenJmT3ZNNnR6cjNPdHlEUGc4LUV6cjhnUlVWVFUwa3VJbjFkZlN4N0luQmhkR2dpT2xzaVpXNWthVzVuWDJSaGRHVWlYU3dpYzJRaU9pSnVaWFpsY2lJc0ltUnBjM0JzWVhraU9sdDdJbXhoYm1jaU9pSmxiaTFWVXlJc0lteGhZbVZzSWpvaVJXNWthVzVuSUdSaGRHVWlMQ0prWlhOamNtbHdkR2x2YmlJNklrVnVaQ0JrWVhSbElHOW1JSFJvWlNCcGJuTjFjbUZ1WTJVZ1kyOTJaWEpoWjJVdUluMHNleUpzWVc1bklqb2laV3d0UjFJaUxDSnNZV0psYkNJNklzNlh6cnpPdGMtQnpyX092TTYzenIzT3I4NnhJTTY3enE3T3ZzNjN6NElnenJyT3JNNjd6NFhQaU02M3o0SWlMQ0prWlhOamNtbHdkR2x2YmlJNklzNlh6cnpPdGMtQnpyX092TTYzenIzT3I4NnhJTTY3enE3T3ZzNjN6NElnejRUT3Q4LUNJTTZ4ejRQUGhzNnh6cnZPdWMtRHo0VE91YzY2enE3UGdpRE91czZzenJ2UGhjLUl6cmZQZ2k0aWZWMTlMSHNpY0dGMGFDSTZXeUp6ZEdGeWRHbHVaMTlrWVhSbElsMHNJbk5rSWpvaWJtVjJaWElpTENKa2FYTndiR0Y1SWpwYmV5SnNZVzVuSWpvaVpXNHRWVk1pTENKc1lXSmxiQ0k2SWxOMFlYSjBhVzVuSUdSaGRHVWlMQ0prWlhOamNtbHdkR2x2YmlJNklsTjBZWEowSUdSaGRHVWdiMllnZEdobElHbHVjM1Z5WVc1alpTQmpiM1psY21GblpTNGlmU3g3SW14aGJtY2lPaUpsYkMxSFVpSXNJbXhoWW1Wc0lqb2l6cGZPdk02MXo0SE92ODY4enJmT3ZjNnZ6ckVnenEzT3ZjNnh6NEhPdnM2M3o0SWd6cnJPck02N3o0WFBpTTYzejRJaUxDSmtaWE5qY21sd2RHbHZiaUk2SXM2WHpyek90Yy1CenJfT3ZNNjN6cjNPcjg2eElNNnR6cjNPc2MtQnpyN090OC1DSU0tRXpyZlBnaURPc2MtRHo0Yk9zYzY3enJuUGc4LUV6cm5PdXM2dXo0SWd6cnJPck02N3o0WFBpTTYzejRJdUluMWRmU3g3SW5CaGRHZ2lPbHNpWkc5amRXMWxiblJmYm5WdFltVnlJbDBzSW5Oa0lqb2lZV3gzWVhseklpd2ljM1puWDJsa0lqb2laRzlqZFcxbGJuUmZiblZ0WW1WeUlpd2laR2x6Y0d4aGVTSTZXM3NpYkdGdVp5STZJbVZ1TFZWVElpd2liR0ZpWld3aU9pSkViMk4xYldWdWRDQnVkVzFpWlhJaUxDSmtaWE5qY21sd2RHbHZiaUk2SWtWSVNVTWdkVzVwY1hWbElHUnZZM1Z0Wlc1MElHbGtaVzUwYVdacFpYSXVJbjBzZXlKc1lXNW5Jam9pWld3dFIxSWlMQ0pzWVdKbGJDSTZJczZSejRIT3VjNjR6cnpQak0tQ0lNNjF6clBPczgtQnpxelBoczZfejRVaUxDSmtaWE5qY21sd2RHbHZiaUk2SXM2Y3pyX092YzZ4enJUT3VjNjZ6NHpQZ2lET3NjLUJ6cm5PdU02OHo0elBnaURPdGM2enpyUFBnYzZzejRiT3Y4LUZJTS1FenJmUGdpQkZTRWxETGlKOVhYMWRMQ0p6WTJobGJXRmZkWEpwSWpvaWFIUjBjRG92TDNkaGJHeGxkQzFsYm5SbGNuQnlhWE5sTFdsemMzVmxjam80TURBekwyVm9hV010YzJOb1pXMWhJaXdpYzJOb1pXMWhYM1Z5YVNOcGJuUmxaM0pwZEhraU9pSnphR0V5TlRZdFRtRnlXbFJLWkZsRFRXZHhjWEZSYTFOVlRHSnhPRGRPT0hCUFZEVmFURzFuWVRVemVHUXZSSFJsUlQwaWZRIl0sIng1YyI6WyJNSUlDeXpDQ0FuR2dBd0lCQWdJVUxucnh1eDlzSTM0b3FiYnkzTTRsU0tPczhvd3dDZ1lJS29aSXpqMEVBd0l3UHpFTE1Ba0dBMVVFQmhNQ1JWVXhGVEFUQmdOVkJBb01ESGQzVjJGc2JHVjBMbTl5WnpFWk1CY0dBMVVFQXd3UWQzZFhZV3hzWlhRZ1VtOXZkQ0JEUVRBZUZ3MHlOVEEwTWpreE1ESTVOVE5hRncweU5qQTBNamt4TURJNU5UTmFNRUV4Q3pBSkJnTlZCQVlUQWtWVk1SVXdFd1lEVlFRS0RBeDNkMWRoYkd4bGRDNXZjbWN4R3pBWkJnTlZCQU1NRW14dlkyRnNMbmQzZDJGc2JHVjBMbTl5WnpCWk1CTUdCeXFHU000OUFnRUdDQ3FHU000OUF3RUhBMElBQkZWaXZHdDUzTTRxRVAwNlFUMjBCU2xHaU1JZHpMTHZHK2I5ZnEvZkhLTStOR1QrYTNzblhpUHdVN1g3anJPRld4d3lqWmVlYW40MCt2eDZHeTA2VmZxamdnRkhNSUlCUXpBZEJnTlZIUTRFRmdRVU0vQTNGVFFMand3NS85dTAxTVgvU1J5VnFhVXdId1lEVlIwakJCZ3dGb0FVMEhHdTNUKy9XcWgzeU5pZno5c05kK0hQQlM0d0RnWURWUjBQQVFIL0JBUURBZ2VBTURJR0ExVWRFZ1FyTUNtQkVXbHVabTlBZDNkM1lXeHNaWFF1YjNKbmhoUm9kSFJ3Y3pvdkwzZDNkMkZzYkdWMExtOXlaekFTQmdOVkhTVUVDekFKQmdjb2dZeGRCUUVDTUF3R0ExVWRFd0VCL3dRQ01BQXdSQVlEVlIwZkJEMHdPekE1b0RlZ05ZWXphSFIwY0hNNkx5OTNkM2RoYkd4bGRDNXZjbWN2YVdGallTOWpjbXd2ZDNkM1lXeHNaWFJmYjNKblgybGhZMkV1WTNKc01GVUdBMVVkRVFST01FeUNFbXh2WTJGc0xuZDNkMkZzYkdWMExtOXlaNElaYkc5allXd3RhWE56ZFdWeUxuZDNkMkZzYkdWMExtOXlaNEliYkc5allXd3RkbVZ5YVdacFpYSXVkM2QzWVd4c1pYUXViM0puTUFvR0NDcUdTTTQ5QkFNQ0EwZ0FNRVVDSVFDUThoKzVrcmhPK2Y0d29SZURZMUQ3Q2FNNnFDZGEzbTgxNGU2REx2T3BoQUlnSFFMK1dtN1dGUnd4Z2p6TUxOMzdSb2pKR3JaYkY0T0ZDaElrbW0wdXU1bz0iXSwiYWxnIjoiRVMyNTYifQ.eyJjbmYiOnsiandrIjp7ImNydiI6IlAtMjU2IiwiZXh0Ijp0cnVlLCJrZXlfb3BzIjpbInZlcmlmeSJdLCJrdHkiOiJFQyIsIngiOiJRaExVMlJlam9UX2gxSzNTOEtRUnRXaEpHdnNhU1lDLXJUVWtZQ3ZjOFBZIiwieSI6ImlxOVE0OVVfU1IySERNdHkzWS1HczkzWkkwaE42UkZ1QkVMU3NMaDlyZTgiLCJraWQiOiJ1N0hlZ0owVkpacTUtbEpQdmNLRnAzc3dvMXFaQlBLRmdLcmRUWFNMT29JIn19LCJ2Y3QiOiJ1cm46ZXVkaTplaGljOjEiLCJ2Y3QjaW50ZWdyaXR5Ijoic2hhMjU2LVdPdG0wNy83aTBBSEEzVklVcWs4ZzBJVEp2Q25TYzJGSGRwakYzZlhtcU09IiwianRpIjoidXJuOmV1ZGk6ZWhpYzoxOjlmODk1NTE3LTQ4OWUtNGUxOS1iOTUxLTQ2YTUxODBkYjkzNyIsImRhdGVfb2ZfaXNzdWFuY2UiOiIyMDI1LTA3LTIzIiwiaXNzdWluZ19jb3VudHJ5IjoiREUiLCJpc3N1aW5nX2F1dGhvcml0eSI6eyJpZCI6IjIiLCJuYW1lIjoiREUgSXNzdWluZyBBdXRob3JpdHkifSwiYXV0aGVudGljX3NvdXJjZSI6eyJpZCI6IjExMjIzMyIsIm5hbWUiOiJERSBBdXRoZW50aWMgU291cmNlIn0sImRhdGVfb2ZfZXhwaXJ5IjoiMjAzNS0wNC0yMSIsInN0YXJ0aW5nX2RhdGUiOiIyMDIwLTAyLTAyIiwiZW5kaW5nX2RhdGUiOiIyMDI1LTAyLTAyIiwiaWF0IjoxNzUzMjU3OTg2LCJleHAiOjE3ODQ3OTM5ODYsInN1YiI6InU3SGVnSjBWSlpxNS1sSlB2Y0tGcDNzd28xcVpCUEtGZ0tyZFRYU0xPb0kiLCJpc3MiOiJodHRwOi8vd2FsbGV0LWVudGVycHJpc2UtaXNzdWVyOjgwMDMiLCJfc2QiOlsiWF9hWHBQakw3SUdvNGNQRkJXODJWWnV5akYxTGNKRHRDM1BrVlQ4QzUydyIsInlnWmNjYWxhczJUNVZkYS1MXzhxWDJwN1Y2U0plbDVvSFZtVlNxUm5NLVkiXSwiX3NkX2FsZyI6InNoYS0yNTYifQ.Y6HMVr38-03lISmoYM3qRn9bFmHCAlm2hVe-1B6iirs4aO3m5y0Z6enoPv036tqJN4BXCr63aUe2m7MP6m8RaQ~WyJqSWtBYkpSTEZtRjRiR0VSYi1hX0x3IiwicGVyc29uYWxfYWRtaW5pc3RyYXRpdmVfbnVtYmVyIiwiMTIzMTMyMTMyMTMiXQ~WyIxV2NuLWdwQUp0c2pGb2poaG84NnVBIiwiZG9jdW1lbnRfbnVtYmVyIiwiMTIzNDU2Nzg5Il0~`;
-
 const context: Context = {
 	clockTolerance: 0,
 	lang: 'en-US',
@@ -29,170 +27,158 @@ const context: Context = {
 
 describe("The SDJWTVCParser", () => {
 
-	// it("should parse an vc+sd-jwt credential", async () => {
-	// 	const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
+	it("should parse an vc+sd-jwt credential", async () => {
+		const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
 
-	// 	const parsedCredential = await parser.parse({ rawCredential });
-	// 	assert(parsedCredential.success);
-	// 	assert(parsedCredential.value.validityInfo.validUntil?.toISOString() === new Date("2026-01-29T14:34:06.000Z").toISOString());
-	// })
+		const parsedCredential = await parser.parse({ rawCredential });
+		assert(parsedCredential.success);
+		assert(parsedCredential.value.validityInfo.validUntil?.toISOString() === new Date("2026-01-29T14:34:06.000Z").toISOString());
+	})
 
-	// it("should detect expired vc+sd-jwt credential", async () => {
-	// 	const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
-	// 	const parsedCredential = await parser.parse({ rawCredential: expiredCredential });
-	// 	assert(parsedCredential.success);
-	// })
+	it("should detect expired vc+sd-jwt credential", async () => {
+		const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
+		const parsedCredential = await parser.parse({ rawCredential: expiredCredential });
+		assert(parsedCredential.success);
+	})
 
 
-	// it("should parse SDJWT with KB+JWT", async () => {
-	// 	const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
-	// 	const parsedCredential = await parser.parse({ rawCredential: rawPresentation });
-	// 	assert(parsedCredential.success);
-	// })
+	it("should parse SDJWT with KB+JWT", async () => {
+		const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
+		const parsedCredential = await parser.parse({ rawCredential: rawPresentation });
+		assert(parsedCredential.success);
+	})
 
-	// it("should handle the case of invalid format", async () => {
-	// 	const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
-	// 	const parsedCredential = await parser.parse({ rawCredential: msoMdocIssuerSigned });
-	// 	assert(parsedCredential.success === false);
-	// })
+	it("should handle the case of invalid format", async () => {
+		const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
+		const parsedCredential = await parser.parse({ rawCredential: msoMdocIssuerSigned });
+		assert(parsedCredential.success === false);
+	})
 
-	// it("should parse credential succesfully", async () => {
-	// 	const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
-	// 	const parsedCredential = await parser.parse({ rawCredential: rawCredential2 });
-	// 	assert(parsedCredential.success === true);
-	// 	assert(parsedCredential.value.signedClaims);
-	// })
+	it("should parse credential succesfully", async () => {
+		const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
+		const parsedCredential = await parser.parse({ rawCredential: rawCredential2 });
+		assert(parsedCredential.success === true);
+		assert(parsedCredential.value.signedClaims);
+	})
 
-	// it("should parse credential without metadata succesfully", async () => {
-	// 	const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
-	// 	const parsedCredential = await parser.parse({ rawCredential: rawCredentialWithoutMetadata });
+	it("should parse credential without metadata succesfully", async () => {
+		const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
+		const parsedCredential = await parser.parse({ rawCredential: rawCredentialWithoutMetadata });
 
-	// 	if (parsedCredential.success) {
-	// 		// @ts-ignore
-	// 		const image = await parsedCredential.value.metadata?.credential?.image?.dataUri();
-	// 		if (!image || !image.startsWith('data:image/')) {
-	// 			console.warn('No valid image data URI found:', image);
-	// 		} else {
-	// 			convertDataUriToImage(image, path.join(__dirname, "../../output/svg-no-vct"));
-	// 		}
-	// 	}
-	// 	assert(parsedCredential.success === true);
-	// 	assert(parsedCredential.value.signedClaims);
+		if (parsedCredential.success) {
+			// @ts-ignore
+			const image = await parsedCredential.value.metadata?.credential?.image?.dataUri();
+			if (!image || !image.startsWith('data:image/')) {
+				console.warn('No valid image data URI found:', image);
+			} else {
+				convertDataUriToImage(image, path.join(__dirname, "../../output/svg-no-vct"));
+			}
+		}
+		assert(parsedCredential.success === true);
+		assert(parsedCredential.value.signedClaims);
 
-	// })
+	})
 
-	// it("should fail if rawCredential is not a string", async () => {
-	// 	const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
+	it("should fail if rawCredential is not a string", async () => {
+		const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
 
-	// 	const result = await parser.parse({ rawCredential: { some: "object" } as any }); // deliberately incorrect
-	// 	assert(result.success === false);
-	// 	assert(result.error === CredentialParsingError.InvalidDatatype);
-	// });
+		const result = await parser.parse({ rawCredential: { some: "object" } as any }); // deliberately incorrect
+		assert(result.success === false);
+		assert(result.error === CredentialParsingError.InvalidDatatype);
+	});
 
-	// it("should fail if try to parse", async () => {
-	// 	const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
+	it("should fail if try to parse", async () => {
+		const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
 
-	// 	// Give it completely invalid string that will break base64 parsing
-	// 	const result = await parser.parse({ rawCredential: "!!!not-a-jwt!!!" });
+		// Give it completely invalid string that will break base64 parsing
+		const result = await parser.parse({ rawCredential: "!!!not-a-jwt!!!" });
 
-	// 	assert(result.success === false);
-	// 	assert(result.error === CredentialParsingError.CouldNotParse);
-	// });
+		assert(result.success === false);
+		assert(result.error === CredentialParsingError.CouldNotParse);
+	});
 
-	// it("should fail if JWT typ is not supported", async () => {
+	it("should fail if JWT typ is not supported", async () => {
 
-	// 	const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
+		const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
 
-	// 	const result = await parser.parse({ rawCredential: "eyJ0eXAiOiJzZCtqd3QiLCJhbGciOiJFUzI1NiJ9.eyJpZCI6IjEyMzQiLCJfc2QiOlsiM3Zrdmtvc0hnYkxLTFRmS2RkcjVRRkxEUkZQMXktcy03T2hVU1hRa0RPayIsIllxOVJCVWJVZEV2U0JRSG94VUt4ZUo3aUh6Uzh6dGdyQ3RoRUZabEF4ZDQiLCJ5VmFGT05pQ3VGX002S0hMaEhlZV9udmtpU09HWENoUkpPaHFZN0Y4RUY4Il0sIl9zZF9hbGciOiJTSEEtMjU2In0.onjWOmZ5biJFnpnWgbxge1qYlvQs-QT_piVI3mV5tw8kvbq3dCIxZP3dxhY3Rk95MxR_37AWYV3ObyM7Te8G0w~WyIyMDIyNzlhN2RjMzIwMzk2IiwiZmlyc3RuYW1lIiwiSm9obiJd~WyI5MjUxYmQzNDQwZTAxMGM3IiwibGFzdG5hbWUiLCJEb2UiXQ~WyIwN2ZhYzIyZWZkN2QzM2Q0Iiwic3NuIiwiMTIzLTQ1LTY3ODkiXQ~" });
-	// 	assert(result.success === false);
-	// 	assert(result.error === CredentialParsingError.NotSupportedCredentialType);
-	// });
+		const result = await parser.parse({ rawCredential: "eyJ0eXAiOiJzZCtqd3QiLCJhbGciOiJFUzI1NiJ9.eyJpZCI6IjEyMzQiLCJfc2QiOlsiM3Zrdmtvc0hnYkxLTFRmS2RkcjVRRkxEUkZQMXktcy03T2hVU1hRa0RPayIsIllxOVJCVWJVZEV2U0JRSG94VUt4ZUo3aUh6Uzh6dGdyQ3RoRUZabEF4ZDQiLCJ5VmFGT05pQ3VGX002S0hMaEhlZV9udmtpU09HWENoUkpPaHFZN0Y4RUY4Il0sIl9zZF9hbGciOiJTSEEtMjU2In0.onjWOmZ5biJFnpnWgbxge1qYlvQs-QT_piVI3mV5tw8kvbq3dCIxZP3dxhY3Rk95MxR_37AWYV3ObyM7Te8G0w~WyIyMDIyNzlhN2RjMzIwMzk2IiwiZmlyc3RuYW1lIiwiSm9obiJd~WyI5MjUxYmQzNDQwZTAxMGM3IiwibGFzdG5hbWUiLCJEb2UiXQ~WyIwN2ZhYzIyZWZkN2QzM2Q0Iiwic3NuIiwiMTIzLTQ1LTY3ODkiXQ~" });
+		assert(result.success === false);
+		assert(result.error === CredentialParsingError.NotSupportedCredentialType);
+	});
 
-	// it("should fail with iss", async () => {
+	it("should fail with iss", async () => {
 
-	// 	const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
+		const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context });
 
-	// 	const result = await parser.parse({ rawCredential: "eyJ0eXAiOiJ2YytzZC1qd3QiLCJhbGciOiJFUzI1NiJ9.eyJpZCI6IjEyMzQiLCJpc3MiOiJodHRwOi8vd2FsbGV0LWVudGVycHJpc2UtdmlkLWlzc3VlcjE6ODAwMyIsIl9zZCI6WyJMMWtxT1Nocm9kSW5XUEhjc3F2Y3RzZEszeEx0dGRZakoteWpQM01BUUhrIiwiVHBhcVRrSmtSTDNUbHdHc1NGSG5fNUp6LUZUdm8zdmlsUXdmOGYzTWRYdyIsImhDcG5jOUZVdGxpa2ZJTHRjX2phYkcwRFpyQWVUVnFHWlRmRGNOOGJYRGMiXSwiX3NkX2FsZyI6IlNIQS0yNTYifQ.AcXYVFuVaXKqkco1a_Opp9-qTsQVdVgBm-Bzg3S_taahTK2Msiu7_zGnzcVFq9tuvTrfJDMbJg6DtoKVqTxsmA~WyJmNWQ3ZTI5NDcwNmNkNGNjIiwiZmlyc3RuYW1lIiwiSm9obiJd~WyI3YjRlOTUwMjIzZTUzMGJiIiwibGFzdG5hbWUiLCJEb2UiXQ~WyJjODc1MTlhNDg4YmQ1MDEwIiwic3NuIiwiMTIzLTQ1LTY3ODkiXQ~" });
-	// 	assert(result.success === false);
-	// 	assert(result.error === CredentialParsingError.InvalidSdJwtVcPayload);
-	// });
+		const result = await parser.parse({ rawCredential: "eyJ0eXAiOiJ2YytzZC1qd3QiLCJhbGciOiJFUzI1NiJ9.eyJpZCI6IjEyMzQiLCJpc3MiOiJodHRwOi8vd2FsbGV0LWVudGVycHJpc2UtdmlkLWlzc3VlcjE6ODAwMyIsIl9zZCI6WyJMMWtxT1Nocm9kSW5XUEhjc3F2Y3RzZEszeEx0dGRZakoteWpQM01BUUhrIiwiVHBhcVRrSmtSTDNUbHdHc1NGSG5fNUp6LUZUdm8zdmlsUXdmOGYzTWRYdyIsImhDcG5jOUZVdGxpa2ZJTHRjX2phYkcwRFpyQWVUVnFHWlRmRGNOOGJYRGMiXSwiX3NkX2FsZyI6IlNIQS0yNTYifQ.AcXYVFuVaXKqkco1a_Opp9-qTsQVdVgBm-Bzg3S_taahTK2Msiu7_zGnzcVFq9tuvTrfJDMbJg6DtoKVqTxsmA~WyJmNWQ3ZTI5NDcwNmNkNGNjIiwiZmlyc3RuYW1lIiwiSm9obiJd~WyI3YjRlOTUwMjIzZTUzMGJiIiwibGFzdG5hbWUiLCJEb2UiXQ~WyJjODc1MTlhNDg4YmQ1MDEwIiwic3NuIiwiMTIzLTQ1LTY3ODkiXQ~" });
+		assert(result.success === false);
+		assert(result.error === CredentialParsingError.InvalidSdJwtVcPayload);
+	});
 
-	// it("should warn if issuer metadata fetch fail", async () => {
-	// 	const malformedHttpClient: HttpClient = {
-	// 		get: async (url: string) => {
-	// 			if (url.includes(".well-known/openid-credential-issuer")) {
-	// 				return {
-	// 					status: 400,
-	// 				};
-	// 			}
-	// 			// fallback to real http call for everything else
-	// 			return defaultHttpClient.get(url);
-	// 		}
-	// 	};
+	it("should warn if issuer metadata fetch fail", async () => {
+		const malformedHttpClient: HttpClient = {
+			get: async (url: string) => {
+				if (url.includes(".well-known/openid-credential-issuer")) {
+					return {
+						status: 400,
+					};
+				}
+				// fallback to real http call for everything else
+				return defaultHttpClient.get(url);
+			}
+		};
 
-	// 	const parser = SDJWTVCParser({ httpClient: malformedHttpClient, context });
-	// 	const result = await parser.parse({ rawCredential });
+		const parser = SDJWTVCParser({ httpClient: malformedHttpClient, context });
+		const result = await parser.parse({ rawCredential });
 
-	// 	assert(result.success === true);
-	// 	assert((result.value.warnings ?? []).some(w => w.code === CredentialParsingError.FailFetchIssuerMetadata));
-	// });
+		assert(result.success === true);
+		assert((result.value.warnings ?? []).some(w => w.code === CredentialParsingError.FailFetchIssuerMetadata));
+	});
 
-	// it("should warn if issuer metadata have invalid schema", async () => {
-	// 	const malformedHttpClient: HttpClient = {
-	// 		get: async (url: string) => {
-	// 			if (url.includes(".well-known/openid-credential-issuer")) {
-	// 				return {
-	// 					status: 200,
-	// 					data: {
-	// 						// Malformed on purpose: missing `credential_configurations_supported`
-	// 						invalid_field: true
-	// 					}
-	// 				};
-	// 			}
-	// 			// fallback to real http call for everything else
-	// 			return defaultHttpClient.get(url);
-	// 		}
-	// 	};
+	it("should warn if issuer metadata have invalid schema", async () => {
+		const malformedHttpClient: HttpClient = {
+			get: async (url: string) => {
+				if (url.includes(".well-known/openid-credential-issuer")) {
+					return {
+						status: 200,
+						data: {
+							// Malformed on purpose: missing `credential_configurations_supported`
+							invalid_field: true
+						}
+					};
+				}
+				// fallback to real http call for everything else
+				return defaultHttpClient.get(url);
+			}
+		};
 
-	// 	const parser = SDJWTVCParser({ httpClient: malformedHttpClient, context });
-	// 	const result = await parser.parse({ rawCredential });
+		const parser = SDJWTVCParser({ httpClient: malformedHttpClient, context });
+		const result = await parser.parse({ rawCredential });
 
-	// 	assert(result.success === true);
-	// 	assert((result.value.warnings ?? []).some(w => w.code === CredentialParsingError.FailSchemaIssuerMetadata));
-	// });
+		assert(result.success === true);
+		assert((result.value.warnings ?? []).some(w => w.code === CredentialParsingError.FailSchemaIssuerMetadata));
+	});
 
-	// it("should default to the first metadata display when an invalid locale is passed", async () => {
-	// 	const contextCopy = {...context, lang: 'el-GR'};
-	// 	const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context: contextCopy });
-	// 	const parsedCredential = await parser.parse({ rawCredential });
-	// 	let image;
-	// 	if (parsedCredential.success) {
-	// 		image = await parsedCredential.value.metadata?.credential?.image?.dataUri();
-	// 	}
-	// 	assert(image);
-	// });
-
-	// it("should be able to match metadata display langs from 2 letter format", async () => {
-	// 	const contextCopy = {...context, lang: 'en'};
-	// 	const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context: contextCopy });
-	// 	const parsedCredential = await parser.parse({ rawCredential });
-	// 	let image;
-	// 	if (parsedCredential.success) {
-	// 		image = await parsedCredential.value.metadata?.credential?.image?.dataUri();
-	// 		console.log("Image = ", image)
-	// 	}
-	// 	assert(image);
-	// });
-
-	it("test", async () => {
-		const contextCopy = {...context, lang: 'en'};
+	it("should default to the first metadata display when an invalid locale is passed", async () => {
+		const contextCopy = {...context, lang: 'el-GR'};
 		const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context: contextCopy });
-		const parsedCredential = await parser.parse({ rawCredential:rawCredential3 });
+		const parsedCredential = await parser.parse({ rawCredential });
 		let image;
 		if (parsedCredential.success) {
-			image = await parsedCredential.value.metadata?.credential?.image?.dataUri(undefined,['el','en']);
+			image = await parsedCredential.value.metadata?.credential?.image?.dataUri();
 		}
-		// assert(image);
+		assert(image);
+	});
+
+	it("should be able to match metadata display langs from 2 letter format", async () => {
+		const contextCopy = {...context, lang: 'en'};
+		const parser = SDJWTVCParser({ httpClient: defaultHttpClient, context: contextCopy });
+		const parsedCredential = await parser.parse({ rawCredential });
+		let image;
+		if (parsedCredential.success) {
+			image = await parsedCredential.value.metadata?.credential?.image?.dataUri();
+			console.log("Image = ", image)
+		}
+		assert(image);
 	});
 })
-
