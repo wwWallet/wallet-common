@@ -2,6 +2,9 @@ import { z } from 'zod';
 import { VerifiableCredentialFormat } from '../types';
 
 const proofTypesSupportedSchema = z.object({
+	jpt: z.object({
+		proof_signing_alg_values_supported: z.array(z.string())
+	}).optional(),
 	jwt: z.object({
 		proof_signing_alg_values_supported: z.array(z.string())
 	}).optional(),
