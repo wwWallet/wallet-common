@@ -36,6 +36,11 @@ export type MetadataWarning = {
 };
 
 export type CredentialClaimPath = Array<string>;
+
+export type CredentialFriendlyNameCallback = (
+	preferredLangs?: string[]
+) => Promise<string | null>;
+
 export type ImageDataUriCallback = (
 	filter?: Array<CredentialClaimPath>,
 	preferredLangs?: string[]
@@ -46,7 +51,7 @@ export type ParsedCredential = {
 		credential: {
 			format: VerifiableCredentialFormat.VC_SDJWT | VerifiableCredentialFormat.DC_SDJWT,
 			vct: string,
-			name: string,
+			name: CredentialFriendlyNameCallback,
 			metadataDocuments: Record<string, unknown>[],
 			image: {
 				dataUri: ImageDataUriCallback,
@@ -54,7 +59,7 @@ export type ParsedCredential = {
 		} | {
 			format: VerifiableCredentialFormat.MSO_MDOC,
 			doctype: string,
-			name: string,
+			name: CredentialFriendlyNameCallback,
 			image: {
 				dataUri: ImageDataUriCallback,
 			},
