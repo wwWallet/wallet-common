@@ -3,10 +3,16 @@
 	"version": "0.0.1",
 	"main": "dist/index.js",
 	"license": "MIT",
+	"files": [
+		"dist/**/*",
+		"src/**/*",
+		"package.json"
+	],
 	"scripts": {
 		"test": "tsc && vitest run",
 		"test-start": "vitest",
-		"build": "rm -rf dist/ && tsc"
+		"build": "rm -rf dist/ && tsc",
+		"prepare": "npm run build"
 	},
 	"dependencies": {
 		"@auth0/mdl": "^2.2.0",
