@@ -16,6 +16,7 @@
 	},
 	"dependencies": {
 		"@auth0/mdl": "^2.2.0",
+		"@noble/curves": "^1.9.4",
 		"@sd-jwt/core": "^0.10.0",
 		"@sd-jwt/sd-jwt-vc": "^0.13.0",
 		"ajv": "^8.17.1",
@@ -23,6 +24,7 @@
 		"asn1js": "^3.0.5",
 		"axios": "^1.7.9",
 		"buffer": "^6.0.3",
+		"cbor-web": "^9.0.2",
 		"cose-kit": "^1.7.1",
 		"jose": "^5.9.6",
 		"jsonpointer": "^5.0.1",
