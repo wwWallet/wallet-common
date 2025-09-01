@@ -6,6 +6,7 @@ import { CredentialClaimPath, CredentialFriendlyNameCallback, ImageDataUriCallba
 import { cborDecode, cborEncode } from "@auth0/mdl/lib/cbor";
 import { IssuerSigned } from "@auth0/mdl/lib/mdoc/model/types";
 import { OpenID4VCICredentialRendering } from "../functions/openID4VCICredentialRendering";
+import { getIssuerMetadata } from "../utils/getIssuerMetadata";
 
 export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }): CredentialParser {
 
@@ -98,6 +99,10 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 
 			const renderer = OpenID4VCICredentialRendering({ httpClient: args.httpClient });
 
+			const { metadata: issuerMetadata } = await getIssuerMetadata(args.httpClient, credentialIssuer.credentialIssuerIdentifier, []);
+
+			console.log('issuerMetadata= ',issuerMetadata);
+			
 			let credentialFriendlyName: CredentialFriendlyNameCallback = async () => null;
 			let dataUri: ImageDataUriCallback = async () => null;
 
