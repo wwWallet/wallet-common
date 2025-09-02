@@ -16,16 +16,16 @@ export interface OpenID4VCICredentialRendering {
 }
 
 export interface CredentialIssuerInfo {
-  credentialIssuerIdentifier: string;
-  credentialConfigurationId: string;
+	credentialIssuerIdentifier: string;
+	credentialConfigurationId: string;
 }
 
 export interface ParsingEngineI {
 	register(parser: CredentialParser): void;
-	parse({ rawCredential,credentialIssuer }: {
-			rawCredential: unknown,
-			credentialIssuer?: CredentialIssuerInfo;
-		}): Promise<Result<ParsedCredential, CredentialParsingError>>;
+	parse({ rawCredential, credentialIssuer }: {
+		rawCredential: unknown,
+		credentialIssuer?: CredentialIssuerInfo;
+	}): Promise<Result<ParsedCredential, CredentialParsingError>>;
 }
 
 export interface VerifyingEngineI {
@@ -44,7 +44,7 @@ export interface PublicKeyResolverEngineI {
 export interface CredentialParser {
 	parse(args: {
 		rawCredential: unknown;
-		credentialIssuer?:CredentialIssuerInfo;
+		credentialIssuer?: CredentialIssuerInfo;
 	}): Promise<ParserResult>;
 }
 

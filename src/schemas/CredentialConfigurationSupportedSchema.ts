@@ -14,6 +14,16 @@ const proofTypesSupportedSchema = z.object({
 	}).optional(),
 });
 
+const OpenIdClaimSchema = z.object({
+	path: z.array(z.string().nullable()),
+	mandatory: z.boolean().optional(),
+	display: z.array(
+		z.object({
+			name: z.string().optional(),
+			locale: z.string().optional(),
+		})
+	).optional(),
+});
 
 const commonSchema = z.object({
 	display: z.array(z.object({
@@ -32,14 +42,7 @@ const commonSchema = z.object({
 		}).optional(),
 	})).optional(),
 	scope: z.string(),
-	claims: z.array(z.object({
-		path: z.array(z.string().nullable()),
-		mandatory: z.boolean().optional(),
-		display: z.array(z.object({
-			name: z.string().optional(),
-			locale: z.string().optional(),
-		})).optional(),
-	})).optional(),
+	claims: z.array(OpenIdClaimSchema).optional(),
 	cryptographic_binding_methods_supported: z.array(z.string()).optional(),
 	credential_signing_alg_values_supported: z.array(z.string()).optional(),
 	proof_types_supported: proofTypesSupportedSchema.optional(),
@@ -63,3 +66,5 @@ const otherFormatsSchema = commonSchema.extend({
 export const CredentialConfigurationSupportedSchema = sdJwtSchema.or(msoDocSchema).or(otherFormatsSchema);
 
 export type CredentialConfigurationSupported = z.infer<typeof CredentialConfigurationSupportedSchema>;
+
+export type OpenIdClaim = z.infer<typeof OpenIdClaimSchema>;

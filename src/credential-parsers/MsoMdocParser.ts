@@ -7,6 +7,7 @@ import { cborDecode, cborEncode } from "@auth0/mdl/lib/cbor";
 import { IssuerSigned } from "@auth0/mdl/lib/mdoc/model/types";
 import { OpenID4VCICredentialRendering } from "../functions/openID4VCICredentialRendering";
 import { getIssuerMetadata } from "../utils/getIssuerMetadata";
+import { convertOpenid4vciToSdjwtvcClaims } from "../functions/convertOpenid4vciToSdjwtvcClaims";
 
 export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }): CredentialParser {
 
@@ -97,12 +98,26 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 			const namespace = parsedDocument.issuerSignedNameSpaces[0];
 			const attrValues = parsedDocument.getIssuerNameSpace(namespace);
 
+			const allAttrValues = parsedDocument.issuerSignedNameSpaces.reduce<Record<string, unknown>>(
+				(acc, ns) => {
+					acc[ns] = parsedDocument.getIssuerNameSpace(ns);
+					return acc;
+				},
+				{},
+			);
+
 			const renderer = OpenID4VCICredentialRendering({ httpClient: args.httpClient });
 
 			const { metadata: issuerMetadata } = await getIssuerMetadata(args.httpClient, credentialIssuer.credentialIssuerIdentifier, []);
 
-			console.log('issuerMetadata= ',issuerMetadata);
-			
+			const issuerClaimsArray = credentialIssuer.credentialConfigurationId
+				? issuerMetadata?.credential_configurations_supported?.[credentialIssuer.credentialConfigurationId]?.claims
+				: undefined;
+
+			const convertedClaims = convertOpenid4vciToSdjwtvcClaims(issuerClaimsArray);
+
+			const metadataDocuments = convertedClaims.length ? [{ claims: convertedClaims }] : [];
+
 			let credentialFriendlyName: CredentialFriendlyNameCallback = async () => null;
 			let dataUri: ImageDataUriCallback = async () => null;
 
@@ -131,6 +146,7 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 					credential: {
 						format: VerifiableCredentialFormat.MSO_MDOC,
 						doctype: docType as string | undefined ?? "",
+						metadataDocuments,
 						image: {
 							dataUri: dataUri,
 						},
@@ -142,7 +158,7 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 					}
 				},
 				signedClaims: {
-					...attrValues
+					...allAttrValues
 				},
 				validityInfo: {
 					...extractValidityInfo(parsedDocument.issuerSigned),
