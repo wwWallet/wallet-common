@@ -76,7 +76,7 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 		}
 	}
 
-	async function issuerSignedParser(rawCredential: string, credentialIssuer: CredentialIssuerInfo): Promise<ParsedCredential | null> {
+	async function issuerSignedParser(rawCredential: string, credentialIssuer?: CredentialIssuerInfo | null): Promise<ParsedCredential | null> {
 		try {
 			const credentialBytes = fromBase64Url(rawCredential);
 			const issuerSigned: Map<string, unknown> = cborDecode(credentialBytes);
@@ -108,15 +108,30 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 
 			const renderer = OpenID4VCICredentialRendering({ httpClient: args.httpClient });
 
-			const { metadata: issuerMetadata } = await getIssuerMetadata(args.httpClient, credentialIssuer.credentialIssuerIdentifier, []);
+			let metadataDocuments: Array<{ claims: any[] }> = [];
+			try {
+				if (credentialIssuer?.credentialIssuerIdentifier) {
+					const { metadata: issuerMetadata } = await getIssuerMetadata(
+						args.httpClient,
+						credentialIssuer.credentialIssuerIdentifier,
+						[]
+					);
 
-			const issuerClaimsArray = credentialIssuer.credentialConfigurationId
-				? issuerMetadata?.credential_configurations_supported?.[credentialIssuer.credentialConfigurationId]?.claims
-				: undefined;
+					const issuerClaimsArray = credentialIssuer?.credentialConfigurationId
+						? issuerMetadata?.credential_configurations_supported?.[credentialIssuer.credentialConfigurationId]?.claims
+						: undefined;
 
-			const convertedClaims = convertOpenid4vciToSdjwtvcClaims(issuerClaimsArray);
+					const convertedClaims = issuerClaimsArray
+						? convertOpenid4vciToSdjwtvcClaims(issuerClaimsArray)
+						: undefined;
 
-			const metadataDocuments = convertedClaims.length ? [{ claims: convertedClaims }] : [];
+					if (convertedClaims?.length) {
+						metadataDocuments = [{ claims: convertedClaims }];
+					}
+				}
+			} catch (e) {
+				console.warn('Issuer metadata unavailable or invalid:', e);
+			}
 
 			let credentialFriendlyName: CredentialFriendlyNameCallback = async () => null;
 			let dataUri: ImageDataUriCallback = async () => null;
@@ -189,9 +204,7 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 				}
 			}
 
-			const issuerSignedParsingResult = credentialIssuer
-				? await issuerSignedParser(rawCredential, credentialIssuer)
-				: null;
+			const issuerSignedParsingResult = await issuerSignedParser(rawCredential, credentialIssuer ?? null);
 			if (issuerSignedParsingResult) {
 				return {
 					success: true,
