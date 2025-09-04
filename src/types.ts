@@ -60,6 +60,7 @@ export type ParsedCredential = {
 			format: VerifiableCredentialFormat.MSO_MDOC,
 			doctype: string,
 			name: CredentialFriendlyNameCallback,
+			metadataDocuments?: Record<string, unknown>[],
 			image: {
 				dataUri: ImageDataUriCallback,
 			},

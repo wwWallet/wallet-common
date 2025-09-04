@@ -1,11 +1,13 @@
 import { CredentialParsingError } from "../error";
-import { Context, CredentialParser, HttpClient } from "../interfaces";
+import { Context, CredentialParser, HttpClient, CredentialIssuerInfo } from "../interfaces";
 import { DataItem, DeviceSignedDocument, parse } from "@auth0/mdl";
 import { fromBase64Url } from "../utils/util";
 import { CredentialClaimPath, CredentialFriendlyNameCallback, ImageDataUriCallback, ParsedCredential, VerifiableCredentialFormat } from "../types";
 import { cborDecode, cborEncode } from "@auth0/mdl/lib/cbor";
 import { IssuerSigned } from "@auth0/mdl/lib/mdoc/model/types";
 import { OpenID4VCICredentialRendering } from "../functions/openID4VCICredentialRendering";
+import { getIssuerMetadata } from "../utils/getIssuerMetadata";
+import { convertOpenid4vciToSdjwtvcClaims } from "../functions/convertOpenid4vciToSdjwtvcClaims";
 
 export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }): CredentialParser {
 
@@ -74,7 +76,7 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 		}
 	}
 
-	async function issuerSignedParser(rawCredential: string): Promise<ParsedCredential | null> {
+	async function issuerSignedParser(rawCredential: string, credentialIssuer?: CredentialIssuerInfo | null): Promise<ParsedCredential | null> {
 		try {
 			const credentialBytes = fromBase64Url(rawCredential);
 			const issuerSigned: Map<string, unknown> = cborDecode(credentialBytes);
@@ -96,7 +98,40 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 			const namespace = parsedDocument.issuerSignedNameSpaces[0];
 			const attrValues = parsedDocument.getIssuerNameSpace(namespace);
 
+			const allAttrValues = parsedDocument.issuerSignedNameSpaces.reduce<Record<string, unknown>>(
+				(acc, ns) => {
+					acc[ns] = parsedDocument.getIssuerNameSpace(ns);
+					return acc;
+				},
+				{},
+			);
+
 			const renderer = OpenID4VCICredentialRendering({ httpClient: args.httpClient });
+
+			let metadataDocuments: Array<{ claims: any[] }> = [];
+			try {
+				if (credentialIssuer?.credentialIssuerIdentifier) {
+					const { metadata: issuerMetadata } = await getIssuerMetadata(
+						args.httpClient,
+						credentialIssuer.credentialIssuerIdentifier,
+						[]
+					);
+
+					const issuerClaimsArray = credentialIssuer?.credentialConfigurationId
+						? issuerMetadata?.credential_configurations_supported?.[credentialIssuer.credentialConfigurationId]?.claims
+						: undefined;
+
+					const convertedClaims = issuerClaimsArray
+						? convertOpenid4vciToSdjwtvcClaims(issuerClaimsArray)
+						: undefined;
+
+					if (convertedClaims?.length) {
+						metadataDocuments = [{ claims: convertedClaims }];
+					}
+				}
+			} catch (e) {
+				console.warn('Issuer metadata unavailable or invalid:', e);
+			}
 
 			let credentialFriendlyName: CredentialFriendlyNameCallback = async () => null;
 			let dataUri: ImageDataUriCallback = async () => null;
@@ -126,6 +161,7 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 					credential: {
 						format: VerifiableCredentialFormat.MSO_MDOC,
 						doctype: docType as string | undefined ?? "",
+						metadataDocuments,
 						image: {
 							dataUri: dataUri,
 						},
@@ -137,7 +173,7 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 					}
 				},
 				signedClaims: {
-					...attrValues
+					...allAttrValues
 				},
 				validityInfo: {
 					...extractValidityInfo(parsedDocument.issuerSigned),
@@ -151,7 +187,8 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 	}
 
 	return {
-		async parse({ rawCredential }) {
+		async parse({ rawCredential, credentialIssuer }) {
+
 			if (typeof rawCredential != 'string') {
 				return {
 					success: false,
@@ -167,7 +204,7 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 				}
 			}
 
-			const issuerSignedParsingResult = await issuerSignedParser(rawCredential);
+			const issuerSignedParsingResult = await issuerSignedParser(rawCredential, credentialIssuer ?? null);
 			if (issuerSignedParsingResult) {
 				return {
 					success: true,
