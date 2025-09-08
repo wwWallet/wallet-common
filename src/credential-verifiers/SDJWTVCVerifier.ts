@@ -263,17 +263,26 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 				}
 			}
 		} catch (error) {
-			console.error(error);
-			if (error instanceof Error && error.message == CredentialVerificationError.VctUrnNotFoundError) {
-				return {
-					success: true,
-					value: {},
+			console.warn(error);
+
+			if (error instanceof Error) {
+				if (error.message == "No schema or schema_uri found") {
+					logError(CredentialVerificationError.VctSchemaNotFound, error.message);
+					return {
+						success: false,
+						error: CredentialVerificationError.VctSchemaNotFound,
+					}
 				}
-			} else {
+
+				logError(CredentialVerificationError.VctSchemaError, error.message);
 				return {
 					success: false,
 					error: CredentialVerificationError.VctSchemaError,
 				}
+			}
+			return {
+				success: false,
+				error: CredentialVerificationError.VctSchemaError,
 			}
 		}
 
