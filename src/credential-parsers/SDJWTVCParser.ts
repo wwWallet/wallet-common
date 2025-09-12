@@ -2,7 +2,7 @@ import { SDJwt } from "@sd-jwt/core";
 import type { HasherAndAlg } from "@sd-jwt/types";
 import { CredentialParsingError } from "../error";
 import { Context, CredentialParser, HttpClient } from "../interfaces";
-import { CredentialClaimPath, CredentialFriendlyNameCallback, ImageDataUriCallback, MetadataWarning, VerifiableCredentialFormat } from "../types";
+import { CredentialClaimPath, CredentialFriendlyNameCallback, ImageDataUriCallback, MetadataWarning, VerifiableCredentialFormat, DisclosurePolicy } from "../types";
 import { SdJwtVcPayloadSchema } from "../schemas";
 import { CredentialRenderingService } from "../rendering";
 import { getSdJwtVcMetadata } from "../utils/getSdJwtVcMetadata";
@@ -107,8 +107,8 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 			}
 
 			const { metadata: issuerMetadata } = await getIssuerMetadata(args.httpClient, validatedParsedClaims.iss, warnings);
-
 			const getSdJwtMetadataResult = await getSdJwtVcMetadata(args.context, args.httpClient, rawCredential, validatedParsedClaims, warnings);
+			let disclosurePolicy: DisclosurePolicy | null = null;
 			if ('error' in getSdJwtMetadataResult) {
 				return {
 					success: false,
@@ -117,11 +117,26 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 			} else if (getSdJwtMetadataResult.credentialMetadata) {
 
 				const { credentialMetadata } = getSdJwtMetadataResult;
+				const vct = credentialMetadata.vct;
+				// Find issuer's credential configuration whose vct matches the credential's vct
+				const issuerConfigs = issuerMetadata?.credential_configurations_supported as
+					| Record<string, { vct?: string; disclosure_policy?: DisclosurePolicy }>
+					| undefined;
 
+				if (issuerConfigs && credentialMetadata?.vct) {
+					const matchKey = Object.keys(issuerConfigs).find(
+						(k) => issuerConfigs[k]?.vct === credentialMetadata.vct
+					);
+					disclosurePolicy =
+						(matchKey ? issuerConfigs[matchKey]?.disclosure_policy : null) ??
+						(credentialMetadata as any)?.disclosure_policy ??
+						null;
+				} else {
+					disclosurePolicy = null;
+				}
 				credentialFriendlyName = async (
 					preferredLangs: string[] = ['en-US']
 				): Promise<string | null> => {
-					const vct = credentialMetadata.vct;
 					const credentialDisplayArray = credentialMetadata.display;
 					const issuerDisplayArray = vct
 						? issuerMetadata?.credential_configurations_supported?.[vct]?.display
@@ -213,6 +228,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 								dataUri: dataUri,
 							},
 							name: credentialFriendlyName,
+							disclosurePolicy: disclosurePolicy,
 						},
 						issuer: {
 							id: validatedParsedClaims.iss,
