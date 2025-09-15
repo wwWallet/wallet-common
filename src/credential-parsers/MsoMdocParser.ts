@@ -8,6 +8,9 @@ import { IssuerSigned } from "@auth0/mdl/lib/mdoc/model/types";
 import { OpenID4VCICredentialRendering } from "../functions/openID4VCICredentialRendering";
 import { getIssuerMetadata } from "../utils/getIssuerMetadata";
 import { convertOpenid4vciToSdjwtvcClaims } from "../functions/convertOpenid4vciToSdjwtvcClaims";
+import { matchDisplayByLocale } from '../utils/matchLocalizedDisplay';
+import type { z } from "zod";
+import { OpenidCredentialIssuerMetadataSchema } from "../schemas";
 
 export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }): CredentialParser {
 
@@ -16,7 +19,7 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 		return issuerSigned.issuerAuth.decodedPayload.validityInfo;
 	}
 
-	async function deviceResponseParser(rawCredential: string,credentialIssuer?: CredentialIssuerInfo | null): Promise<ParsedCredential | null> {
+	async function deviceResponseParser(rawCredential: string, credentialIssuer?: CredentialIssuerInfo | null): Promise<ParsedCredential | null> {
 		try {
 			const decodedCred = fromBase64Url(rawCredential)
 			const parsedMDOC = parse(decodedCred);
@@ -36,13 +39,16 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 			const renderer = OpenID4VCICredentialRendering({ httpClient: args.httpClient });
 
 			let metadataDocuments: Array<{ claims: any[] }> = [];
+			let issuerMetadata: z.infer<typeof OpenidCredentialIssuerMetadataSchema> | null = null;
+
 			try {
 				if (credentialIssuer?.credentialIssuerIdentifier) {
-					const { metadata: issuerMetadata } = await getIssuerMetadata(
+					const result = await getIssuerMetadata(
 						args.httpClient,
 						credentialIssuer.credentialIssuerIdentifier,
 						[]
 					);
+					issuerMetadata = result.metadata;
 
 					const issuerClaimsArray = credentialIssuer?.credentialConfigurationId
 						? issuerMetadata?.credential_configurations_supported?.[credentialIssuer.credentialConfigurationId]?.claims
@@ -70,6 +76,13 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 			credentialFriendlyName = async (
 				preferredLangs: string[] = ['en-US']
 			): Promise<string | null> => {
+
+				const issuerDisplayArray = credentialIssuer?.credentialConfigurationId
+					? issuerMetadata?.credential_configurations_supported?.[credentialIssuer?.credentialConfigurationId]?.display
+					: undefined;
+
+				const issuerDisplayLocalized = matchDisplayByLocale(issuerDisplayArray, preferredLangs);
+				if (issuerDisplayLocalized?.name) return issuerDisplayLocalized.name;
 
 				return 'mdoc Verifiable Credential';
 			};
@@ -144,13 +157,16 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 			const renderer = OpenID4VCICredentialRendering({ httpClient: args.httpClient });
 
 			let metadataDocuments: Array<{ claims: any[] }> = [];
+			let issuerMetadata: z.infer<typeof OpenidCredentialIssuerMetadataSchema> | null = null;
+
 			try {
 				if (credentialIssuer?.credentialIssuerIdentifier) {
-					const { metadata: issuerMetadata } = await getIssuerMetadata(
+					const result = await getIssuerMetadata(
 						args.httpClient,
 						credentialIssuer.credentialIssuerIdentifier,
 						[]
 					);
+					issuerMetadata = result.metadata;
 
 					const issuerClaimsArray = credentialIssuer?.credentialConfigurationId
 						? issuerMetadata?.credential_configurations_supported?.[credentialIssuer.credentialConfigurationId]?.claims
@@ -178,6 +194,13 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 			credentialFriendlyName = async (
 				preferredLangs: string[] = ['en-US']
 			): Promise<string | null> => {
+
+				const issuerDisplayArray = credentialIssuer?.credentialConfigurationId
+					? issuerMetadata?.credential_configurations_supported?.[credentialIssuer?.credentialConfigurationId]?.display
+					: undefined;
+
+				const issuerDisplayLocalized = matchDisplayByLocale(issuerDisplayArray, preferredLangs);
+				if (issuerDisplayLocalized?.name) return issuerDisplayLocalized.name;
 
 				return 'mdoc Verifiable Credential';
 			};
