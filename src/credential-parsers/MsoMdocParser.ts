@@ -24,9 +24,6 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 			const decodedCred = fromBase64Url(rawCredential)
 			const parsedMDOC = parse(decodedCred);
 			const [parsedDocument] = parsedMDOC.documents as DeviceSignedDocument[];
-			const namespace = parsedDocument.issuerSignedNameSpaces[0];
-
-			const attrValues = parsedDocument.getIssuerNameSpace(namespace);
 
 			const allAttrValues = parsedDocument.issuerSignedNameSpaces.reduce<Record<string, unknown>>(
 				(acc, ns) => {
@@ -90,7 +87,7 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 			dataUri = async (
 				filter
 			): Promise<string | null> => {
-				return await renderer.renderCustomSvgTemplate({ signedClaims: attrValues, displayConfig: mdocDisplayConfig })
+				return await renderer.renderCustomSvgTemplate({ signedClaims: {}, displayConfig: mdocDisplayConfig })
 					.then((res) => res)
 					.catch((err) => { console.error(err); return null; });
 			}
@@ -142,9 +139,6 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 			const encoded = cborEncode(m);
 			const mdoc = parse(encoded);
 			const [parsedDocument] = mdoc.documents;
-
-			const namespace = parsedDocument.issuerSignedNameSpaces[0];
-			const attrValues = parsedDocument.getIssuerNameSpace(namespace);
 
 			const allAttrValues = parsedDocument.issuerSignedNameSpaces.reduce<Record<string, unknown>>(
 				(acc, ns) => {
@@ -209,7 +203,7 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 				filter?: Array<CredentialClaimPath>,
 				preferredLangs: string[] = ['en-US']
 			): Promise<string | null> => {
-				return await renderer.renderCustomSvgTemplate({ signedClaims: attrValues, displayConfig: mdocDisplayConfig })
+				return await renderer.renderCustomSvgTemplate({ signedClaims: {}, displayConfig: mdocDisplayConfig })
 					.then((res) => res)
 					.catch((err) => { console.error(err); return null; })
 			}
