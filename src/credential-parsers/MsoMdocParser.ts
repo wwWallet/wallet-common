@@ -72,12 +72,21 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 
 	function makeDataUri(
 		renderer: ReturnType<typeof OpenID4VCICredentialRendering>,
-		signedClaims: Record<string, unknown>
+		signedClaims: Record<string, unknown>,
+		issuerMetadata: IssuerMetadata | null,
+		credentialIssuer?: CredentialIssuerInfo | null
 	): ImageDataUriCallback {
 		const mdocDisplayConfig = { name: "mdoc Verifiable Credential" };
-		return async (_filter?: Array<CredentialClaimPath>) => {
+		return async (filter?: Array<CredentialClaimPath>, preferredLangs: string[] = ["en-US"]) => {
 			try {
-				return await renderer.renderCustomSvgTemplate({ signedClaims, displayConfig: mdocDisplayConfig });
+
+				const issuerDisplayArray = credentialIssuer?.credentialConfigurationId
+					? issuerMetadata?.credential_configurations_supported?.[credentialIssuer.credentialConfigurationId]?.display
+					: undefined;
+
+				const issuerDisplayLocalized = matchDisplayByLocale(issuerDisplayArray, preferredLangs);
+
+				return await renderer.renderCustomSvgTemplate({ signedClaims, displayConfig: issuerDisplayLocalized ?? mdocDisplayConfig });
 			} catch (err) {
 				console.error(err);
 				return null;
@@ -125,7 +134,7 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 			const { issuerMetadata, metadataDocuments } = await fetchIssuerMetadataAndDocs(credentialIssuer);
 
 			const credentialFriendlyName = makeCredentialFriendlyName(issuerMetadata, credentialIssuer);
-			const dataUri = makeDataUri(renderer, {});
+			const dataUri = makeDataUri(renderer, {}, issuerMetadata, credentialIssuer);
 
 			return toParsedCredential(parsedDocument, signedClaims, metadataDocuments, credentialFriendlyName, dataUri);
 		} catch {
@@ -160,7 +169,7 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 			const { issuerMetadata, metadataDocuments } = await fetchIssuerMetadataAndDocs(credentialIssuer);
 
 			const credentialFriendlyName = makeCredentialFriendlyName(issuerMetadata, credentialIssuer);
-			const dataUri = makeDataUri(renderer, {});
+			const dataUri = makeDataUri(renderer, {}, issuerMetadata, credentialIssuer);
 
 			return toParsedCredential(parsedDocument, signedClaims, metadataDocuments, credentialFriendlyName, dataUri);
 		} catch {
