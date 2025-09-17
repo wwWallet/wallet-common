@@ -37,7 +37,7 @@ const commonSchema = z.object({
 	proof_types_supported: proofTypesSupportedSchema.optional(),
 	disclosure_policy: z.object({
 		policy: z.literal("attestationBased").or(z.literal("allowList")).or(z.literal("rootOfTrust")).or(z.literal("none")),
-		values: z.array(z.object({})),
+		values: z.array(z.any()),
 		url: z.string().url()
 	}).optional()
 });
