@@ -10,6 +10,7 @@ import { OpenID4VCICredentialRendering } from "../functions/openID4VCICredential
 import { z } from 'zod';
 import { getIssuerMetadata } from "../utils/getIssuerMetadata";
 import { matchDisplayByLang, matchDisplayByLocale } from '../utils/matchLocalizedDisplay';
+import { TypeMetadata as TypeMetadataSchema } from "../schemas/SdJwtVcTypeMetadataSchema";
 
 export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }): CredentialParser {
 	const encoder = new TextEncoder();
@@ -106,6 +107,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 				};
 			}
 
+
 			const { metadata: issuerMetadata } = await getIssuerMetadata(args.httpClient, validatedParsedClaims.iss, warnings);
 
 			const getSdJwtMetadataResult = await getSdJwtVcMetadata(args.context, args.httpClient, rawCredential, validatedParsedClaims, warnings);
@@ -117,101 +119,98 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 			}
 
 			let TypeMetadata: TypeMetadata = {};
+			let credentialMetadata: TypeMetadataSchema = {}
+
+			const credentialConfigurationsMetadata = credentialIssuer?.credentialConfigurationId
+				? issuerMetadata?.credential_configurations_supported?.[credentialIssuer?.credentialConfigurationId]
+				: undefined;
 
 			if (getSdJwtMetadataResult.credentialMetadata) {
 
-				const { credentialMetadata } = getSdJwtMetadataResult;
+				credentialMetadata = getSdJwtMetadataResult.credentialMetadata
 
 				if (credentialMetadata?.claims) {
 					TypeMetadata = { claims: credentialMetadata.claims };
 				}
+			}
 
-				credentialFriendlyName = async (
-					preferredLangs: string[] = ['en-US']
-				): Promise<string | null> => {
+			credentialFriendlyName = async (
+				preferredLangs: string[] = ['en-US']
+			): Promise<string | null> => {
 
-					// 1. Try to match localized credential display
-					const credentialDisplayArray = credentialMetadata.display;
+				// 1. Try to match localized credential display
+				const credentialDisplayArray = credentialMetadata.display;
+				const credentialDisplayLocalized = matchDisplayByLang(credentialDisplayArray, preferredLangs);
+				if (credentialDisplayLocalized?.name) return credentialDisplayLocalized.name;
 
-					const credentialDisplayLocalized = matchDisplayByLang(credentialDisplayArray, preferredLangs);
+				// 2. Try to match localized issuer display
+				const issuerDisplayArray = credentialConfigurationsMetadata?.display;
+				const issuerDisplayLocalized = matchDisplayByLocale(issuerDisplayArray, preferredLangs);
+				if (issuerDisplayLocalized?.name) return issuerDisplayLocalized.name;
 
-					if (credentialDisplayLocalized?.name) return credentialDisplayLocalized.name;
+				return 'SD-JWT Verifiable Credential';
+			};
 
-					// 2. Try to match localized issuer display
-					const issuerDisplayArray = credentialIssuer?.credentialConfigurationId
-						? issuerMetadata?.credential_configurations_supported?.[credentialIssuer?.credentialConfigurationId]?.display
-						: undefined;
+			dataUri = async (
+				filter?: Array<CredentialClaimPath>,
+				preferredLangs: string[] = ['en-US']
+			): Promise<string | null> => {
 
-					const issuerDisplayLocalized = matchDisplayByLocale(issuerDisplayArray, preferredLangs);
-					if (issuerDisplayLocalized?.name) return issuerDisplayLocalized.name;
+				// 1. Try to match localized credential display
+				const credentialDisplayArray = credentialMetadata?.display;
+				const credentialDisplayLocalized = matchDisplayByLang(credentialDisplayArray, preferredLangs);
 
-					return 'SD-JWT Verifiable Credential';
-				};
+				// 2. Try to match localized issuer display
+				const issuerDisplayArray = credentialConfigurationsMetadata?.display;
+				const issuerDisplayLocalized = matchDisplayByLocale(issuerDisplayArray, preferredLangs);
 
-				dataUri = async (
-					filter?: Array<CredentialClaimPath>,
-					preferredLangs: string[] = ['en-US']
-				): Promise<string | null> => {
+				//@ts-ignore
+				const svgTemplateUri = credentialDisplayLocalized?.rendering?.svg_templates?.[0]?.uri || null;
+				//@ts-ignore
+				const simpleDisplayConfig = credentialDisplayLocalized?.rendering?.simple || null;
 
-					// 1. Try to match localized credential display
-					const credentialDisplayArray = credentialMetadata?.display;
-					const credentialDisplayLocalized = matchDisplayByLang(credentialDisplayArray, preferredLangs);
-
-					// 2. Try to match localized issuer display
-					const issuerDisplayArray = credentialIssuer?.credentialConfigurationId
-						? issuerMetadata?.credential_configurations_supported?.[credentialIssuer?.credentialConfigurationId]?.display
-						: undefined;
-
-					const issuerDisplayLocalized = matchDisplayByLocale(issuerDisplayArray, preferredLangs);
-
-					//@ts-ignore
-					const svgTemplateUri = credentialDisplayLocalized?.rendering?.svg_templates?.[0]?.uri || null;
-					//@ts-ignore
-					const simpleDisplayConfig = credentialDisplayLocalized?.rendering?.simple || null;
-
-					// 1. Try SVG template rendering
-					if (svgTemplateUri) {
-						const svgResponse = await args.httpClient.get(svgTemplateUri, {}, { useCache: true }).catch(() => null);
-						if (svgResponse && svgResponse.status === 200) {
-							const svgdata = svgResponse.data as string;
-							const rendered = await cr.renderSvgTemplate({
-								json: validatedParsedClaims,
-								credentialImageSvgTemplate: svgdata,
-								sdJwtVcMetadataClaims: credentialMetadata.claims,
-								filter,
-							}).catch(() => null);
-							if (rendered) return rendered;
-						}
-					}
-
-					// 2. Fallback: simple rendering from credential display
-					if (simpleDisplayConfig && credentialDisplayLocalized) {
-						const rendered = await renderer.renderCustomSvgTemplate({
-							signedClaims: validatedParsedClaims,
-							displayConfig: { ...credentialDisplayLocalized, ...simpleDisplayConfig },
+				// 1. Try SVG template rendering
+				if (svgTemplateUri) {
+					const svgResponse = await args.httpClient.get(svgTemplateUri, {}, { useCache: true }).catch(() => null);
+					if (svgResponse && svgResponse.status === 200) {
+						const svgdata = svgResponse.data as string;
+						const rendered = await cr.renderSvgTemplate({
+							json: validatedParsedClaims,
+							credentialImageSvgTemplate: svgdata,
+							sdJwtVcMetadataClaims: credentialMetadata.claims,
+							filter,
 						}).catch(() => null);
 						if (rendered) return rendered;
 					}
+				}
 
-					// 3. Fallback: rendering from issuer metadata display
-					if (issuerDisplayLocalized) {
-						const rendered = await renderer.renderCustomSvgTemplate({
-							signedClaims: validatedParsedClaims,
-							displayConfig: issuerDisplayLocalized,
-						}).catch(() => null);
-						if (rendered) return rendered;
-					}
-
+				// 2. Fallback: simple rendering from credential display
+				if (simpleDisplayConfig && credentialDisplayLocalized) {
 					const rendered = await renderer.renderCustomSvgTemplate({
 						signedClaims: validatedParsedClaims,
-						displayConfig: { name: "SD-JWT Verifiable Credential" },
+						displayConfig: { ...credentialDisplayLocalized, ...simpleDisplayConfig },
 					}).catch(() => null);
 					if (rendered) return rendered;
+				}
 
-					// All attempts failed
-					return null;
-				};
-			}
+				// 3. Fallback: rendering from issuer metadata display
+				if (issuerDisplayLocalized) {
+					const rendered = await renderer.renderCustomSvgTemplate({
+						signedClaims: validatedParsedClaims,
+						displayConfig: issuerDisplayLocalized,
+					}).catch(() => null);
+					if (rendered) return rendered;
+				}
+
+				const rendered = await renderer.renderCustomSvgTemplate({
+					signedClaims: validatedParsedClaims,
+					displayConfig: { name: "SD-JWT Verifiable Credential" },
+				}).catch(() => null);
+				if (rendered) return rendered;
+
+				// All attempts failed
+				return null;
+			};
 
 			return {
 				success: true,
