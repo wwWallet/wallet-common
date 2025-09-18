@@ -364,7 +364,7 @@ export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClien
 				if ('error' in vctmMergedMetadata) {
 					return { error: vctmMergedMetadata.error }
 				} else {
-					console.log('Final vctm Metadata:', vctmMergedMetadata);
+					// console.log('Final vctm Metadata:', vctmMergedMetadata);
 					return { credentialMetadata: vctmMergedMetadata, warnings };
 				}
 			}
