@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { getIssuerMetadata } from "../utils/getIssuerMetadata";
 import { matchDisplayByLang, matchDisplayByLocale } from '../utils/matchLocalizedDisplay';
 import { TypeMetadata as TypeMetadataSchema } from "../schemas/SdJwtVcTypeMetadataSchema";
+import { convertOpenid4vciToSdjwtvcClaims } from "../functions/convertOpenid4vciToSdjwtvcClaims";
 
 export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }): CredentialParser {
 	const encoder = new TextEncoder();
@@ -121,9 +122,9 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 			let TypeMetadata: TypeMetadata = {};
 			let credentialMetadata: TypeMetadataSchema = {}
 
-			const credentialConfigurationsMetadata = credentialIssuer?.credentialConfigurationId
-				? issuerMetadata?.credential_configurations_supported?.[credentialIssuer?.credentialConfigurationId]
-				: undefined;
+			const credentialIssuerMetadata = credentialIssuer?.credentialConfigurationId
+			? issuerMetadata?.credential_configurations_supported?.[credentialIssuer?.credentialConfigurationId]
+			: undefined;
 
 			if (getSdJwtMetadataResult.credentialMetadata) {
 
@@ -144,7 +145,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 				if (credentialDisplayLocalized?.name) return credentialDisplayLocalized.name;
 
 				// 2. Try to match localized issuer display
-				const issuerDisplayArray = credentialConfigurationsMetadata?.display;
+				const issuerDisplayArray = credentialIssuerMetadata?.display;
 				const issuerDisplayLocalized = matchDisplayByLocale(issuerDisplayArray, preferredLangs);
 				if (issuerDisplayLocalized?.name) return issuerDisplayLocalized.name;
 
@@ -161,7 +162,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 				const credentialDisplayLocalized = matchDisplayByLang(credentialDisplayArray, preferredLangs);
 
 				// 2. Try to match localized issuer display
-				const issuerDisplayArray = credentialConfigurationsMetadata?.display;
+				const issuerDisplayArray = credentialIssuerMetadata?.display;
 				const issuerDisplayLocalized = matchDisplayByLocale(issuerDisplayArray, preferredLangs);
 
 				//@ts-ignore
@@ -211,6 +212,13 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 				// All attempts failed
 				return null;
 			};
+
+			if (!TypeMetadata?.claims && credentialIssuerMetadata?.claims) {
+				const convertedClaims =  convertOpenid4vciToSdjwtvcClaims(credentialIssuerMetadata.claims);
+				if (convertedClaims?.length) {
+					TypeMetadata = { claims: convertedClaims };
+				}
+			}
 
 			return {
 				success: true,
