@@ -54,7 +54,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 
 
 	return {
-		async parse({ rawCredential }) {
+		async parse({ rawCredential, credentialIssuer }) {
 			if (typeof rawCredential !== 'string') {
 				return {
 					success: false,
@@ -129,15 +129,18 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 				credentialFriendlyName = async (
 					preferredLangs: string[] = ['en-US']
 				): Promise<string | null> => {
-					const vct = credentialMetadata.vct;
+
+					// 1. Try to match localized credential display
 					const credentialDisplayArray = credentialMetadata.display;
-					const issuerDisplayArray = vct
-						? issuerMetadata?.credential_configurations_supported?.[vct]?.display
-						: undefined;
 
 					const credentialDisplayLocalized = matchDisplayByLang(credentialDisplayArray, preferredLangs);
-					//@ts-ignore
+
 					if (credentialDisplayLocalized?.name) return credentialDisplayLocalized.name;
+
+					// 2. Try to match localized issuer display
+					const issuerDisplayArray = credentialIssuer?.credentialConfigurationId
+						? issuerMetadata?.credential_configurations_supported?.[credentialIssuer?.credentialConfigurationId]?.display
+						: undefined;
 
 					const issuerDisplayLocalized = matchDisplayByLocale(issuerDisplayArray, preferredLangs);
 					if (issuerDisplayLocalized?.name) return issuerDisplayLocalized.name;
@@ -155,8 +158,8 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 					const credentialDisplayLocalized = matchDisplayByLang(credentialDisplayArray, preferredLangs);
 
 					// 2. Try to match localized issuer display
-					const issuerDisplayArray = credentialMetadata.vct
-						? issuerMetadata?.credential_configurations_supported?.[credentialMetadata.vct]?.display
+					const issuerDisplayArray = credentialIssuer?.credentialConfigurationId
+						? issuerMetadata?.credential_configurations_supported?.[credentialIssuer?.credentialConfigurationId]?.display
 						: undefined;
 
 					const issuerDisplayLocalized = matchDisplayByLocale(issuerDisplayArray, preferredLangs);
