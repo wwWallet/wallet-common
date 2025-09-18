@@ -48,8 +48,8 @@ export type ImageDataUriCallback = (
 
 export type DisclosurePolicy = {
 	policy: "attestationBased" | "allowList" | "rootOfTrust" | "none";
-  values: Array<any>;
-  url: string;
+	values: Array<any>;
+	url: string;
 };
 
 export type ParsedCredential = {
