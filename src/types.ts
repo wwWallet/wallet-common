@@ -1,4 +1,5 @@
 import { CredentialParsingError } from "./error";
+import { ClaimMetadataEntry } from "./schemas/SdJwtVcTypeMetadataSchema";
 import { JptClaims } from "./jpt";
 
 export enum VerifiableCredentialFormat {
@@ -22,7 +23,7 @@ export type Result<T, E> = { success: true; value: T } | { success: false; error
 
 export type ParserResult =
 	| { success: true; value: ParsedCredential }
-	| { success: false; error: CredentialParsingError};
+	| { success: false; error: CredentialParsingError };
 
 export type CredentialPayload = {
 	iss: string;
@@ -49,6 +50,10 @@ export type ImageDataUriCallback = (
 	preferredLangs?: string[]
 ) => Promise<string | null>;
 
+export type TypeMetadata = {
+	claims?: ClaimMetadataEntry[];
+};
+
 export type ParsedCredentialCommon = {
 	metadata: {
 		credential: unknown,
@@ -68,7 +73,7 @@ export type ParsedCredentialJwtOrMdoc = ParsedCredentialCommon & {
 			format: VerifiableCredentialFormat.VC_SDJWT | VerifiableCredentialFormat.DC_SDJWT,
 			vct: string,
 			name: CredentialFriendlyNameCallback,
-			metadataDocuments: Record<string, unknown>[],
+			TypeMetadata: TypeMetadata,
 			image: {
 				dataUri: ImageDataUriCallback,
 			},
@@ -76,7 +81,7 @@ export type ParsedCredentialJwtOrMdoc = ParsedCredentialCommon & {
 			format: VerifiableCredentialFormat.MSO_MDOC,
 			doctype: string,
 			name: CredentialFriendlyNameCallback,
-			metadataDocuments?: Record<string, unknown>[],
+			TypeMetadata: TypeMetadata,
 			image: {
 				dataUri: ImageDataUriCallback,
 			},
@@ -92,7 +97,7 @@ export type ParsedCredentialJpt = ParsedCredentialCommon & {
 			format: VerifiableCredentialFormat.DC_JPT,
 			vct: string,
 			name: CredentialFriendlyNameCallback,
-			metadataDocuments: Record<string, unknown>[],
+			TypeMetadata: TypeMetadata,
 			image: {
 				dataUri: ImageDataUriCallback,
 			},
