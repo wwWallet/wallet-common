@@ -2,7 +2,7 @@ import { SDJwt } from "@sd-jwt/core";
 import type { HasherAndAlg } from "@sd-jwt/types";
 import { CredentialParsingError } from "../error";
 import { Context, CredentialParser, HttpClient } from "../interfaces";
-import { CredentialClaimPath, CredentialFriendlyNameCallback, ImageDataUriCallback, MetadataWarning, VerifiableCredentialFormat } from "../types";
+import { CredentialClaimPath, CredentialFriendlyNameCallback, ImageDataUriCallback, MetadataWarning, VerifiableCredentialFormat, TypeMetadata } from "../types";
 import { SdJwtVcPayloadSchema } from "../schemas";
 import { CredentialRenderingService } from "../rendering";
 import { getSdJwtVcMetadata } from "../utils/getSdJwtVcMetadata";
@@ -114,9 +114,17 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 					success: false,
 					error: getSdJwtMetadataResult.error,
 				}
-			} else if (getSdJwtMetadataResult.credentialMetadata) {
+			}
+
+			let TypeMetadata: TypeMetadata = {};
+
+			if (getSdJwtMetadataResult.credentialMetadata) {
 
 				const { credentialMetadata } = getSdJwtMetadataResult;
+
+				if (credentialMetadata?.claims) {
+					TypeMetadata = { claims: credentialMetadata.claims };
+				}
 
 				credentialFriendlyName = async (
 					preferredLangs: string[] = ['en-US']
@@ -147,7 +155,10 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 					const credentialDisplayLocalized = matchDisplayByLang(credentialDisplayArray, preferredLangs);
 
 					// 2. Try to match localized issuer display
-					const issuerDisplayArray = issuerMetadata?.credential_configurations_supported?.[credentialMetadata.vct]?.display;
+					const issuerDisplayArray = credentialMetadata.vct
+						? issuerMetadata?.credential_configurations_supported?.[credentialMetadata.vct]?.display
+						: undefined;
+
 					const issuerDisplayLocalized = matchDisplayByLocale(issuerDisplayArray, preferredLangs);
 
 					//@ts-ignore
@@ -207,8 +218,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 						credential: {
 							format: typParseResult.data,
 							vct: validatedParsedClaims?.vct as string | undefined ?? "",
-							// @ts-ignore
-							metadataDocuments: [getSdJwtMetadataResult.credentialMetadata],
+							TypeMetadata,
 							image: {
 								dataUri: dataUri,
 							},
