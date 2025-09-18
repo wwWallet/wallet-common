@@ -77,7 +77,7 @@ describe("The MsoMdocParser", () => {
 		assert(nameSpace?.["given_name"] === "Tyler");
 
 		//@ts-ignore
-		expect(parsedDeviceResponse.value.metadata.credential.metadataDocuments[0].claims.some(
+		expect(parsedDeviceResponse.value.metadata.credential.TypeMetadata.claims.some(
 			w => JSON.stringify(w.path) === JSON.stringify(['eu.europa.ec.eudi.pid.1', 'family_name'])
 		)
 		).toBe(true);
@@ -103,7 +103,7 @@ describe("The MsoMdocParser", () => {
 		assert(nameSpace?.["given_name"] === "Georgios");
 
 		//@ts-ignore
-		expect(parsedDeviceResponse.value.metadata.credential.metadataDocuments[0].claims.some(
+		expect(parsedDeviceResponse.value.metadata.credential.TypeMetadata.claims.some(
 			w => JSON.stringify(w.path) === JSON.stringify(['org.iso.18013.5.1', 'family_name'])
 		)
 		).toBe(true);
