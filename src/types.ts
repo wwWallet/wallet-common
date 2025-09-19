@@ -76,6 +76,7 @@ export type ParsedCredentialJwtOrMdoc = ParsedCredentialCommon & {
 			format: VerifiableCredentialFormat.MSO_MDOC,
 			doctype: string,
 			name: CredentialFriendlyNameCallback,
+			metadataDocuments?: Record<string, unknown>[],
 			image: {
 				dataUri: ImageDataUriCallback,
 			},
