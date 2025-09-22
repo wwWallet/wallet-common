@@ -123,7 +123,6 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 				}
 			}
 
-			console.log('parsedPayload',parsedPayload)
 
 			const presenceIndex = buildPresenceIndex(parsedPayload, ["_sd"]);
 			const isPresent = (path: Array<string | number | null>) =>
