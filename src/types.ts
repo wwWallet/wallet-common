@@ -49,11 +49,11 @@ export type ImageDataUriCallback = (
 
 
 export type AugmentedClaimMetadataEntry = ClaimMetadataEntry & {
-  required?: boolean;
+	required?: boolean;
 };
 
 export type TypeMetadata = {
-  claims?: Array<AugmentedClaimMetadataEntry>;
+	claims?: Array<AugmentedClaimMetadataEntry>;
 };
 
 export type ParsedCredential = {
