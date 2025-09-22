@@ -51,10 +51,14 @@ export type DisclosurePolicy = {
 	policy: "attestationBased" | "allowList" | "rootOfTrust" | "none";
 	values: Array<any>;
 	url: string;
+}
+
+export type AugmentedClaimMetadataEntry = ClaimMetadataEntry & {
+	required?: boolean;
 };
 
 export type TypeMetadata = {
-	claims?: ClaimMetadataEntry[];
+	claims?: Array<AugmentedClaimMetadataEntry>;
 };
 
 export type ParsedCredential = {

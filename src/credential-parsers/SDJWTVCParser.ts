@@ -12,6 +12,8 @@ import { getIssuerMetadata } from "../utils/getIssuerMetadata";
 import { matchDisplayByLang, matchDisplayByLocale } from '../utils/matchLocalizedDisplay';
 import { TypeMetadata as TypeMetadataSchema } from "../schemas/SdJwtVcTypeMetadataSchema";
 import { convertOpenid4vciToSdjwtvcClaims } from "../functions/convertOpenid4vciToSdjwtvcClaims";
+import { buildPresenceIndex, pathIsPresent } from "../utils/payloadPresenceIndex";
+import { ClaimsWithRequired } from "../utils/ClaimsWithRequired";
 
 export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }): CredentialParser {
 	const encoder = new TextEncoder();
@@ -69,12 +71,14 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 
 			const warnings: MetadataWarning[] = [];
 
-			const { parsedClaims, parsedHeaders, err } = await (async () => {
+			const { parsedClaims, parsedHeaders, parsedPayload, err } = await (async () => {
 				try {
 					const parsedSdJwt = await SDJwt.fromEncode(rawCredential, hasherAndAlgorithm.hasher);
 					const claims = await parsedSdJwt.getClaims(hasherAndAlgorithm.hasher);
 					const headers = await parsedSdJwt.jwt?.header;
-					return { parsedClaims: claims as Record<string, unknown>, parsedHeaders: headers, err: null };
+					const payload = await parsedSdJwt.jwt?.payload;
+
+					return { parsedClaims: claims as Record<string, unknown>, parsedHeaders: headers, parsedPayload: payload, err: null };
 				}
 				catch (err) {
 					return { parsedClaims: null, parsedHeaders: null, err: err };
@@ -119,12 +123,17 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 				}
 			}
 
+
+			const presenceIndex = buildPresenceIndex(parsedPayload, ["_sd"]);
+			const isPresent = (path: Array<string | number | null>) =>
+				pathIsPresent(presenceIndex, path);
+
 			let TypeMetadata: TypeMetadata = {};
 			let credentialMetadata: TypeMetadataSchema = {}
 
 			const credentialIssuerMetadata = credentialIssuer?.credentialConfigurationId
-			? issuerMetadata?.credential_configurations_supported?.[credentialIssuer?.credentialConfigurationId]
-			: undefined;
+				? issuerMetadata?.credential_configurations_supported?.[credentialIssuer?.credentialConfigurationId]
+				: undefined;
 
 			if (getSdJwtMetadataResult.credentialMetadata) {
 
@@ -147,7 +156,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 					disclosurePolicy = null;
 				}
 				if (credentialMetadata?.claims) {
-					TypeMetadata = { claims: credentialMetadata.claims };
+					TypeMetadata = { claims: ClaimsWithRequired(credentialMetadata.claims, isPresent) };
 				}
 			}
 
@@ -230,9 +239,9 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 			};
 
 			if (!TypeMetadata?.claims && credentialIssuerMetadata?.claims) {
-				const convertedClaims =  convertOpenid4vciToSdjwtvcClaims(credentialIssuerMetadata.claims);
+				const convertedClaims = convertOpenid4vciToSdjwtvcClaims(credentialIssuerMetadata.claims);
 				if (convertedClaims?.length) {
-					TypeMetadata = { claims: convertedClaims };
+					TypeMetadata = { claims: ClaimsWithRequired(credentialMetadata.claims, isPresent) };
 				}
 			}
 
