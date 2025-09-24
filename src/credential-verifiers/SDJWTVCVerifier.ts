@@ -447,20 +447,9 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 				}
 			}
 
-			const publicKeyResult = await getHolderPublicKey(rawCredential);
-			if (publicKeyResult.success === false) {
-				logError(CredentialVerificationError.CannotExtractHolderPublicKey, "Could not extract holder public key");
-				return {
-					success: false,
-					error: errors.length > 0 ?  errors[0].error : CredentialVerificationError.UnknownProblem,
-				}
-			}
-
 			return {
 				success: true,
 				value: {
-					valid: true,
-					holderPublicKey: await exportJWK(publicKeyResult.value),
 				},
 			}
 		},
