@@ -200,6 +200,10 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 
 	const fetchVctFromRegistry = async function (urnOrUrl: string, integrity?: string) {
 		if (urnOrUrl.startsWith('https')) {
+			const SdJwtVc = new SDJwtVcInstance({
+				hasher: hasherAndAlgorithm.hasher,
+			})
+
 			const url = urnOrUrl
 
 			const vctm = await args.httpClient.get(url).then(({ data }) => {
@@ -207,7 +211,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 			})
 
 			// @ts-ignore
-			const isIntegrityValid = await SdJwtVc.validateIntegrity(vctm, uri, integrity)
+			const isIntegrityValid = await SdJwtVc.validateIntegrity(vctm, url, integrity)
 
 			return vctm
 		}
