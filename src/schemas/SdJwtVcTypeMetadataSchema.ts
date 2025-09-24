@@ -95,7 +95,7 @@ export const TypeMetadata = z.object({
 	name: z.string().optional(),
 	description: z.string().optional(),
 
-	extends: z.string().url().optional(),
+	extends: z.string().optional(),
 	["extends#integrity"]: IntegrityString.optional(),
 
 	display: z.array(TypeDisplayEntry).optional(),      // §8

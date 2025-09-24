@@ -200,6 +200,10 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 
 	const fetchVctFromRegistry = async function (urnOrUrl: string, integrity?: string) {
 		if (urnOrUrl.startsWith('https')) {
+			const SdJwtVc = new SDJwtVcInstance({
+				hasher: hasherAndAlgorithm.hasher,
+			})
+
 			const url = urnOrUrl
 
 			const vctm = await args.httpClient.get(url).then(({ data }) => {
@@ -207,7 +211,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 			})
 
 			// @ts-ignore
-			const isIntegrityValid = await SdJwtVc.validateIntegrity(vctm, uri, integrity)
+			const isIntegrityValid = await SdJwtVc.validateIntegrity(vctm, url, integrity)
 
 			return vctm
 		}
@@ -263,12 +267,11 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 				}
 			}
 		} catch (error) {
-			console.warn(error);
-
-			if (error instanceof Error && error.message == 'No schema or schema_uri found') {
+			console.error(error);
+			if (error instanceof Error && error.message == CredentialVerificationError.VctUrnNotFoundError) {
 				return {
-					success: false,
-					error: CredentialVerificationError.VctSchemaNotFound,
+					success: true,
+					value: {},
 				}
 			}
 
@@ -276,6 +279,42 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 				success: false,
 				error: CredentialVerificationError.VctSchemaError,
 			}
+		}
+
+		return {
+			success: true,
+			value: {},
+		}
+	}
+
+	const verifyCnf = async (rawCredential: string, opts: {}) => {
+		const SdJwtVc = new SDJwtVcInstance({
+			verifier: () => true,
+			hasher: hasherAndAlgorithm.hasher,
+			hashAlg: hasherAndAlgorithm.alg as 'sha-256',
+			loadTypeMetadataFormat: true,
+			vctFetcher: fetchVctFromRegistry,
+		});
+
+		const publicKeyResult = await getHolderPublicKey(rawCredential);
+		if (!publicKeyResult.success) {
+			logError(CredentialVerificationError.CannotExtractHolderPublicKey, "CannotExtractHolderPublicKey");
+			return {
+				success: false,
+				error: publicKeyResult.error,
+			}
+		}
+
+		try {
+			const jwt = rawCredential.split("~")[0];
+			await jwtVerify(jwt, publicKeyResult.value, { clockTolerance: args.context.clockTolerance });
+		}
+		catch (err: any) {
+			logError(CredentialVerificationError.KbJwtVerificationFailedSignatureValidation, "Error on verifyCnf(): Invalid SD-JWT signature");
+			return {
+				success: false,
+				error: CredentialVerificationError.KbJwtVerificationFailedSignatureValidation,
+			};
 		}
 
 		return {
@@ -386,6 +425,17 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 				}
 			}
 
+			// cnf (cryptographic holder binding) validation
+			if (opts.verifyCnf) {
+				const verifyCnfResult = await verifyCnf(rawCredential, opts);
+				if (!verifyCnfResult.success) {
+					return {
+						success: false,
+						error: errors.length > 0 ?  errors[0].error : CredentialVerificationError.UnknownProblem,
+					}
+				}
+			}
+
 			// KB-JWT validation
 			if (!rawCredential.endsWith('~')) { // contains kbjwt
 				const verifyKbJwtResult = await verifyKbJwt(rawCredential, opts);
@@ -397,20 +447,9 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 				}
 			}
 
-			const publicKeyResult = await getHolderPublicKey(rawCredential);
-			if (publicKeyResult.success === false) {
-				logError(CredentialVerificationError.CannotExtractHolderPublicKey, "Could not extract holder public key");
-				return {
-					success: false,
-					error: errors.length > 0 ?  errors[0].error : CredentialVerificationError.UnknownProblem,
-				}
-			}
-
 			return {
 				success: true,
 				value: {
-					valid: true,
-					holderPublicKey: await exportJWK(publicKeyResult.value),
 				},
 			}
 		},

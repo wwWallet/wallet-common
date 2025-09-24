@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import Crypto from 'node:crypto'
 import { exec } from 'child_process'
-import { SignJWT } from 'jose'
+import { exportJWK, generateKeyPair, SignJWT } from 'jose'
 import axios from 'axios'
 
 function generateCertificate () {
@@ -96,6 +96,7 @@ const vctRegistryUri = 'https://qa.wwwallet.org/public/registry/all.json'
 
 export function sdJwtFixture (vct: string = 'urn:eu.europa.ec.eudi:pid:1', opts: {
 	vctmInHeader?: boolean,
+	invalidCnf?: boolean,
 	vctUrl?: string
 } = { vctmInHeader: false }) {
 	const claims = vctClaims[vct];
@@ -144,11 +145,20 @@ export function sdJwtFixture (vct: string = 'urn:eu.europa.ec.eudi:pid:1', opts:
 		const hash = Crypto.createHash('sha256');
 		const integrity = hash.update(JSON.stringify(vctm)).digest('hex');
 
+		let cnf;
+		if (opts.invalidCnf) {
+			const { publicKey } = await generateKeyPair("ES256")
+			cnf = {
+				"jwk": await exportJWK(publicKey)
+			}
+		} else {
+			cnf = {
+				"jwk": cert.export({ format: 'jwk' })
+			}
+		}
 
 		const body = {
-			"cnf": {
-				"jwk": cert.export({ format: 'jwk' })
-			},
+			cnf,
 			"vct": opts.vctUrl || vct,
 			"vct#integrity": `SHA256-${integrity}`,
 			"jti": "urn:vid:95611a1e-73cf-4fa7-8a27-f14c8251a54e",

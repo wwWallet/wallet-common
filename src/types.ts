@@ -47,8 +47,13 @@ export type ImageDataUriCallback = (
 	preferredLangs?: string[]
 ) => Promise<string | null>;
 
+
+export type AugmentedClaimMetadataEntry = ClaimMetadataEntry & {
+	required?: boolean;
+};
+
 export type TypeMetadata = {
-	claims?: ClaimMetadataEntry[];
+	claims?: Array<AugmentedClaimMetadataEntry>;
 };
 
 export type ParsedCredential = {
