@@ -273,12 +273,48 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 					success: true,
 					value: {},
 				}
-			} else {
-				return {
-					success: false,
-					error: CredentialVerificationError.VctSchemaError,
-				}
 			}
+
+			return {
+				success: false,
+				error: CredentialVerificationError.VctSchemaError,
+			}
+		}
+
+		return {
+			success: true,
+			value: {},
+		}
+	}
+
+	const verifyCnf = async (rawCredential: string, opts: {}) => {
+		const SdJwtVc = new SDJwtVcInstance({
+			verifier: () => true,
+			hasher: hasherAndAlgorithm.hasher,
+			hashAlg: hasherAndAlgorithm.alg as 'sha-256',
+			loadTypeMetadataFormat: true,
+			vctFetcher: fetchVctFromRegistry,
+		});
+
+		const publicKeyResult = await getHolderPublicKey(rawCredential);
+		if (!publicKeyResult.success) {
+			logError(CredentialVerificationError.CannotExtractHolderPublicKey, "CannotExtractHolderPublicKey");
+			return {
+				success: false,
+				error: publicKeyResult.error,
+			}
+		}
+
+		try {
+			const jwt = rawCredential.split("~")[0];
+			await jwtVerify(jwt, publicKeyResult.value, { clockTolerance: args.context.clockTolerance });
+		}
+		catch (err: any) {
+			logError(CredentialVerificationError.KbJwtVerificationFailedSignatureValidation, "Error on verifyCnf(): Invalid SD-JWT signature");
+			return {
+				success: false,
+				error: CredentialVerificationError.KbJwtVerificationFailedSignatureValidation,
+			};
 		}
 
 		return {
@@ -382,6 +418,17 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 			if (opts.verifySchema) {
 				const credentialVctVerificationResult = await verifyCredentialVct(rawCredential);
 				if (!credentialVctVerificationResult.success) {
+					return {
+						success: false,
+						error: errors.length > 0 ?  errors[0].error : CredentialVerificationError.UnknownProblem,
+					}
+				}
+			}
+
+			// cnf (cryptographic holder binding) validation
+			if (opts.verifyCnf) {
+				const verifyCnfResult = await verifyCnf(rawCredential, opts);
+				if (!verifyCnfResult.success) {
 					return {
 						success: false,
 						error: errors.length > 0 ?  errors[0].error : CredentialVerificationError.UnknownProblem,
