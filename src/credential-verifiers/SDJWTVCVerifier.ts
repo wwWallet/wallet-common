@@ -420,6 +420,17 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 				if (!credentialVctVerificationResult.success) {
 					return {
 						success: false,
+						error: credentialVctVerificationResult.error
+					}
+				}
+			}
+
+			// cnf (cryptographic holder binding) validation
+			if (opts.verifyCnf) {
+				const verifyCnfResult = await verifyCnf(rawCredential, opts);
+				if (!verifyCnfResult.success) {
+					return {
+						success: false,
 						error: errors.length > 0 ?  errors[0].error : CredentialVerificationError.UnknownProblem,
 					}
 				}

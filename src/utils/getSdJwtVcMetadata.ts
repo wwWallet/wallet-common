@@ -150,7 +150,7 @@ function isInvalidSchemaResponse(res: any): res is { status: number; data: Recor
 	);
 }
 
-async function fetchAndMergeMetadata(
+export async function fetchAndMergeMetadata(
 	context: Context,
 	httpClient: HttpClient,
 	metadataId: string,

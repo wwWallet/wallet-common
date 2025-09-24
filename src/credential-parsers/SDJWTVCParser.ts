@@ -251,7 +251,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 					validityInfo: {
 						...extractValidityInfo(validatedParsedClaims)
 					},
-					warnings: getSdJwtMetadataResult.warnings
+					warnings,
 				}
 			}
 		},

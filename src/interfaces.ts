@@ -40,7 +40,6 @@ export interface PublicKeyResolverEngineI {
 	}, PublicKeyResolutionError>>;
 }
 
-
 export interface CredentialParser {
 	parse(args: {
 		rawCredential: unknown;
@@ -53,7 +52,6 @@ export interface CredentialVerifier {
 		holderPublicKey?: JWK,
 	}, CredentialVerificationError>>;
 }
-
 
 export interface PublicKeyResolver {
 	resolve(args: { identifier: string }): Promise<Result<{

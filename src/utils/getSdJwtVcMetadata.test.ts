@@ -342,7 +342,7 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 		});
 
 		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
-		expect(result).toMatchObject({ error: "SchemaConflict" });
+		expect(result).toMatchObject({ error: "SchemaShapeFail" });
 	});
 
 

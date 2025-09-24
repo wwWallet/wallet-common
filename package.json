@@ -16,7 +16,7 @@
 	},
 	"dependencies": {
 		"@auth0/mdl": "^2.2.0",
-		"@sd-jwt/core": "^0.10.0",
+		"@sd-jwt/core": "^0.11.0",
 		"@sd-jwt/sd-jwt-vc": "^0.13.0",
 		"ajv": "^8.17.1",
 		"ajv-formats": "^3.0.1",
@@ -34,6 +34,7 @@
 		"@sd-jwt/types": "^0.10.0",
 		"@types/node": "^22.10.10",
 		"@types/xmldom": "^0.1.34",
+		"nock": "^14.0.10",
 		"typescript": "^5.7.3",
 		"vitest": "^3.2.4",
 		"xmldom": "^0.6.0"

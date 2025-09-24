@@ -68,6 +68,7 @@ export enum CredentialVerificationError {
 	NotTrustedIssuer = "NotTrustedIssuer",
 	VctRegistryNotConfigured = "VctRegistryNotConfigured",
 	VctUrnNotFoundError = "VctUrnNotFoundError",
+	VctSchemaNotFound = "VctSchemaNotFound",
 	VctSchemaError = "VctSchemaError",
 	InvalidVctIntegrity = "InvalidVctIntegrity",
 
