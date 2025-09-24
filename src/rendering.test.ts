@@ -4,23 +4,24 @@ import { DOMParser } from "xmldom";
 import fs from 'fs';
 import path from 'path';
 
+function dataUriToSvg(dataUri: string) {
+	// Check if it starts with the SVG Data URI prefix
+	if (dataUri.startsWith("data:image/svg+xml;utf8,")) {
+		// Remove the prefix and decode the remaining part
+		const svgString = decodeURIComponent(dataUri.replace("data:image/svg+xml;utf8,", ""));
+		return svgString;
+	} else if (dataUri.startsWith("data:image/svg+xml;base64,")) {
+		// For base64-encoded SVGs, handle accordingly
+		const base64Data = dataUri.replace("data:image/svg+xml;base64,", "");
+		const svgString = atob(base64Data); // Decode base64 to plain text
+		return svgString;
+	} else {
+		throw new Error("Invalid SVG Data URI format");
+	}
+}
 
 function isValidSVG(dataUri: string) {
-	function dataUriToSvg(dataUri: string) {
-		// Check if it starts with the SVG Data URI prefix
-		if (dataUri.startsWith("data:image/svg+xml;utf8,")) {
-			// Remove the prefix and decode the remaining part
-			const svgString = decodeURIComponent(dataUri.replace("data:image/svg+xml;utf8,", ""));
-			return svgString;
-		} else if (dataUri.startsWith("data:image/svg+xml;base64,")) {
-			// For base64-encoded SVGs, handle accordingly
-			const base64Data = dataUri.replace("data:image/svg+xml;base64,", "");
-			const svgString = atob(base64Data); // Decode base64 to plain text
-			return svgString;
-		} else {
-			throw new Error("Invalid SVG Data URI format");
-		}
-	}
+
 	const svgString = dataUriToSvg(dataUri);
 	try {
 		const parser = new DOMParser();
@@ -148,5 +149,22 @@ describe("The CredentialRendering", () => {
 
 		assert(dataUri !== null, "Svg not rendered");
 		assert(isValidSVG(dataUri) == true, "Not valid generated datauri svg");
+	});
+
+	it("can render credential in svg format with filter", async () => {
+		const svgPath = path.join(__dirname, "../assets/template.svg");
+		const credentialSvgTemplate = fs.readFileSync(svgPath, { encoding: 'utf-8' });
+		const dataUri = await cr.renderSvgTemplate({
+			json: { ...exampleCredentialPayload },
+			credentialImageSvgTemplate: credentialSvgTemplate,
+			sdJwtVcMetadataClaims: exampleSdJwtVcMetadataClaimsAttribute,
+			filter: [
+				["birth_date"]
+			]
+		});
+
+		assert(dataUri !== null, "Svg not rendered");
+		assert(isValidSVG(dataUri) == true, "Not valid generated datauri svg");
+		fs.writeFileSync(path.join(__dirname, "../output/filtered.svg"), dataUriToSvg(dataUri), 'utf-8');
 	});
 })

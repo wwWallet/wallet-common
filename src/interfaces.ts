@@ -1,12 +1,13 @@
 import { JWK } from "jose";
 import { CredentialParsingError, CredentialVerificationError, PublicKeyResolutionError, CredentialRenderingError, ValidatePresentationRequirementsError } from "./error";
-import { Result, ParsedCredential, CredentialClaims, ParserResult } from "./types";
+import { Result, ParsedCredential, CredentialClaims, ParserResult, CredentialClaimPath } from "./types";
 
 export interface CredentialRendering {
 	renderSvgTemplate(args: {
 		json: any;
 		credentialImageSvgTemplate: string;
 		sdJwtVcMetadataClaims: any;
+		filter?: Array<CredentialClaimPath>;
 	}): Promise<string | null>
 }
 
@@ -14,15 +15,22 @@ export interface OpenID4VCICredentialRendering {
 	renderCustomSvgTemplate(args: { signedClaims: CredentialClaims, displayConfig: any }): Promise<string>;
 }
 
+export interface CredentialIssuerInfo {
+	credentialIssuerIdentifier: string;
+	credentialConfigurationId: string;
+}
 
 export interface ParsingEngineI {
 	register(parser: CredentialParser): void;
-	parse({ rawCredential }: { rawCredential: unknown }): Promise<Result<ParsedCredential, CredentialParsingError>>;
+	parse({ rawCredential, credentialIssuer }: {
+		rawCredential: unknown,
+		credentialIssuer?: CredentialIssuerInfo;
+	}): Promise<Result<ParsedCredential, CredentialParsingError>>;
 }
 
 export interface VerifyingEngineI {
 	register(credentialVerifier: CredentialVerifier): void;
-	verify({ rawCredential, opts }: { rawCredential: unknown, opts: { expectedNonce?: string, expectedAudience?: string, holderNonce?: string, responseUri?: string, verifySchema?: boolean } }): Promise<Result<{ holderPublicKey: JWK; }, CredentialVerificationError>>;
+	verify({ rawCredential, opts }: { rawCredential: unknown, opts: { expectedNonce?: string, expectedAudience?: string, holderNonce?: string, responseUri?: string, verifySchema?: boolean, verifyCnf?: boolean } }): Promise<Result<{ holderPublicKey: JWK; }, CredentialVerificationError>>;
 }
 
 export interface PublicKeyResolverEngineI {
@@ -33,11 +41,14 @@ export interface PublicKeyResolverEngineI {
 }
 
 export interface CredentialParser {
-	parse(args: { rawCredential: string }): Promise<ParserResult>;
+	parse(args: {
+		rawCredential: unknown;
+		credentialIssuer?: CredentialIssuerInfo;
+	}): Promise<ParserResult>;
 }
 
 export interface CredentialVerifier {
-	verify(args: { rawCredential: unknown, opts: { expectedNonce?: string, expectedAudience?: string, holderNonce?: string, responseUri?: string, verifySchema?: boolean } }): Promise<Result<{
+	verify(args: { rawCredential: unknown, opts: { expectedNonce?: string, expectedAudience?: string, holderNonce?: string, responseUri?: string, verifySchema?: boolean, verifyCnf?: boolean } }): Promise<Result<{
 		holderPublicKey: JWK,
 	}, CredentialVerificationError>>;
 }
