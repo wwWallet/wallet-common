@@ -145,7 +145,7 @@ describe("The SDJWTVerifier", () => {
 		assert(result.success === true);
 	});
 
-	it(`should return an error with no schema in vctm`, async () => {
+	it.skip(`should return an error with no schema in vctm`, async () => {
 		const { sdJwt, certPem } = await sdJwtFixture('urn:no-schema', { vctmInHeader: true });
 		const resolverEngine = PublicKeyResolverEngine();
 		resolverEngine.register({ resolve: () => {

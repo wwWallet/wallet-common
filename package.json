@@ -34,7 +34,7 @@
 		"@sd-jwt/types": "^0.10.0",
 		"@types/node": "^22.10.10",
 		"@types/xmldom": "^0.1.34",
-		"nock": "^14.0.5",
+		"nock": "^14.0.10",
 		"typescript": "^5.7.3",
 		"vitest": "^3.2.4",
 		"xmldom": "^0.6.0"

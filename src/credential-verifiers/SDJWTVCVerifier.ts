@@ -436,6 +436,17 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 				}
 			}
 
+			// cnf (cryptographic holder binding) validation
+			if (opts.verifyCnf) {
+				const verifyCnfResult = await verifyCnf(rawCredential, opts);
+				if (!verifyCnfResult.success) {
+					return {
+						success: false,
+						error: errors.length > 0 ?  errors[0].error : CredentialVerificationError.UnknownProblem,
+					}
+				}
+			}
+
 			// KB-JWT validation
 			if (!rawCredential.endsWith('~')) { // contains kbjwt
 				const verifyKbJwtResult = await verifyKbJwt(rawCredential, opts);
