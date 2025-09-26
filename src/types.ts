@@ -1,4 +1,5 @@
 import { CredentialParsingError } from "./error";
+import { ClaimMetadataEntry } from "./schemas/SdJwtVcTypeMetadataSchema";
 import { JptClaims } from "./jpt";
 import { JwpHeader } from "./jwp";
 
@@ -23,7 +24,7 @@ export type Result<T, E> = { success: true; value: T } | { success: false; error
 
 export type ParserResult =
 	| { success: true; value: ParsedCredential }
-	| { success: false; error: CredentialParsingError};
+	| { success: false; error: CredentialParsingError };
 
 export type CredentialPayload = {
 	iss: string;
@@ -50,6 +51,15 @@ export type ImageDataUriCallback = (
 	preferredLangs?: string[]
 ) => Promise<string | null>;
 
+
+export type AugmentedClaimMetadataEntry = ClaimMetadataEntry & {
+	required?: boolean;
+};
+
+export type TypeMetadata = {
+	claims?: Array<AugmentedClaimMetadataEntry>;
+};
+
 export type ParsedCredentialCommon = {
 	metadata: {
 		credential: unknown,
@@ -69,7 +79,7 @@ export type ParsedCredentialJwtOrMdoc = ParsedCredentialCommon & {
 			format: VerifiableCredentialFormat.VC_SDJWT | VerifiableCredentialFormat.DC_SDJWT,
 			vct: string,
 			name: CredentialFriendlyNameCallback,
-			metadataDocuments: Record<string, unknown>[],
+			TypeMetadata: TypeMetadata,
 			image: {
 				dataUri: ImageDataUriCallback,
 			},
@@ -77,7 +87,7 @@ export type ParsedCredentialJwtOrMdoc = ParsedCredentialCommon & {
 			format: VerifiableCredentialFormat.MSO_MDOC,
 			doctype: string,
 			name: CredentialFriendlyNameCallback,
-			metadataDocuments?: Record<string, unknown>[],
+			TypeMetadata: TypeMetadata,
 			image: {
 				dataUri: ImageDataUriCallback,
 			},

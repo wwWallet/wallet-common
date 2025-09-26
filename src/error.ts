@@ -1,6 +1,6 @@
 export enum CredentialParsingError {
 	CouldNotParse = "CouldNotParse",
-	InvalidSdJwtVcPayload= "InvalidSdJwtVcPayload",
+	InvalidSdJwtVcPayload = "InvalidSdJwtVcPayload",
 	InvalidDatatype = "InvalidDatatype",
 	NotSupportedCredentialType = "NotSupportedCredentialType",
 	HeaderFail = "HeaderFail",
@@ -16,6 +16,7 @@ export enum CredentialParsingError {
 	JwtVcIssuerMismatch = "JwtVcIssuerMismatch",
 	IntegrityFail = "IntegrityFail",
 	SchemaFail = "SchemaFail",
+	SchemaShapeFail = "SchemaShapeFail",
 	JwtVcIssuerFail = "JwtVcIssuerFail",
 	FailFetchIssuerMetadata = "FailFetchIssuerMetadata",
 	FailSchemaIssuerMetadata = "FailSchemaIssuerMetadata",

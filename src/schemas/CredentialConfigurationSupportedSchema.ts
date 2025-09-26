@@ -18,7 +18,7 @@ const proofTypesSupportedSchema = z.object({
 });
 
 const OpenIdClaimSchema = z.object({
-	path: z.array(z.string().nullable()),
+	path: z.array(z.string().nullable()).nonempty(),
 	mandatory: z.boolean().optional(),
 	display: z.array(
 		z.object({

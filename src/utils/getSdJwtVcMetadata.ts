@@ -5,6 +5,18 @@ import Ajv2020 from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 import { CredentialPayload, MetadataError, MetadataWarning } from '../types';
 import { CredentialParsingError, CredentialParsingWarnings, isCredentialParsingWarnings } from '../error';
+import { TypeMetadata as TypeMetadataSchema } from "../schemas/SdJwtVcTypeMetadataSchema";
+
+function validateTypeMetadataShape(
+	metadata: Record<string, any>,
+): CredentialParsingError | undefined {
+	const res = TypeMetadataSchema.safeParse(metadata);
+	if (!res.success) {
+		console.error("❌ Type Metadata shape validation failed:", res.error.issues);
+		return CredentialParsingError.SchemaShapeFail;
+	}
+	return undefined;
+}
 
 function handleMetadataCode(
 	code: CredentialParsingError,
@@ -164,6 +176,12 @@ async function fetchAndMergeMetadata(
 			return undefined;
 		}
 
+		const resultShapeCheckCode = validateTypeMetadataShape(metadata);
+		if (resultShapeCheckCode) {
+			const resultCode = handleMetadataCode(resultShapeCheckCode, warnings);
+			if (resultCode) return resultCode;
+		}
+
 		if (!integrity) {
 			const resultCode = handleMetadataCode(CredentialParsingError.IntegrityMissing, warnings);
 			if (resultCode) return resultCode;
@@ -187,6 +205,12 @@ async function fetchAndMergeMetadata(
 			!('vct' in result.data)
 		) {
 			return undefined;
+		}
+
+		const resultShapeCheckCode = validateTypeMetadataShape(result.data);
+		if (resultShapeCheckCode) {
+			const resultCode = handleMetadataCode(resultShapeCheckCode, warnings);
+			if (resultCode) return resultCode;
 		}
 
 		if (integrity) {
@@ -301,7 +325,7 @@ function isCredentialPayload(obj: unknown): obj is CredentialPayload {
 	return typeof obj === 'object' && obj !== null && 'iss' in obj && typeof (obj as any).iss === 'string';
 }
 
-export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClient, credential: string, parsedClaims: Record<string, unknown>, warnings: MetadataWarning[] = []): Promise<{ credentialMetadata: any; warnings: MetadataWarning[] } | MetadataError> {
+export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClient, credential: string, parsedClaims: Record<string, unknown>, warnings: MetadataWarning[] = []): Promise<{ credentialMetadata: TypeMetadataSchema | undefined; warnings: MetadataWarning[] } | MetadataError> {
 	try {
 
 		// Decode Header
