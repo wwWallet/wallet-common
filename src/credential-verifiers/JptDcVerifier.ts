@@ -75,6 +75,10 @@ export function JptDcVerifier(args: {
 				holderPublicKey: JWK,
 			}, CredentialVerificationError>> => {
 				for (const issuerPublicKey of [issuerHeader.jwk, ...args.issuerPublicKeys]) {
+					if (!issuerPublicKey) {
+						continue;
+					}
+
 					try {
 						await jwp.confirm(issuerPublicKey, rawCredential);
 					} catch (e) {

@@ -25,12 +25,15 @@ export type JwpHeader = {
 	kid?: string,
 	typ?: string,
 	crit?: string[],
+	jwk?: JWK,
 	proof_key?: JWK,
 	presentation_key?: JWK,
 	iss?: string,
 	aud?: string,
 	nonce?: string | string[],
-	[key: string]: any,
+	vct?: string,
+	vctm?: string[],
+	[key: string]: unknown,
 }
 
 export type IssuedJwp = {

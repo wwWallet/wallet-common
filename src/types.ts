@@ -1,5 +1,6 @@
 import { CredentialParsingError } from "./error";
 import { JptClaims } from "./jpt";
+import { JwpHeader } from "./jwp";
 
 export enum VerifiableCredentialFormat {
 	VC_SDJWT = "vc+sd-jwt",
@@ -99,8 +100,8 @@ export type ParsedCredentialJpt = ParsedCredentialCommon & {
 		},
 		issuer: CredentialIssuer,
 	},
-	issuerHeader: Record<string, unknown>,
-	presentationHeader: Record<string, unknown> | null,
+	issuerHeader: JwpHeader,
+	presentationHeader: JwpHeader | null,
 	signedJptClaims: CredentialJptClaims,
 };
 

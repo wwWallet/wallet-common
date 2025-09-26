@@ -156,7 +156,7 @@ export function parseJpt(jpt: string | IssuedJwp | PresentedJwp): IssuedJpt | Pr
 	const parsedJpt = parseJwp(jpt);
 	const { issuerHeader, payloads, proof } = parsedJpt;
 	const vctm = issuerHeader.vctm;
-	if (!vctm) {
+	if (!vctm || vctm.length < 1) {
 		throw new Error("No metadata in JPT issuer header: " + jpt);
 	}
 
@@ -193,11 +193,14 @@ export async function presentSplitBbs(
 		throw new Error(`Bad alg in presentation header: expected ${ALG_SPLIT_BBS}, was: ${presentationHeader.alg}`, { cause: { presentationHeader } });
 	}
 
-	const { issuerHeader } = parseJpt(issuedJpt);
-	if (!issuerHeader.jwk) {
+	const { issuerHeader: { jwk, vctm } } = parseJpt(issuedJpt);
+	if (!jwk) {
 		throw new Error("Missing jwk in issuer header", { cause: { presentationHeader } });
 	}
-	const metadata: ClaimsMetadata = JSON.parse(new TextDecoder().decode(fromBase64Url(issuerHeader.vctm[0])));
+	if (!vctm || vctm.length < 1) {
+		throw new Error("No metadata in JPT issuer header: " + issuedJpt);
+	}
+	const metadata: ClaimsMetadata = JSON.parse(new TextDecoder().decode(fromBase64Url(vctm[0])));
 
 	const discloseIndexes = metadata.claims.flatMap((claimMeta, i) => {
 		if (claims.some(claimQueryPath => pathEquals(claimMeta.path, claimQueryPath))) {
@@ -207,5 +210,5 @@ export async function presentSplitBbs(
 		}
 	});
 
-	return jwp.presentSplitBbs(issuerHeader.jwk, issuedJpt, presentationHeader, discloseIndexes, deviceSign);
+	return jwp.presentSplitBbs(jwk, issuedJpt, presentationHeader, discloseIndexes, deviceSign);
 }
