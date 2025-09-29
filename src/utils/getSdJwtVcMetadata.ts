@@ -278,7 +278,8 @@ async function fetchAndMergeMetadata(
 	if (typeof metadata.extends === 'string') {
 		const childIntegrity = metadata['extends#integrity'] as string | undefined;
 		const parent = await fetchAndMergeMetadata(context, httpClient, metadata.extends, metadataArray || undefined, visited, childIntegrity, warnings);
-		if (parent === undefined || 'error' in parent) return parent;
+		if (parent === undefined) return metadata;
+		if ('error' in parent) return parent;
 		merged = deepMerge(parent, metadata);
 	} else {
 		merged = metadata;
