@@ -103,7 +103,7 @@ export type ParsedCredentialJpt = ParsedCredentialCommon & {
 			format: VerifiableCredentialFormat.DC_JPT,
 			vct: string,
 			name: CredentialFriendlyNameCallback,
-			metadataDocuments: Record<string, unknown>[],
+			TypeMetadata: TypeMetadata,
 			image: {
 				dataUri: ImageDataUriCallback,
 			},
