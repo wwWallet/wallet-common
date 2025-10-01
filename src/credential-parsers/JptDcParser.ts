@@ -10,8 +10,6 @@ import { OpenID4VCICredentialRendering } from "../functions/openID4VCICredential
 import { matchDisplayByLang, matchDisplayByLocale } from "../utils/matchLocalizedDisplay";
 import { TypeMetadata as TypeMetadataSchema } from "../schemas/SdJwtVcTypeMetadataSchema";
 import { convertOpenid4vciToSdjwtvcClaims } from "../functions/convertOpenid4vciToSdjwtvcClaims";
-import { ClaimsWithRequired } from "../utils/ClaimsWithRequired";
-import { buildPresenceIndex, pathIsPresent } from "../utils/payloadPresenceIndex";
 
 
 export function JptDcParser(args: { context: Context, httpClient: HttpClient }): CredentialParser {
@@ -119,10 +117,6 @@ export function JptDcParser(args: { context: Context, httpClient: HttpClient }):
 				"vct#integrity": issuerHeader["vct#integrity"], // TODO: Ugly hacky claim injection
 			};
 
-			const presenceIndex = buildPresenceIndex(parsedJpt.claims.simple, []);
-			const isPresent = (path: Array<string | number | null>) =>
-				pathIsPresent(presenceIndex, path);
-
 			let TypeMetadata: TypeMetadata = {};
 			let credentialMetadata: TypeMetadataSchema = {}
 
@@ -134,7 +128,7 @@ export function JptDcParser(args: { context: Context, httpClient: HttpClient }):
 				credentialMetadata = vctm;
 
 				if (credentialMetadata?.claims) {
-					TypeMetadata = { claims: ClaimsWithRequired(credentialMetadata.claims, isPresent) };
+					TypeMetadata = { claims: credentialMetadata.claims };
 				}
 			}
 
@@ -219,7 +213,7 @@ export function JptDcParser(args: { context: Context, httpClient: HttpClient }):
 			if (!TypeMetadata?.claims && credentialIssuerMetadata?.claims) {
 				const convertedClaims = convertOpenid4vciToSdjwtvcClaims(credentialIssuerMetadata.claims);
 				if (convertedClaims?.length) {
-					TypeMetadata = { claims: ClaimsWithRequired(credentialMetadata.claims, isPresent) };
+					TypeMetadata = { claims: credentialMetadata.claims };
 				}
 			}
 
