@@ -51,6 +51,11 @@ export type ImageDataUriCallback = (
 	preferredLangs?: string[]
 ) => Promise<string | null>;
 
+export type DisclosurePolicy = {
+	policy: "attestationBased" | "allowList" | "rootOfTrust" | "none";
+	values: Array<any>;
+	url: string;
+}
 
 export type AugmentedClaimMetadataEntry = ClaimMetadataEntry & {
 	required?: boolean;
@@ -83,6 +88,7 @@ export type ParsedCredentialJwtOrMdoc = ParsedCredentialCommon & {
 			image: {
 				dataUri: ImageDataUriCallback,
 			},
+			disclosurePolicy?: DisclosurePolicy | null,
 		} | {
 			format: VerifiableCredentialFormat.MSO_MDOC,
 			doctype: string,
