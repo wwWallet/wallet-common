@@ -11,6 +11,7 @@ export enum CredentialParsingError {
 	VctmDecodeFail = "VctmDecodeFail",
 	UnknownError = "UnknownError",
 	NotFound = "NotFound",
+	NotFoundExtends = "NotFoundExtends",
 	IntegrityMissing = "IntegrityMissing",
 	JwtVcIssuerMismatch = "JwtVcIssuerMismatch",
 	IntegrityFail = "IntegrityFail",
@@ -23,6 +24,7 @@ export enum CredentialParsingError {
 
 export const CredentialParsingWarnings = new Set<CredentialParsingError>([
 	CredentialParsingError.NotFound,
+	CredentialParsingError.NotFoundExtends,
 	CredentialParsingError.IntegrityMissing,
 	CredentialParsingError.JwtVcIssuerMismatch,
 	CredentialParsingError.IntegrityFail,

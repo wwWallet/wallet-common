@@ -198,7 +198,7 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 		}
 	});
 
-	it("warning when fetching parent metadata (extends) fails", async () => {
+	it("warning when fetching parent metadata (extends) not found", async () => {
 		const payload = { ...validPayload };
 		const credential = `${encodeBase64Url({})}.${encodeBase64Url(payload)}.sig`;
 
@@ -213,7 +213,7 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 
 		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
 		if ('warnings' in result) {
-			expect(result.warnings.some(w => w.code === 'NotFound')).toBe(true);
+			expect(result.warnings.some(w => w.code === 'NotFoundExtends')).toBe(true);
 
 		} else {
 			throw new Error(`Expected result to be success with warnings`);
@@ -319,7 +319,7 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 	});
 
 
-	it("fails with SchemaConflict when both schema and schema_uri are present", async () => {
+	it("fails with SchemaShapeFail when both schema and schema_uri are present", async () => {
 		const conflictingMetadata = {
 			...childMetadata,
 			schema_uri: "https://issuer.com/schema.json",
@@ -342,7 +342,7 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 		});
 
 		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
-		expect(result).toMatchObject({ error: "SchemaConflict" });
+		expect(result).toMatchObject({ error: "SchemaShapeFail" });
 	});
 
 
