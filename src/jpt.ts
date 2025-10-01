@@ -15,6 +15,7 @@ export type JptClaims = {
 export type IssuedJpt = {
 	issuerHeader: JwpHeader,
 	claims: JptClaims,
+	rawPayloads: BufferSource[],
 	proof: BufferSource[],
 }
 
@@ -22,6 +23,7 @@ export type PresentedJpt = {
 	presentationHeader: JwpHeader,
 	issuerHeader: JwpHeader,
 	claims: JptClaims,
+	rawPayloads: (BufferSource | null)[],
 	proof: BufferSource[],
 }
 
@@ -171,6 +173,7 @@ export function parseJpt(jpt: string | IssuedJwp | PresentedJwp): IssuedJpt | Pr
 			issuerHeader,
 			presentationHeader: parsedJpt.presentationHeader,
 			claims,
+			rawPayloads: payloads,
 			proof,
 		};
 
@@ -178,6 +181,7 @@ export function parseJpt(jpt: string | IssuedJwp | PresentedJwp): IssuedJpt | Pr
 		return {
 			issuerHeader,
 			claims,
+			rawPayloads: parsedJpt.payloads,
 			proof,
 		};
 	}
