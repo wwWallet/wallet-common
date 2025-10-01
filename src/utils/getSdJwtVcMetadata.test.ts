@@ -319,7 +319,7 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 	});
 
 
-	it("fails with SchemaConflict when both schema and schema_uri are present", async () => {
+	it("fails with SchemaShapeFail when both schema and schema_uri are present", async () => {
 		const conflictingMetadata = {
 			...childMetadata,
 			schema_uri: "https://issuer.com/schema.json",
@@ -342,7 +342,7 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 		});
 
 		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
-		expect(result).toMatchObject({ error: "SchemaConflict" });
+		expect(result).toMatchObject({ error: "SchemaShapeFail" });
 	});
 
 
