@@ -198,7 +198,7 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 		}
 	});
 
-	it("warning when fetching parent metadata (extends) fails", async () => {
+	it("warning when fetching parent metadata (extends) not found", async () => {
 		const payload = { ...validPayload };
 		const credential = `${encodeBase64Url({})}.${encodeBase64Url(payload)}.sig`;
 
@@ -213,7 +213,7 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 
 		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
 		if ('warnings' in result) {
-			expect(result.warnings.some(w => w.code === 'NotFound')).toBe(true);
+			expect(result.warnings.some(w => w.code === 'NotFoundExtends')).toBe(true);
 
 		} else {
 			throw new Error(`Expected result to be success with warnings`);
