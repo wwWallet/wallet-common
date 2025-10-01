@@ -278,7 +278,11 @@ async function fetchAndMergeMetadata(
 	if (typeof metadata.extends === 'string') {
 		const childIntegrity = metadata['extends#integrity'] as string | undefined;
 		const parent = await fetchAndMergeMetadata(context, httpClient, metadata.extends, metadataArray || undefined, visited, childIntegrity, warnings);
-		if (parent === undefined) return metadata;
+		if (parent === undefined) {
+			const resultCode = handleMetadataCode(CredentialParsingError.NotFoundExtends, warnings);
+			if (resultCode) return resultCode;
+			return metadata;
+		}
 		if ('error' in parent) return parent;
 		merged = deepMerge(parent, metadata);
 	} else {
