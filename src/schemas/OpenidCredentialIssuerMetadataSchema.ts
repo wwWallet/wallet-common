@@ -14,6 +14,10 @@ export const OpenidCredentialIssuerMetadataSchema = z.object({
 	display: z.array(z.object({
 		name: z.string(),
 		locale: z.string(),
+		logo: z.object({
+			uri: z.string(),
+			alt_text: z.string().optional(),
+		}).optional(),
 	})).optional(),
 	batch_credential_issuance: z.object({
 		batch_size: z.number(),
