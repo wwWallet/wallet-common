@@ -8,6 +8,7 @@ export enum CredentialParsingError {
 	SchemaConflict = "SchemaConflict",
 	InfiniteRecursion = "InfiniteRecursion",
 	PayloadFail = "PayloadFail",
+	VctmMissing = "VctmMissing",
 	VctmDecodeFail = "VctmDecodeFail",
 	UnknownError = "UnknownError",
 	NotFound = "NotFound",
