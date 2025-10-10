@@ -77,6 +77,10 @@ export function MsoMdocVerifier(args: { context: Context, pkResolverEngine: Publ
 			console.log('issuerSignedCheck decoded credentialBytes length:', credentialBytes.length);
 			const issuerSigned: Map<string, unknown> = cborDecode(credentialBytes);
 			console.log('issuerSignedCheck cbor decoded map keys:', Array.from(issuerSigned.keys?.() ?? []));
+			console.log('issuerSignedCheck issuerSigned type:', Object.prototype.toString.call(issuerSigned));
+			if (!issuerSigned.get('issuerAuth') || !(issuerSigned.get('issuerAuth') instanceof Array)) {
+				console.log(CredentialVerificationError.InvalidDatatype, "InvalidDatatype: issuerAuth missing or not array");
+			}
 			const [header, _, payload, sig] = issuerSigned.get('issuerAuth') as Array<Uint8Array>;
 			console.log('issuerSignedCheck issuerAuth lengths:', { header: header?.length, payload: payload?.length, sig: sig?.length });
 			const decodedIssuerAuthPayload: DataItem = cborDecode(payload);
