@@ -17,6 +17,10 @@ type IssuerMetadata = z.infer<typeof OpenidCredentialIssuerMetadataSchema>;
 export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }): CredentialParser {
 
 	function extractValidityInfo(issuerSigned: IssuerSigned): { validUntil?: Date, validFrom?: Date, signed?: Date } {
+		console.log("issuerSigned", issuerSigned);
+		console.log("issuerSigned.issuerAuth", issuerSigned.issuerAuth);
+		console.log("issuerSigned.issuerAuth.decodedPayload", issuerSigned.issuerAuth.decodedPayload);
+		console.log("issuerSigned.issuerAuth.decodedPayload.validityInfo", issuerSigned.issuerAuth.decodedPayload.validityInfo);
 		return issuerSigned.issuerAuth.decodedPayload.validityInfo;
 	}
 
