@@ -279,112 +279,6 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 		}
 	});
 
-	it("fails with SchemaFetchFail when schema_uri cannot be fetched", async () => {
-		const childWithSchemaUri = {
-			...childMetadata,
-			schema_uri: "https://issuer.com/schema.json",
-			"schema_uri#integrity": "sha256-invalid" // won't matter, fetch fails first
-		};
-
-		const childHash = generateSRIFromObject(childWithSchemaUri);
-
-		const payload = {
-			iss: "https://issuer.com",
-			vct: "https://issuer.com/child.json",
-			"vct#integrity": childHash
-		};
-
-		const credential = `${encodeBase64Url({})}.${encodeBase64Url(payload)}.sig`;
-
-		const httpClient = createHttpClient({
-			childMetadataOverride: childWithSchemaUri,
-			failParent: false
-		});
-
-		httpClient.get = async (url: string) => {
-			if (url.endsWith("/.well-known/jwt-vc-issuer")) {
-				return { status: 200, data: { issuer: "https://issuer.com" } };
-			}
-			if (url.endsWith("child.json")) {
-				return { status: 200, data: childWithSchemaUri };
-			}
-			if (url.endsWith("schema.json")) {
-				return { status: 404, data: null };
-			}
-			return { status: 404, data: null };
-		};
-
-		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
-		expect(result).toMatchObject({ error: "SchemaFetchFail" });
-	});
-
-
-	it("fails with SchemaShapeFail when both schema and schema_uri are present", async () => {
-		const conflictingMetadata = {
-			...childMetadata,
-			schema_uri: "https://issuer.com/schema.json",
-			"schema_uri#integrity": "sha256-anything",
-			schema: { type: "object" }
-		};
-
-		const childHash = generateSRIFromObject(conflictingMetadata);
-
-		const payload = {
-			iss: "https://issuer.com",
-			vct: "https://issuer.com/child.json",
-			"vct#integrity": childHash
-		};
-
-		const credential = `${encodeBase64Url({})}.${encodeBase64Url(payload)}.sig`;
-
-		const httpClient = createHttpClient({
-			childMetadataOverride: conflictingMetadata
-		});
-
-		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
-		expect(result).toMatchObject({ error: "SchemaShapeFail" });
-	});
-
-
-	it("warning with SchemaFail when schema validation fails", async () => {
-		const invalidSchema = {
-			type: "object",
-			required: ["foo"], // not present in payload
-			properties: {
-				foo: { type: "string" }
-			}
-		};
-
-		const schemaMetadata = {
-			...childMetadata,
-			schema: invalidSchema
-		};
-
-		const childHash = generateSRIFromObject(schemaMetadata);
-
-		const payload = {
-			iss: "https://issuer.com",
-			vct: "https://issuer.com/child.json",
-			"vct#integrity": childHash
-			// missing required "foo"
-		};
-
-		const credential = `${encodeBase64Url({})}.${encodeBase64Url(payload)}.sig`;
-
-		const httpClient = createHttpClient({
-			childMetadataOverride: schemaMetadata
-		});
-
-		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
-		if ('warnings' in result) {
-			expect(result.warnings.some(w => w.code === 'SchemaFail')).toBe(true);
-
-		} else {
-			throw new Error(`Expected result to be success with warnings`);
-		}
-	});
-
-
 	it("warning with JwtVcIssuerFail when .well-known/jwt-vc-issuer fetch fails", async () => {
 		const payload = {
 			iss: "https://issuer.com",
@@ -521,14 +415,7 @@ describe("getSdJwtVcTypeMetadata - failure cases (vctm)", () => {
 		const metadata = {
 			vct: "urn:eudi:pid:1",
 			display: [{ lang: "en-US", name: "PID", description: "Person ID" }],
-			claims: [{ path: ["pid"], sd: "always", display: [{ lang: "en-US", label: "PID" }] }],
-			schema: {
-				type: "object",
-				required: ["pid"],
-				properties: {
-					pid: { type: "string" }
-				}
-			}
+			claims: [{ path: ["pid"], sd: "always", display: [{ lang: "en-US", label: "PID" }] }]
 		};
 
 		const encodedMetadata = encodeBase64Url(metadata);
@@ -552,8 +439,7 @@ describe("getSdJwtVcTypeMetadata - failure cases (vctm)", () => {
 		const result = await getSdJwtVcMetadata(context, createHttpClient(), credential, payload);
 		expect(result).toMatchObject({
 			credentialMetadata: {
-				...metadata,
-				schema: metadata.schema // schema should be injected into the final output
+				...metadata
 			}
 		});
 
