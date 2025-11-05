@@ -291,32 +291,6 @@ async function fetchAndMergeMetadata(
 	return merged;
 }
 
-export async function resolveIssuerMetadata(httpClient: any, issuerUrl: string): Promise<{ code: CredentialParsingError } | undefined> {
-	try {
-		const issUrl = new URL(issuerUrl);
-
-		const result = await httpClient.get(`${issUrl.origin}/.well-known/jwt-vc-issuer`, {}, { useCache: true }) as {
-			data: { issuer: string };
-		};
-
-		if (
-			result &&
-			typeof result === 'object' &&
-			('data' in result) &&
-			typeof (result as any).data === 'object' &&
-			typeof (result as any).data.issuer === 'string'
-		) {
-			if (result.data.issuer !== issUrl.origin) {
-				return { code: CredentialParsingError.JwtVcIssuerMismatch };
-			}
-		}
-
-		return undefined;
-	} catch (err) {
-		return { code: CredentialParsingError.JwtVcIssuerFail };
-	}
-}
-
 function isValidHttpUrl(value: string): boolean {
 	try {
 		const url = new URL(value);
@@ -354,13 +328,6 @@ export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClien
 		}
 		const vct = credentialPayload.vct;
 		if (vct && typeof vct === 'string' && isValidHttpUrl(vct)) {
-
-			// Check jwt-vc-issuer by iss
-			const checkIssuer = await resolveIssuerMetadata(httpClient, credentialPayload.iss);
-			if (checkIssuer) {
-				const resultCode = handleMetadataCode(checkIssuer.code, warnings);
-				if (resultCode) return resultCode;
-			}
 
 			try {
 				const vctIntegrity = credentialPayload['vct#integrity'] as string | undefined;
