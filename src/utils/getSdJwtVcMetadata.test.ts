@@ -169,20 +169,6 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 		};
 	}
 
-
-	it("warning on /jwt-vc-issuer mismatch", async () => {
-		const payload = { ...validPayload, iss: "https://attacker.com" };
-		const credential = `${encodeBase64Url({})}.${encodeBase64Url(payload)}.sig`;
-		const result = await getSdJwtVcMetadata(context, createHttpClient(), credential, payload);
-		if ('warnings' in result) {
-			expect(result.warnings.some(w => w.code === 'JwtVcIssuerMismatch')).toBe(true);
-
-		} else {
-			throw new Error(`Expected result to be success with warnings`);
-		}
-	});
-
-
 	it("warning when fetching main vct fails", async () => {
 		const payload = { ...validPayload };
 		const credential = `${encodeBase64Url({})}.${encodeBase64Url(payload)}.sig`;
@@ -378,42 +364,6 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
 		if ('warnings' in result) {
 			expect(result.warnings.some(w => w.code === 'SchemaFail')).toBe(true);
-
-		} else {
-			throw new Error(`Expected result to be success with warnings`);
-		}
-	});
-
-
-	it("warning with JwtVcIssuerFail when .well-known/jwt-vc-issuer fetch fails", async () => {
-		const payload = {
-			iss: "https://issuer.com",
-			vct: "https://issuer.com/child.json",
-			"vct#integrity": generateSRIFromObject(childMetadata)
-		};
-
-		const credential = `${encodeBase64Url({})}.${encodeBase64Url(payload)}.sig`;
-
-		const httpClient = createHttpClient({
-			childMetadataOverride: childMetadata
-		});
-
-		httpClient.get = async (url: string) => {
-			if (url.endsWith("/.well-known/jwt-vc-issuer")) {
-				return { status: 404, data: null };
-			}
-			if (url.endsWith("child.json")) {
-				return { status: 200, data: childMetadata };
-			}
-			if (url.endsWith("parent.json")) {
-				return { status: 200, data: parentMetadata };
-			}
-			return { status: 404, data: null };
-		};
-
-		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
-		if ('warnings' in result) {
-			expect(result.warnings.some(w => w.code === 'JwtVcIssuerFail')).toBe(true);
 
 		} else {
 			throw new Error(`Expected result to be success with warnings`);

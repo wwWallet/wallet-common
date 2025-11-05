@@ -13,11 +13,9 @@ export enum CredentialParsingError {
 	NotFound = "NotFound",
 	NotFoundExtends = "NotFoundExtends",
 	IntegrityMissing = "IntegrityMissing",
-	JwtVcIssuerMismatch = "JwtVcIssuerMismatch",
 	IntegrityFail = "IntegrityFail",
 	SchemaFail = "SchemaFail",
 	SchemaShapeFail = "SchemaShapeFail",
-	JwtVcIssuerFail = "JwtVcIssuerFail",
 	FailFetchIssuerMetadata = "FailFetchIssuerMetadata",
 	FailSchemaIssuerMetadata = "FailSchemaIssuerMetadata",
 }
@@ -26,10 +24,8 @@ export const CredentialParsingWarnings = new Set<CredentialParsingError>([
 	CredentialParsingError.NotFound,
 	CredentialParsingError.NotFoundExtends,
 	CredentialParsingError.IntegrityMissing,
-	CredentialParsingError.JwtVcIssuerMismatch,
 	CredentialParsingError.IntegrityFail,
 	CredentialParsingError.SchemaFail,
-	CredentialParsingError.JwtVcIssuerFail,
 	CredentialParsingError.FailFetchIssuerMetadata,
 	CredentialParsingError.FailSchemaIssuerMetadata,
 ]);
