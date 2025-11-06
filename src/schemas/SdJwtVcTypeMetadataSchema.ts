@@ -103,6 +103,20 @@ export const TypeMetadata = z.object({
 
 	// §7 integrity for the vct reference when used
 	["vct#integrity"]: IntegrityString.optional(),
+}).superRefine((val, ctx) => {
+	const ids = new Set<string>();
+	val.claims?.forEach((c, i) => {
+		if (c.svg_id) {
+			if (ids.has(c.svg_id)) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					message: `svg_id "${c.svg_id}" must be unique within the type metadata`,
+					path: ["claims", i, "svg_id"],
+				});
+			}
+			ids.add(c.svg_id);
+		}
+	});
 });
 
 /** ---------- Exported Types ---------- */
