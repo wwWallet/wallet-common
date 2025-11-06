@@ -24,6 +24,10 @@ export const LogoMetadata = z.object({
 
 export const RenderingSimple = z.object({
 	logo: LogoMetadata.optional(),
+	background_image: z.object({
+		uri: Uri,
+		["uri#integrity"]: IntegrityString.optional(),
+	}).optional(),
 	background_color: z.string().optional(), // CSS color; keep as string
 	text_color: z.string().optional(),       // CSS color; keep as string
 });
