@@ -91,8 +91,7 @@ export const ClaimMetadataEntry = z.object({
 
 /** ---------- §6.2 Type Metadata Document ---------- */
 export const TypeMetadata = z.object({
-	// Not listed as REQUIRED in §6.2 table, but examples include it; keep optional for flexibility.
-	vct: z.string().optional(),                         // §6.1 example shows "vct" in the doc
+	vct: z.string(),
 	name: z.string().optional(),
 	description: z.string().optional(),
 

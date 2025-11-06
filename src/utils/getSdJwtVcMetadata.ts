@@ -110,7 +110,7 @@ async function fetchAndMergeMetadata(
 	integrity?: string,
 	credentialPayload?: Record<string, any>,
 	warnings: MetadataWarning[] = []
-): Promise<Record<string, any> | MetadataError | undefined> {
+): Promise<TypeMetadataSchema | MetadataError | undefined> {
 
 	if (visited.has(metadataId)) {
 		const resultCode = handleMetadataCode(CredentialParsingError.InfiniteRecursion, warnings);
@@ -172,10 +172,10 @@ async function fetchAndMergeMetadata(
 			}
 		}
 
-		metadata = result.data as Record<string, any>;
+		metadata = result.data;
 	}
 
-	let merged: Record<string, any> = {};
+	let merged;
 
 	if (typeof metadata.extends === 'string') {
 		const childIntegrity = metadata['extends#integrity'] as string | undefined;

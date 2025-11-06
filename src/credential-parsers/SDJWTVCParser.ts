@@ -128,8 +128,8 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 			const isPresent = (path: Array<string | number | null>) =>
 				pathIsPresent(presenceIndex, path);
 
-			let TypeMetadata: TypeMetadata = {};
-			let credentialMetadata: TypeMetadataSchema = {}
+			let TypeMetadata: Partial<TypeMetadataSchema> = {};
+			let credentialMetadata: TypeMetadataSchema | undefined = undefined;
 
 			const credentialIssuerMetadata = credentialIssuer?.credentialConfigurationId
 				? issuerMetadata?.credential_configurations_supported?.[credentialIssuer?.credentialConfigurationId]
@@ -149,7 +149,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 			): Promise<string | null> => {
 
 				// 1. Try to match localized credential display
-				const credentialDisplayArray = credentialMetadata.display;
+				const credentialDisplayArray = credentialMetadata?.display;
 				const credentialDisplayLocalized = matchDisplayByLocale(credentialDisplayArray, preferredLangs);
 				if (credentialDisplayLocalized?.name) return credentialDisplayLocalized.name;
 
@@ -187,7 +187,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 						const rendered = await cr.renderSvgTemplate({
 							json: validatedParsedClaims,
 							credentialImageSvgTemplate: svgdata,
-							sdJwtVcMetadataClaims: credentialMetadata.claims,
+							sdJwtVcMetadataClaims: credentialMetadata?.claims,
 							filter,
 						}).catch(() => null);
 						if (rendered) return rendered;
@@ -225,7 +225,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 			if (!TypeMetadata?.claims && credentialIssuerMetadata?.claims) {
 				const convertedClaims = convertOpenid4vciToSdjwtvcClaims(credentialIssuerMetadata.claims);
 				if (convertedClaims?.length) {
-					TypeMetadata = { claims: ClaimsWithRequired(credentialMetadata.claims, isPresent) };
+					TypeMetadata = { claims: ClaimsWithRequired(credentialMetadata?.claims, isPresent) };
 				}
 			}
 
