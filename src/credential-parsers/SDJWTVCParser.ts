@@ -174,9 +174,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 				const issuerDisplayArray = credentialIssuerMetadata?.display;
 				const issuerDisplayLocalized = matchDisplayByLocale(issuerDisplayArray, preferredLangs);
 
-				//@ts-ignore
 				const svgTemplateUri = credentialDisplayLocalized?.rendering?.svg_templates?.[0]?.uri || null;
-				//@ts-ignore
 				const simpleDisplayConfig = credentialDisplayLocalized?.rendering?.simple || null;
 
 				// 1. Try SVG template rendering
