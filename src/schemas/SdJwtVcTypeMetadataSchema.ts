@@ -101,18 +101,9 @@ export const TypeMetadata = z.object({
 	display: z.array(TypeDisplayEntry).optional(),      // §8
 	claims: z.array(ClaimMetadataEntry).optional(),     // §9
 
-	// §6.5.1 schema embedding or by reference (mutually exclusive)
-	schema: z.record(z.any()).optional(),               // JSON Schema 2020-12 (could be extended)
-	schema_uri: Uri.optional(),
-	["schema_uri#integrity"]: IntegrityString.optional(),
-
 	// §7 integrity for the vct reference when used
 	["vct#integrity"]: IntegrityString.optional(),
-})
-	.refine(
-		(o) => !(o.schema && o.schema_uri),
-		{ message: "Only one of schema or schema_uri may be present." }
-	);
+});
 
 /** ---------- Exported Types ---------- */
 export type TypeMetadata = z.infer<typeof TypeMetadata>;
