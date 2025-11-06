@@ -84,6 +84,7 @@ export const ClaimDisplayEntry = z.object({
 export const ClaimMetadataEntry = z.object({
 	path: ClaimPath,                                                    // REQUIRED
 	display: z.array(ClaimDisplayEntry).optional(),                     // §9.2
+	mandatory: z.boolean().optional(),                                  // §9.3 d12
 	sd: z.enum(["always", "allowed", "never"]).optional(),              // §9.3 (default "allowed")
 	svg_id: SvgId.optional(),                                           // §8.1.2.2
 });
