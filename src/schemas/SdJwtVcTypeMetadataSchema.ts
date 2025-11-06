@@ -22,6 +22,7 @@ export const LogoMetadata = z.object({
 	alt_text: z.string().optional(),
 });
 
+/** ---------- §8.1.2 "svg_templates" rendering ---------- */
 export const RenderingSimple = z.object({
 	logo: LogoMetadata.optional(),
 	background_image: z.object({
@@ -32,7 +33,6 @@ export const RenderingSimple = z.object({
 	text_color: z.string().optional(),       // CSS color; keep as string
 });
 
-/** ---------- §8.1.2 "svg_template" rendering ---------- */
 export const SvgTemplateProperties = z.object({
 	orientation: z.enum(["portrait", "landscape"]).optional(),
 	color_scheme: z.enum(["light", "dark"]).optional(),
@@ -48,19 +48,21 @@ export const SvgTemplateEntry = z.object({
 	properties: SvgTemplateProperties.optional(), // REQUIRED if >1 template; enforced at array level
 });
 
-export const RenderingSvgTemplate = z.object({
-	svg_template: z.array(SvgTemplateEntry).min(1),
+const Rendering = z.object({
+	simple: RenderingSimple.optional(),
+	svg_templates: z.array(SvgTemplateEntry).optional(), // optional here
 }).superRefine((val, ctx) => {
-	if (val.svg_template.length > 1) {
-		for (const [i, t] of val.svg_template.entries()) {
+	const arr = val.svg_templates;
+	if (arr && arr.length > 1) {
+		arr.forEach((t, i) => {
 			if (!t.properties) {
 				ctx.addIssue({
 					code: z.ZodIssueCode.custom,
-					message: `svg_template[${i}].properties is required when more than one template is present`,
-					path: ["svg_template", i, "properties"],
+					message: `rendering.svg_templates[${i}].properties is required when more than one template is present`,
+					path: ["svg_templates", i, "properties"],
 				});
 			}
-		}
+		});
 	}
 });
 
@@ -69,12 +71,7 @@ export const TypeDisplayEntry = z.object({
 	locale: LocaleTag,                 // REQUIRED
 	name: z.string().min(1),       // REQUIRED
 	description: z.string().optional(),
-	rendering: z.object({
-		simple: RenderingSimple.optional(),
-		// When present, put array under the same "rendering" object
-		// keeping method identifiers as keys.
-		svg_template: z.array(SvgTemplateEntry).min(1).optional(),
-	}).optional()
+	rendering: Rendering.optional(),
 });
 
 /** ---------- §9.2 Display metadata for CLAIMS ---------- */

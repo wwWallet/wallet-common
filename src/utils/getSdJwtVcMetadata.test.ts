@@ -537,4 +537,123 @@ describe("getSdJwtVcTypeMetadata - failure cases (vctm)", () => {
 		}
 	});
 
+	describe("getSdJwtVcMetadata - rendering.simple validation", () => {
+		function httpWithSimpleRendering(child: any): HttpClient {
+			return {
+				get: async (url: string) => {
+					if (url.endsWith("/.well-known/jwt-vc-issuer")) {
+						return { status: 200, data: { issuer: "https://issuer.com" }, headers: {} };
+					}
+					if (url.endsWith("child.json")) {
+						return { status: 200, data: child, headers: {} };
+					}
+					return { status: 404, data: null, headers: {} };
+				},
+				post: async () => { throw new Error("POST not implemented"); }
+			};
+		}
+
+		it("preserves simple rendering (logo, background_image, colors)", async () => {
+			const childWithSimple = {
+				vct: "https://issuer.com/child.json",
+				display: [{
+					locale: "en-US",
+					name: "Child with Simple Rendering",
+					description: "desc",
+					rendering: {
+						simple: {
+							logo: { uri: "https://issuer.com/logo.svg" },
+							background_image: { uri: "https://issuer.com/bg.svg" },
+							background_color: "#112233",
+							text_color: "#ffffff"
+						}
+					}
+				}],
+				claims: [{ path: ["id"], sd: "always", display: [{ locale: "en-US", label: "ID" }] }]
+			};
+
+			const payload = {
+				iss: "https://issuer.com",
+				vct: "https://issuer.com/child.json"
+			};
+
+			const cred = `${encodeBase64Url({})}.${encodeBase64Url(payload)}.sig`;
+			const result = await getSdJwtVcMetadata(context, httpWithSimpleRendering(childWithSimple), cred, payload);
+
+			if ("error" in result) throw new Error(`Unexpected error: ${result.error}`);
+			expect(result.credentialMetadata?.display?.[0]?.rendering?.simple?.logo?.uri)
+				.toBe("https://issuer.com/logo.svg");
+			expect(result.credentialMetadata?.display?.[0]?.rendering?.simple?.background_image?.uri)
+				.toBe("https://issuer.com/bg.svg");
+			expect(result.credentialMetadata?.display?.[0]?.rendering?.simple?.background_color)
+				.toBe("#112233");
+			expect(result.credentialMetadata?.display?.[0]?.rendering?.simple?.text_color)
+				.toBe("#ffffff");
+		});
+	});
+
+	describe("getSdJwtVcMetadata - rendering.svg_templates validation", () => {
+		function http(child: any): HttpClient {
+			return {
+				get: async (url: string) => {
+					if (url.endsWith("/.well-known/jwt-vc-issuer")) {
+						return { status: 200, data: { issuer: "https://issuer.com" }, headers: {} };
+					}
+					if (url.endsWith("child.json")) {
+						return { status: 200, data: child, headers: {} };
+					}
+					return { status: 404, data: null, headers: {} };
+				},
+				post: async () => { throw new Error("POST not implemented"); }
+			};
+		}
+
+		it("fails when >1 svg_templates and a template lacks properties", async () => {
+			const bad = {
+				vct: "https://issuer.com/child.json",
+				display: [{
+					locale: "en-US",
+					name: "Bad SVG Templates",
+					rendering: {
+						svg_templates: [
+							{ uri: "https://issuer.com/t1.svg", properties: { orientation: "portrait" } },
+							{ uri: "https://issuer.com/t2.svg" } // ❌ missing properties
+						]
+					}
+				}],
+				claims: [{ path: ["id"], sd: "always", display: [{ locale: "en-US", label: "ID" }] }]
+			};
+
+			const payload = { iss: "https://issuer.com", vct: "https://issuer.com/child.json" };
+			const cred = `${encodeBase64Url({})}.${encodeBase64Url(payload)}.sig`;
+
+			const result = await getSdJwtVcMetadata(context, http(bad), cred, payload);
+			expect(result).toMatchObject({ error: "SchemaShapeFail" }); // schema rejects it
+		});
+
+		it("succeeds when >1 svg_templates and all have properties", async () => {
+			const ok = {
+				vct: "https://issuer.com/child.json",
+				display: [{
+					locale: "en-US",
+					name: "Good SVG Templates",
+					rendering: {
+						svg_templates: [
+							{ uri: "https://issuer.com/t1.svg", properties: { orientation: "portrait" } },
+							{ uri: "https://issuer.com/t2.svg", properties: { orientation: "landscape", contrast: "high" } }
+						]
+					}
+				}],
+				claims: [{ path: ["id"], sd: "always", display: [{ locale: "en-US", label: "ID" }] }]
+			};
+
+			const payload = { iss: "https://issuer.com", vct: "https://issuer.com/child.json" };
+			const cred = `${encodeBase64Url({})}.${encodeBase64Url(payload)}.sig`;
+
+			const result = await getSdJwtVcMetadata(context, http(ok), cred, payload);
+			if ("error" in result) throw new Error(`Unexpected error: ${result.error}`);
+			expect(result.credentialMetadata?.display?.[0]?.rendering?.svg_templates?.length).toBe(2);
+		});
+	});
+
 });
