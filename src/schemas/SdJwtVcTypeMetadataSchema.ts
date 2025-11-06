@@ -5,7 +5,7 @@ export const IntegrityString = z.string().min(1);
 
 export const Uri = z.string().url();
 
-export const LangTag = z.string().min(1);
+export const LocaleTag = z.string().min(1);
 
 /** Claim path per §9.1: array of string | null | non-negative integer */
 export const ClaimPath = z.array(
@@ -62,7 +62,7 @@ export const RenderingSvgTemplate = z.object({
 
 /** ---------- §8 Display metadata for the TYPE ---------- */
 export const TypeDisplayEntry = z.object({
-	lang: LangTag,                 // REQUIRED
+	locale: LocaleTag,                 // REQUIRED
 	name: z.string().min(1),       // REQUIRED
 	description: z.string().optional(),
 	rendering: z.object({
@@ -75,7 +75,7 @@ export const TypeDisplayEntry = z.object({
 
 /** ---------- §9.2 Display metadata for CLAIMS ---------- */
 export const ClaimDisplayEntry = z.object({
-	lang: LangTag,                 // REQUIRED
+	locale: LocaleTag,                 // REQUIRED
 	label: z.string().min(1),      // REQUIRED
 	description: z.string().optional(),
 });

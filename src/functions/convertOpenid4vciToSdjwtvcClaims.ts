@@ -19,7 +19,7 @@ export function convertOpenid4vciToSdjwtvcClaims(
 						d.name.trim().length > 0
 				)
 				.map(d => ({
-					lang: d.locale.trim(),
+					locale: d.locale.trim(),
 					label: d.name.trim(),
 				}));
 

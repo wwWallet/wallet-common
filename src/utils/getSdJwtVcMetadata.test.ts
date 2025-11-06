@@ -16,15 +16,15 @@ const encodeBase64Url = (obj) => Buffer.from(JSON.stringify(obj)).toString("base
 
 const context: Context = {
 	clockTolerance: 0,
-	lang: "en-US",
+	locale: "en-US",
 	subtle: crypto.subtle,
 	trustedCertificates: []
 };
 
 const parentMetadata = {
 	vct: "https://issuer.com/parent.json",
-	display: [{ lang: "en-US", name: "Parent Credential", description: "This is the parent metadata." }],
-	claims: [{ path: ["parent_id"], sd: "always", display: [{ lang: "en-US", label: "Parent ID" }] }]
+	display: [{ locale: "en-US", name: "Parent Credential", description: "This is the parent metadata." }],
+	claims: [{ path: ["parent_id"], sd: "always", display: [{ locale: "en-US", label: "Parent ID" }] }]
 };
 
 const parentIntegrity = generateSRIFromObject(parentMetadata);
@@ -33,8 +33,8 @@ const childMetadata = {
 	vct: "https://issuer.com/child.json",
 	extends: "https://issuer.com/parent.json",
 	"extends#integrity": parentIntegrity,
-	display: [{ lang: "en-US", name: "Child Credential", description: "This is the child metadata." }],
-	claims: [{ path: ["child_id"], sd: "always", display: [{ lang: "en-US", label: "Child ID" }] }]
+	display: [{ locale: "en-US", name: "Child Credential", description: "This is the child metadata." }],
+	claims: [{ path: ["child_id"], sd: "always", display: [{ locale: "en-US", label: "Child ID" }] }]
 };
 
 const childIntegrity = "sha256-ilSsfKQ7sIAV8o2aXWOxzotWG6mJNK8TwemSpdFB57k=";
@@ -329,14 +329,14 @@ function createHttpClient(): HttpClient {
 
 const metadata1 = {
 	vct: "urn:eudi:pid:1",
-	display: [{ lang: "en-US", name: "PID", description: "Person ID" }],
-	claims: [{ path: ["pid"], sd: "always", display: [{ lang: "en-US", label: "PID" }] }]
+	display: [{ locale: "en-US", name: "PID", description: "Person ID" }],
+	claims: [{ path: ["pid"], sd: "always", display: [{ locale: "en-US", label: "PID" }] }]
 };
 
 const metadata2 = {
 	vct: "urn:eudi:nin:2",
-	display: [{ lang: "en-US", name: "NIN", description: "National ID" }],
-	claims: [{ path: ["nin"], sd: "always", display: [{ lang: "en-US", label: "NIN" }] }]
+	display: [{ locale: "en-US", name: "NIN", description: "National ID" }],
+	claims: [{ path: ["nin"], sd: "always", display: [{ locale: "en-US", label: "NIN" }] }]
 };
 
 /**
@@ -414,8 +414,8 @@ describe("getSdJwtVcTypeMetadata - failure cases (vctm)", () => {
 	it("succeeds with valid vctm list and matching vct#integrity", async () => {
 		const metadata = {
 			vct: "urn:eudi:pid:1",
-			display: [{ lang: "en-US", name: "PID", description: "Person ID" }],
-			claims: [{ path: ["pid"], sd: "always", display: [{ lang: "en-US", label: "PID" }] }]
+			display: [{ locale: "en-US", name: "PID", description: "Person ID" }],
+			claims: [{ path: ["pid"], sd: "always", display: [{ locale: "en-US", label: "PID" }] }]
 		};
 
 		const encodedMetadata = encodeBase64Url(metadata);
@@ -449,8 +449,8 @@ describe("getSdJwtVcTypeMetadata - failure cases (vctm)", () => {
 	it("succeeds when child metadata in vctm extends parent metadata", async () => {
 		const parentMetadata = {
 			vct: "urn:eudi:parent",
-			display: [{ lang: "en-US", name: "Base Person", description: "Parent Metadata" }],
-			claims: [{ path: ["name"], sd: "always", display: [{ lang: "en-US", label: "Full Name" }] }]
+			display: [{ locale: "en-US", name: "Base Person", description: "Parent Metadata" }],
+			claims: [{ path: ["name"], sd: "always", display: [{ locale: "en-US", label: "Full Name" }] }]
 		};
 
 		const parentIntegrity = generateSRIFromObject(parentMetadata);
@@ -459,8 +459,8 @@ describe("getSdJwtVcTypeMetadata - failure cases (vctm)", () => {
 			vct: "urn:eudi:pid:1",
 			extends: "urn:eudi:parent",
 			"extends#integrity": parentIntegrity,
-			display: [{ lang: "en-US", name: "PID", description: "Extended Metadata" }],
-			claims: [{ path: ["pid"], sd: "always", display: [{ lang: "en-US", label: "PID" }] }]
+			display: [{ locale: "en-US", name: "PID", description: "Extended Metadata" }],
+			claims: [{ path: ["pid"], sd: "always", display: [{ locale: "en-US", label: "PID" }] }]
 		};
 
 		const childIntegrity = generateSRIFromObject(childMetadata);

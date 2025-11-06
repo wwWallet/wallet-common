@@ -9,7 +9,7 @@ import { getSdJwtVcMetadata } from "../utils/getSdJwtVcMetadata";
 import { OpenID4VCICredentialRendering } from "../functions/openID4VCICredentialRendering";
 import { z } from 'zod';
 import { getIssuerMetadata } from "../utils/getIssuerMetadata";
-import { matchDisplayByLang, matchDisplayByLocale } from '../utils/matchLocalizedDisplay';
+import { matchDisplayByLocale } from '../utils/matchLocalizedDisplay';
 import { TypeMetadata as TypeMetadataSchema } from "../schemas/SdJwtVcTypeMetadataSchema";
 import { convertOpenid4vciToSdjwtvcClaims } from "../functions/convertOpenid4vciToSdjwtvcClaims";
 import { buildPresenceIndex, pathIsPresent } from "../utils/payloadPresenceIndex";
@@ -150,7 +150,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 
 				// 1. Try to match localized credential display
 				const credentialDisplayArray = credentialMetadata.display;
-				const credentialDisplayLocalized = matchDisplayByLang(credentialDisplayArray, preferredLangs);
+				const credentialDisplayLocalized = matchDisplayByLocale(credentialDisplayArray, preferredLangs);
 				if (credentialDisplayLocalized?.name) return credentialDisplayLocalized.name;
 
 				// 2. Try to match localized issuer display
@@ -168,7 +168,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 
 				// 1. Try to match localized credential display
 				const credentialDisplayArray = credentialMetadata?.display;
-				const credentialDisplayLocalized = matchDisplayByLang(credentialDisplayArray, preferredLangs);
+				const credentialDisplayLocalized = matchDisplayByLocale(credentialDisplayArray, preferredLangs);
 
 				// 2. Try to match localized issuer display
 				const issuerDisplayArray = credentialIssuerMetadata?.display;

@@ -33,20 +33,20 @@ function handleMetadataCode(
 function deepMerge(parent: any, child: any): any {
 
 	if (Array.isArray(parent) && Array.isArray(child)) {
-		// Merge display[] by lang
-		if (parent[0]?.lang && child[0]?.lang) {
+		// Merge display[] by locale
+		if (parent[0]?.locale && child[0]?.locale) {
 			const map = new Map<string, any>();
 
 			for (const item of parent) {
-				map.set(item.lang, item);
+				map.set(item.locale, item);
 			}
 			for (const item of child) {
-				if (map.has(item.lang)) {
-					// Recursively merge item with same lang
-					const merged = deepMerge(map.get(item.lang), item);
-					map.set(item.lang, merged);
+				if (map.has(item.locale)) {
+					// Recursively merge item with same locale
+					const merged = deepMerge(map.get(item.locale), item);
+					map.set(item.locale, merged);
 				} else {
-					map.set(item.lang, item);
+					map.set(item.locale, item);
 				}
 			}
 			return Array.from(map.values());
