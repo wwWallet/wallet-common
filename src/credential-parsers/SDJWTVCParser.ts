@@ -12,8 +12,6 @@ import { getIssuerMetadata } from "../utils/getIssuerMetadata";
 import { matchDisplayByLocale } from '../utils/matchLocalizedDisplay';
 import { TypeMetadata as TypeMetadataSchema } from "../schemas/SdJwtVcTypeMetadataSchema";
 import { convertOpenid4vciToSdjwtvcClaims } from "../functions/convertOpenid4vciToSdjwtvcClaims";
-import { buildPresenceIndex, pathIsPresent } from "../utils/payloadPresenceIndex";
-import { ClaimsWithRequired } from "../utils/ClaimsWithRequired";
 
 export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }): CredentialParser {
 	const encoder = new TextEncoder();
@@ -123,11 +121,6 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 				}
 			}
 
-
-			const presenceIndex = buildPresenceIndex(parsedPayload, ["_sd"]);
-			const isPresent = (path: Array<string | number | null>) =>
-				pathIsPresent(presenceIndex, path);
-
 			let TypeMetadata: Partial<TypeMetadataSchema> = {};
 			let credentialMetadata: TypeMetadataSchema | undefined = undefined;
 
@@ -140,7 +133,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 				credentialMetadata = getSdJwtMetadataResult.credentialMetadata
 
 				if (credentialMetadata?.claims) {
-					TypeMetadata = { claims: ClaimsWithRequired(credentialMetadata.claims, isPresent) };
+					TypeMetadata = { claims: credentialMetadata.claims };
 				}
 			}
 
@@ -223,7 +216,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 			if (!TypeMetadata?.claims && credentialIssuerMetadata?.claims) {
 				const convertedClaims = convertOpenid4vciToSdjwtvcClaims(credentialIssuerMetadata.claims);
 				if (convertedClaims?.length) {
-					TypeMetadata = { claims: ClaimsWithRequired(credentialMetadata?.claims, isPresent) };
+					TypeMetadata = { claims: convertedClaims };
 				}
 			}
 
