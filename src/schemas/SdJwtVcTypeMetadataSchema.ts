@@ -5,7 +5,7 @@ export const IntegrityString = z.string().min(1);
 
 export const Uri = z.string().url();
 
-export const LangTag = z.string().min(1);
+export const LocaleTag = z.string().min(1);
 
 /** Claim path per §9.1: array of string | null | non-negative integer */
 export const ClaimPath = z.array(
@@ -22,13 +22,17 @@ export const LogoMetadata = z.object({
 	alt_text: z.string().optional(),
 });
 
+/** ---------- §8.1.2 "svg_templates" rendering ---------- */
 export const RenderingSimple = z.object({
 	logo: LogoMetadata.optional(),
+	background_image: z.object({
+		uri: Uri,
+		["uri#integrity"]: IntegrityString.optional(),
+	}).optional(),
 	background_color: z.string().optional(), // CSS color; keep as string
 	text_color: z.string().optional(),       // CSS color; keep as string
 });
 
-/** ---------- §8.1.2 "svg_template" rendering ---------- */
 export const SvgTemplateProperties = z.object({
 	orientation: z.enum(["portrait", "landscape"]).optional(),
 	color_scheme: z.enum(["light", "dark"]).optional(),
@@ -44,38 +48,35 @@ export const SvgTemplateEntry = z.object({
 	properties: SvgTemplateProperties.optional(), // REQUIRED if >1 template; enforced at array level
 });
 
-export const RenderingSvgTemplate = z.object({
-	svg_template: z.array(SvgTemplateEntry).min(1),
+const Rendering = z.object({
+	simple: RenderingSimple.optional(),
+	svg_templates: z.array(SvgTemplateEntry).optional(), // optional here
 }).superRefine((val, ctx) => {
-	if (val.svg_template.length > 1) {
-		for (const [i, t] of val.svg_template.entries()) {
+	const arr = val.svg_templates;
+	if (arr && arr.length > 1) {
+		arr.forEach((t, i) => {
 			if (!t.properties) {
 				ctx.addIssue({
 					code: z.ZodIssueCode.custom,
-					message: `svg_template[${i}].properties is required when more than one template is present`,
-					path: ["svg_template", i, "properties"],
+					message: `rendering.svg_templates[${i}].properties is required when more than one template is present`,
+					path: ["svg_templates", i, "properties"],
 				});
 			}
-		}
+		});
 	}
 });
 
 /** ---------- §8 Display metadata for the TYPE ---------- */
 export const TypeDisplayEntry = z.object({
-	lang: LangTag,                 // REQUIRED
+	locale: LocaleTag,                 // REQUIRED
 	name: z.string().min(1),       // REQUIRED
 	description: z.string().optional(),
-	rendering: z.object({
-		simple: RenderingSimple.optional(),
-		// When present, put array under the same "rendering" object
-		// keeping method identifiers as keys.
-		svg_template: z.array(SvgTemplateEntry).min(1).optional(),
-	}).optional()
+	rendering: Rendering.optional(),
 });
 
 /** ---------- §9.2 Display metadata for CLAIMS ---------- */
 export const ClaimDisplayEntry = z.object({
-	lang: LangTag,                 // REQUIRED
+	locale: LocaleTag,                 // REQUIRED
 	label: z.string().min(1),      // REQUIRED
 	description: z.string().optional(),
 });
@@ -84,14 +85,14 @@ export const ClaimDisplayEntry = z.object({
 export const ClaimMetadataEntry = z.object({
 	path: ClaimPath,                                                    // REQUIRED
 	display: z.array(ClaimDisplayEntry).optional(),                     // §9.2
+	mandatory: z.boolean().optional(),                                  // §9.3 d12
 	sd: z.enum(["always", "allowed", "never"]).optional(),              // §9.3 (default "allowed")
 	svg_id: SvgId.optional(),                                           // §8.1.2.2
 });
 
 /** ---------- §6.2 Type Metadata Document ---------- */
 export const TypeMetadata = z.object({
-	// Not listed as REQUIRED in §6.2 table, but examples include it; keep optional for flexibility.
-	vct: z.string().optional(),                         // §6.1 example shows "vct" in the doc
+	vct: z.string(),
 	name: z.string().optional(),
 	description: z.string().optional(),
 
@@ -101,18 +102,23 @@ export const TypeMetadata = z.object({
 	display: z.array(TypeDisplayEntry).optional(),      // §8
 	claims: z.array(ClaimMetadataEntry).optional(),     // §9
 
-	// §6.5.1 schema embedding or by reference (mutually exclusive)
-	schema: z.record(z.any()).optional(),               // JSON Schema 2020-12 (could be extended)
-	schema_uri: Uri.optional(),
-	["schema_uri#integrity"]: IntegrityString.optional(),
-
 	// §7 integrity for the vct reference when used
 	["vct#integrity"]: IntegrityString.optional(),
-})
-	.refine(
-		(o) => !(o.schema && o.schema_uri),
-		{ message: "Only one of schema or schema_uri may be present." }
-	);
+}).superRefine((val, ctx) => {
+	const ids = new Set<string>();
+	val.claims?.forEach((c, i) => {
+		if (c.svg_id) {
+			if (ids.has(c.svg_id)) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					message: `svg_id "${c.svg_id}" must be unique within the type metadata`,
+					path: ["claims", i, "svg_id"],
+				});
+			}
+			ids.add(c.svg_id);
+		}
+	});
+});
 
 /** ---------- Exported Types ---------- */
 export type TypeMetadata = z.infer<typeof TypeMetadata>;

@@ -1,10 +1,8 @@
 import { Context, HttpClient } from '../interfaces';
-import { fromBase64, fromBase64Url } from './util';
+import { fromBase64Url } from './util';
 import { verifySRIFromObject } from './verifySRIFromObject';
-import Ajv2020 from "ajv/dist/2020";
-import addFormats from "ajv-formats";
 import { CredentialPayload, MetadataError, MetadataWarning } from '../types';
-import { CredentialParsingError, CredentialParsingWarnings, isCredentialParsingWarnings } from '../error';
+import { CredentialParsingError, isCredentialParsingWarnings } from '../error';
 import { TypeMetadata as TypeMetadataSchema } from "../schemas/SdJwtVcTypeMetadataSchema";
 
 function validateTypeMetadataShape(
@@ -35,20 +33,20 @@ function handleMetadataCode(
 function deepMerge(parent: any, child: any): any {
 
 	if (Array.isArray(parent) && Array.isArray(child)) {
-		// Merge display[] by lang
-		if (parent[0]?.lang && child[0]?.lang) {
+		// Merge display[] by locale
+		if (parent[0]?.locale && child[0]?.locale) {
 			const map = new Map<string, any>();
 
 			for (const item of parent) {
-				map.set(item.lang, item);
+				map.set(item.locale, item);
 			}
 			for (const item of child) {
-				if (map.has(item.lang)) {
-					// Recursively merge item with same lang
-					const merged = deepMerge(map.get(item.lang), item);
-					map.set(item.lang, merged);
+				if (map.has(item.locale)) {
+					// Recursively merge item with same locale
+					const merged = deepMerge(map.get(item.locale), item);
+					map.set(item.locale, merged);
 				} else {
-					map.set(item.lang, item);
+					map.set(item.locale, item);
 				}
 			}
 			return Array.from(map.values());
@@ -103,53 +101,6 @@ function deepMerge(parent: any, child: any): any {
 	return child;
 }
 
-export function validateAgainstSchema(
-	schema: Record<string, any>,
-	dataToValidate?: Record<string, any>
-): CredentialParsingError | undefined {
-
-	const ajv = new Ajv2020();
-	addFormats(ajv);
-
-	// 1. Validate the schema itself
-	const isSchemaValid = ajv.validateSchema(schema);
-	if (!isSchemaValid) {
-		console.warn('❌ Invalid schema structure:', ajv.errors);
-		return CredentialParsingError.SchemaFail;
-	}
-
-	// 2. If data is provided, validate it against the schema
-	if (dataToValidate) {
-		try {
-			const validate = ajv.compile(schema);
-			const isValid = validate(dataToValidate);
-			if (!isValid) {
-				console.warn('❌ Data does not conform to schema:', validate.errors);
-				return CredentialParsingError.SchemaFail;
-			}
-		} catch (err) {
-			console.warn('⚠️ Error during schema compilation/validation:', err);
-			return CredentialParsingError.SchemaFail;
-		}
-	}
-
-	return undefined;
-}
-
-function isObjectRecord(data: unknown): data is Record<string, any> {
-	return typeof data === 'object' && data !== null && !Array.isArray(data);
-}
-
-function isInvalidSchemaResponse(res: any): res is { status: number; data: Record<string, any> } {
-	return (
-		!res ||
-		res.status !== 200 ||
-		typeof res.data !== 'object' ||
-		res.data === null ||
-		Array.isArray(res.data)
-	);
-}
-
 async function fetchAndMergeMetadata(
 	context: Context,
 	httpClient: HttpClient,
@@ -159,7 +110,7 @@ async function fetchAndMergeMetadata(
 	integrity?: string,
 	credentialPayload?: Record<string, any>,
 	warnings: MetadataWarning[] = []
-): Promise<Record<string, any> | MetadataError | undefined> {
+): Promise<TypeMetadataSchema | MetadataError | undefined> {
 
 	if (visited.has(metadataId)) {
 		const resultCode = handleMetadataCode(CredentialParsingError.InfiniteRecursion, warnings);
@@ -221,59 +172,10 @@ async function fetchAndMergeMetadata(
 			}
 		}
 
-		metadata = result.data as Record<string, any>;
+		metadata = result.data;
 	}
 
-	if ('schema' in metadata && 'schema_uri' in metadata) {
-		const resultCode = handleMetadataCode(CredentialParsingError.SchemaConflict, warnings);
-		if (resultCode) return resultCode;
-	}
-
-	if ('schema' in metadata) {
-		const resultValidateCode = validateAgainstSchema(metadata.schema, credentialPayload);
-		if (resultValidateCode) {
-			const resultCode = handleMetadataCode(resultValidateCode, warnings);
-			if (resultCode) return resultCode;
-		}
-	}
-
-	if (metadata.schema_uri && typeof metadata.schema_uri === 'string') {
-
-		const resultSchema = await httpClient.get(metadata.schema_uri, {}, { useCache: true });
-		if (isInvalidSchemaResponse(resultSchema)) {
-			const resultCode = handleMetadataCode(CredentialParsingError.SchemaFetchFail, warnings);
-			if (resultCode) return resultCode;
-		}
-
-		if (!isObjectRecord(resultSchema.data)) {
-			const resultCode = handleMetadataCode(CredentialParsingError.SchemaFetchFail, warnings);
-			if (resultCode) return resultCode;
-		}
-
-		const resultSchemaData = resultSchema.data as Record<string, any>;
-		const schemaIntegrity = metadata['schema_uri#integrity'];
-
-		if (schemaIntegrity) {
-			if (!(await verifySRIFromObject(context, resultSchemaData, schemaIntegrity))) {
-				const resultCode = handleMetadataCode(CredentialParsingError.IntegrityFail, warnings);
-				if (resultCode) return resultCode;
-			}
-		}
-
-		const resultValidateCode = validateAgainstSchema(resultSchemaData, credentialPayload);
-		if (resultValidateCode) {
-			const resultCode = handleMetadataCode(resultValidateCode, warnings);
-			if (resultCode) return resultCode;
-		}
-
-		// Inject schema into metadata before assigning it to `current`
-		metadata = {
-			...metadata,
-			schema: resultSchema.data,
-		};
-	}
-
-	let merged: Record<string, any> = {};
+	let merged;
 
 	if (typeof metadata.extends === 'string') {
 		const childIntegrity = metadata['extends#integrity'] as string | undefined;

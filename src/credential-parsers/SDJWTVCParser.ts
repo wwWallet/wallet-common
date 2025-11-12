@@ -9,11 +9,9 @@ import { getSdJwtVcMetadata } from "../utils/getSdJwtVcMetadata";
 import { OpenID4VCICredentialRendering } from "../functions/openID4VCICredentialRendering";
 import { z } from 'zod';
 import { getIssuerMetadata } from "../utils/getIssuerMetadata";
-import { matchDisplayByLang, matchDisplayByLocale } from '../utils/matchLocalizedDisplay';
+import { matchDisplayByLocale } from '../utils/matchLocalizedDisplay';
 import { TypeMetadata as TypeMetadataSchema } from "../schemas/SdJwtVcTypeMetadataSchema";
 import { convertOpenid4vciToSdjwtvcClaims } from "../functions/convertOpenid4vciToSdjwtvcClaims";
-import { buildPresenceIndex, pathIsPresent } from "../utils/payloadPresenceIndex";
-import { ClaimsWithRequired } from "../utils/ClaimsWithRequired";
 
 export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }): CredentialParser {
 	const encoder = new TextEncoder();
@@ -123,13 +121,8 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 				}
 			}
 
-
-			const presenceIndex = buildPresenceIndex(parsedPayload, ["_sd"]);
-			const isPresent = (path: Array<string | number | null>) =>
-				pathIsPresent(presenceIndex, path);
-
-			let TypeMetadata: TypeMetadata = {};
-			let credentialMetadata: TypeMetadataSchema = {}
+			let TypeMetadata: Partial<TypeMetadataSchema> = {};
+			let credentialMetadata: TypeMetadataSchema | undefined = undefined;
 
 			const credentialIssuerMetadata = credentialIssuer?.credentialConfigurationId
 				? issuerMetadata?.credential_configurations_supported?.[credentialIssuer?.credentialConfigurationId]
@@ -140,7 +133,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 				credentialMetadata = getSdJwtMetadataResult.credentialMetadata
 
 				if (credentialMetadata?.claims) {
-					TypeMetadata = { claims: ClaimsWithRequired(credentialMetadata.claims, isPresent) };
+					TypeMetadata = { claims: credentialMetadata.claims };
 				}
 			}
 
@@ -149,8 +142,8 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 			): Promise<string | null> => {
 
 				// 1. Try to match localized credential display
-				const credentialDisplayArray = credentialMetadata.display;
-				const credentialDisplayLocalized = matchDisplayByLang(credentialDisplayArray, preferredLangs);
+				const credentialDisplayArray = credentialMetadata?.display;
+				const credentialDisplayLocalized = matchDisplayByLocale(credentialDisplayArray, preferredLangs);
 				if (credentialDisplayLocalized?.name) return credentialDisplayLocalized.name;
 
 				// 2. Try to match localized issuer display
@@ -168,15 +161,13 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 
 				// 1. Try to match localized credential display
 				const credentialDisplayArray = credentialMetadata?.display;
-				const credentialDisplayLocalized = matchDisplayByLang(credentialDisplayArray, preferredLangs);
+				const credentialDisplayLocalized = matchDisplayByLocale(credentialDisplayArray, preferredLangs);
 
 				// 2. Try to match localized issuer display
 				const issuerDisplayArray = credentialIssuerMetadata?.display;
 				const issuerDisplayLocalized = matchDisplayByLocale(issuerDisplayArray, preferredLangs);
 
-				//@ts-ignore
 				const svgTemplateUri = credentialDisplayLocalized?.rendering?.svg_templates?.[0]?.uri || null;
-				//@ts-ignore
 				const simpleDisplayConfig = credentialDisplayLocalized?.rendering?.simple || null;
 
 				// 1. Try SVG template rendering
@@ -187,7 +178,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 						const rendered = await cr.renderSvgTemplate({
 							json: validatedParsedClaims,
 							credentialImageSvgTemplate: svgdata,
-							sdJwtVcMetadataClaims: credentialMetadata.claims,
+							sdJwtVcMetadataClaims: credentialMetadata?.claims,
 							filter,
 						}).catch(() => null);
 						if (rendered) return rendered;
@@ -225,7 +216,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 			if (!TypeMetadata?.claims && credentialIssuerMetadata?.claims) {
 				const convertedClaims = convertOpenid4vciToSdjwtvcClaims(credentialIssuerMetadata.claims);
 				if (convertedClaims?.length) {
-					TypeMetadata = { claims: ClaimsWithRequired(credentialMetadata.claims, isPresent) };
+					TypeMetadata = { claims: convertedClaims };
 				}
 			}
 

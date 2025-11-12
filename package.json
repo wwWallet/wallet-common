@@ -18,8 +18,6 @@
 		"@auth0/mdl": "^2.2.0",
 		"@sd-jwt/core": "^0.10.0",
 		"@sd-jwt/sd-jwt-vc": "^0.13.0",
-		"ajv": "^8.17.1",
-		"ajv-formats": "^3.0.1",
 		"asn1js": "^3.0.5",
 		"axios": "^1.7.9",
 		"buffer": "^6.0.3",
