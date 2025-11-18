@@ -30,7 +30,7 @@ export interface ParsingEngineI {
 
 export interface VerifyingEngineI {
 	register(credentialVerifier: CredentialVerifier): void;
-	verify({ rawCredential, opts }: { rawCredential: unknown, opts: { expectedNonce?: string, expectedAudience?: string, holderNonce?: string, responseUri?: string, verifySchema?: boolean } }): Promise<Result<{ holderPublicKey: JWK; }, CredentialVerificationError>>;
+	verify({ rawCredential, opts }: { rawCredential: unknown, opts: { expectedNonce?: string, expectedAudience?: string, holderNonce?: string, responseUri?: string, verifySchema?: boolean, verifyCnf?: boolean } }): Promise<Result<{ holderPublicKey?: JWK; }, CredentialVerificationError>>;
 }
 
 export interface PublicKeyResolverEngineI {
@@ -49,8 +49,8 @@ export interface CredentialParser {
 }
 
 export interface CredentialVerifier {
-	verify(args: { rawCredential: unknown, opts: { expectedNonce?: string, expectedAudience?: string, holderNonce?: string, responseUri?: string, verifySchema?: boolean } }): Promise<Result<{
-		holderPublicKey: JWK,
+	verify(args: { rawCredential: unknown, opts: { expectedNonce?: string, expectedAudience?: string, holderNonce?: string, responseUri?: string, verifySchema?: boolean, verifyCnf?: boolean } }): Promise<Result<{
+		holderPublicKey?: JWK,
 	}, CredentialVerificationError>>;
 }
 
