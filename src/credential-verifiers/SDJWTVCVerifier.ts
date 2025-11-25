@@ -1,5 +1,4 @@
 import { SDJwt } from "@sd-jwt/core";
-import { SDJwtVcInstance } from "@sd-jwt/sd-jwt-vc";
 import type { HasherAndAlg } from "@sd-jwt/types";
 import { Context, CredentialVerifier, PublicKeyResolverEngineI, HttpClient } from "../interfaces";
 import { CredentialVerificationError } from "../error";
@@ -78,7 +77,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 	}
 
 	const verifyIssuerSignature = async (rawCredential: string): Promise<Result<{}, CredentialVerificationError>> => {
-		const parsedSdJwt = await( async() => {
+		const parsedSdJwt = await (async () => {
 			try {
 				return (await SDJwt.fromEncode(rawCredential, hasherAndAlgorithm.hasher)).jwt;
 			}
@@ -198,91 +197,6 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 		}
 	}
 
-	const fetchVctFromRegistry = async function (urnOrUrl: string, integrity?: string) {
-		if (urnOrUrl.startsWith('https')) {
-			const url = urnOrUrl
-
-			const vctm = await args.httpClient.get(url).then(({ data }) => {
-				return data as { vct: string }
-			})
-
-			// @ts-ignore
-			const isIntegrityValid = await SdJwtVc.validateIntegrity(vctm, uri, integrity)
-
-			return vctm
-		}
-
-		if (urnOrUrl.startsWith('urn')) {
-			const urn = urnOrUrl
-
-			const SdJwtVc = new SDJwtVcInstance({
-				hasher: hasherAndAlgorithm.hasher,
-			})
-
-			const uri = args.context.config?.vctRegistryUri;
-
-			if (!uri) {
-				throw new Error(CredentialVerificationError.VctRegistryNotConfigured);
-			}
-
-			const vctm = await args.httpClient.get(uri)
-			.then(({ data }) => data)
-			.then(vctmList => {
-				return (vctmList as { vct: string }[]).find(({ vct: current }) => current === urn)
-			});
-
-			if (!vctm) {
-				throw new Error(CredentialVerificationError.VctUrnNotFoundError);
-			}
-
-			// @ts-ignore
-			const isIntegrityValid = await SdJwtVc.validateIntegrity(vctm, uri, integrity)
-
-			return vctm
-		}
-
-		throw new Error('vct is neither an URL nor an urn')
-	}
-
-	const verifyCredentialVct = async (rawCredential: string): Promise<Result<{}, CredentialVerificationError>> => {
-		const SdJwtVc = new SDJwtVcInstance({
-			verifier: () => true,
-			hasher: hasherAndAlgorithm.hasher,
-			hashAlg: hasherAndAlgorithm.alg as 'sha-256',
-			loadTypeMetadataFormat: true,
-			vctFetcher: fetchVctFromRegistry,
-		});
-
-		try {
-			const verified = await SdJwtVc.verify(rawCredential);
-
-			if (!verified.payload) {
-				return {
-					success: false,
-					error: CredentialVerificationError.VctSchemaError,
-				}
-			}
-		} catch (error) {
-			console.error(error);
-			if (error instanceof Error && error.message == CredentialVerificationError.VctUrnNotFoundError) {
-				return {
-					success: true,
-					value: {},
-				}
-			} else {
-				return {
-					success: false,
-					error: CredentialVerificationError.VctSchemaError,
-				}
-			}
-		}
-
-		return {
-			success: true,
-			value: {},
-		}
-	}
-
 	const verifyKbJwt = async (rawPresentation: string, opts: {
 		expectedNonce?: string;
 		expectedAudience?: string;
@@ -370,18 +284,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 			if (!issuerSignatureVerificationResult.success) {
 				return {
 					success: false,
-					error: errors.length > 0 ?  errors[0].error : CredentialVerificationError.UnknownProblem,
-				}
-			}
-
-			// Credential vct validation
-			if (opts.verifySchema) {
-				const credentialVctVerificationResult = await verifyCredentialVct(rawCredential);
-				if (!credentialVctVerificationResult.success) {
-					return {
-						success: false,
-						error: errors.length > 0 ?  errors[0].error : CredentialVerificationError.UnknownProblem,
-					}
+					error: errors.length > 0 ? errors[0].error : CredentialVerificationError.UnknownProblem,
 				}
 			}
 
@@ -391,7 +294,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 				if (!verifyKbJwtResult.success) {
 					return {
 						success: false,
-						error: errors.length > 0 ?  errors[0].error : CredentialVerificationError.UnknownProblem,
+						error: errors.length > 0 ? errors[0].error : CredentialVerificationError.UnknownProblem,
 					}
 				}
 			}
@@ -401,7 +304,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 				logError(CredentialVerificationError.CannotExtractHolderPublicKey, "Could not extract holder public key");
 				return {
 					success: false,
-					error: errors.length > 0 ?  errors[0].error : CredentialVerificationError.UnknownProblem,
+					error: errors.length > 0 ? errors[0].error : CredentialVerificationError.UnknownProblem,
 				}
 			}
 

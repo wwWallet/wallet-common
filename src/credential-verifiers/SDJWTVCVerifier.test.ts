@@ -1,5 +1,5 @@
 import axios from "axios";
-import { assert, describe, expect, it } from "vitest";
+import { assert, describe, it } from "vitest";
 import { Context } from "../interfaces";
 import { SDJWTVCVerifier } from "./SDJWTVCVerifier";
 import { PublicKeyResolverEngine } from "../PublicKeyResolverEngine";
@@ -32,34 +32,19 @@ const invalidRootCert = `-----BEGIN CERTIFICATE-----
 MIICdDCCAhugAwIBAgIBAjAKBggqhkjOPQQDAjCBiDELMAkGA1UEBhMCREUxDzANBgNVBAcMBkJlcmxpbjEdMBsGA1UECgwUQnVuZGVzZHJ1Y2tlcmVpIEdtYkgxETAPBgNVBAsMCFQgQ1MgSURFMTYwNAYDVQQDDC1TUFJJTkQgRnVua2UgRVVESSBXYWxsZXQgUHJvdG90eXBlIElzc3VpbmcgQ0EwHhcNMjQwNTMxMDgxMzE3WhcNMjUwNzA1MDgxMzE3WjBsMQswCQYDVQQGEwJERTEdMBsGA1UECgwUQnVuZGVzZHJ1Y2tlcmVpIEdtYkgxCjAIBgNVBAsMAUkxMjAwBgNVBAMMKVNQUklORCBGdW5rZSBFVURJIFdhbGxldCBQcm90b3R5cGUgSXNzdWVyMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEOFBq4YMKg4w5fTifsytwBuJf/7E7VhRPXiNm52S3q1ETIgBdXyDK3kVxGxgeHPivLP3uuMvS6iDEc7qMxmvduKOBkDCBjTAdBgNVHQ4EFgQUiPhCkLErDXPLW2/J0WVeghyw+mIwDAYDVR0TAQH/BAIwADAOBgNVHQ8BAf8EBAMCB4AwLQYDVR0RBCYwJIIiZGVtby5waWQtaXNzdWVyLmJ1bmRlc2RydWNrZXJlaS5kZTAfBgNVHSMEGDAWgBTUVhjAiTjoDliEGMl2Yr+ru8WQvjAKBggqhkjOPQQDAgNHADBEAiAbf5TzkcQzhfWoIoyi1VN7d8I9BsFKm1MWluRph2byGQIgKYkdrNf2xXPjVSbjW/U/5S5vAEC5XxcOanusOBroBbU=
 -----END CERTIFICATE-----`;
 
-
-
+const context: Context = {
+	clockTolerance: 0,
+	lang: 'en-US',
+	subtle: crypto.subtle,
+	trustedCertificates: [
+		exampleCert
+	],
+};
 
 describe("The SDJWTVerifier", () => {
-	const vctRegistryUri = 'https://qa.wwwallet.org/public/registry/all.json'
+	const pkResolverEngine = PublicKeyResolverEngine();
 
 	it("should handle the case where the input is not an SDJWT", async () => {
-		const pkResolverEngine = PublicKeyResolverEngine();
-		pkResolverEngine.register({ resolve: () => {
-			return {
-				success: true,
-				value: {
-					kty: 'EC',
-					x: 'VwNK5WDL2D9AdvBP6cLzgFwmmJIYW--uWWdqB3sIIPY',
-					y: 'Z7_6W1YQTyJ32RF6oGvDXM_hVYyUFWGQNK5jqw7sgXY',
-					crv: 'P-256'
-				}
-			}
-		}});
-		const context: Context = {
-			clockTolerance: 0,
-			lang: 'en-US',
-			subtle: crypto.subtle,
-			trustedCertificates: [],
-			config: {
-				vctRegistryUri
-			},
-		};
 		const result = await SDJWTVCVerifier({ context, pkResolverEngine, httpClient: axios })
 			.verify({
 				rawCredential: wrongFormatCredential, opts: {}
@@ -69,43 +54,15 @@ describe("The SDJWTVerifier", () => {
 		assert(result.error === CredentialVerificationError.InvalidFormat);
 	});
 
-	it("should successfully example credential verify credential issued by Wallet Enterprise Issuer", async () => {
-		const resolverEngine = PublicKeyResolverEngine();
-		resolverEngine.register({ resolve: () => {
-			return {
-				success: true,
-				value: exampleCert
-			}
-		}});
-		const result = await SDJWTVCVerifier({
-			context: {
-				clockTolerance: 0,
-				lang: 'en-US',
-				subtle: crypto.subtle,
-				trustedCertificates: [
-					exampleCert
-				],
-				config: {
-					vctRegistryUri
-				},
-			},
-			pkresolverEngine: resolverEngine
-		})
-		.verify({
-			rawCredential: exampleCredential, opts: {}
-		});
 
-		assert(result.success === true);
-	});
-
-	it.skip("should successfully verify SDJWT+KBJWT issued by Wallet Enterprise Issuer", async () => {
+	it("should successfully verify SDJWT+KBJWT issued by Wallet Enterprise Issuer", async () => {
 		const result = await SDJWTVCVerifier({ context, pkResolverEngine, httpClient: axios })
-		.verify({
-			rawCredential: sdJwtCredentialIssuedByWalletEnterpriseWithKbJwt, opts: {
-				expectedNonce: "9a0a06d0-0547-4106-b4c6-511937eb047f",
-				expectedAudience: "wallet-enterprise-acme-verifier",
-			}
-		});
+			.verify({
+				rawCredential: exampleCredential, opts: {
+					expectedNonce: "9a0a06d0-0547-4106-b4c6-511937eb047f",
+					expectedAudience: "wallet-enterprise-acme-verifier",
+				}
+			});
 
 		assert(result.success === true);
 	});
