@@ -279,30 +279,42 @@ export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClien
 			}
 		}
 
-		if (credentialHeader.vctm && Array.isArray(credentialHeader.vctm)) {
-			const decodedVctmList = credentialHeader.vctm.map((encoded: string, index: number) => {
-				try {
-					return JSON.parse(new TextDecoder().decode(fromBase64Url(encoded)));
-				} catch (err) {
-					return { error: "VctmDecodeFail" }
-				}
-			});
+		// ─────────────────────────────────────────────
+		// Fallback: vct registry (if configured)
+		// ─────────────────────────────────────────────
+		if (context.config?.vctRegistryUri && typeof vct === 'string') {
+			try {
+				const registryResult = await httpClient.get(
+					context.config.vctRegistryUri,
+					{},
+					{ useCache: true }
+				) as { status: number; data: TypeMetadataSchema[] };
 
-			const vctIntegrity = credentialPayload['vct#integrity'] as string | undefined;
-			const vctmMergedMetadata = await fetchAndMergeMetadata(context, httpClient, credentialPayload.vct, decodedVctmList, new Set(), vctIntegrity, credentialPayload, warnings);
-
-			if (vctmMergedMetadata) {
-				if ('error' in vctmMergedMetadata) {
-					return { error: vctmMergedMetadata.error }
+				// If request fails or data is not an array, just continue
+				if (
+					!registryResult ||
+					registryResult.status !== 200 ||
+					!Array.isArray(registryResult.data)
+				) {
+					// nothing from registry, fall through to NotFound warning
 				} else {
-					// console.log('Final vctm Metadata:', vctmMergedMetadata);
-					return { credentialMetadata: vctmMergedMetadata, warnings };
+					const vctIntegrity = credentialPayload['vct#integrity'] as string | undefined;
+
+					const registryMerged = await fetchAndMergeMetadata(context, httpClient, vct, registryResult.data, new Set(), vctIntegrity, credentialPayload, warnings);
+
+					if (registryMerged) {
+						if ('error' in registryMerged) {
+							return { error: registryMerged.error };
+						}
+						return { credentialMetadata: registryMerged, warnings };
+					}
 				}
+			} catch (err) {
+				console.log('Failed to fetch metadata from vct registry:', err);
 			}
 		}
 
 		// if no metafata found return NotFound
-		// here you add more ways to find metadata (eg registry)
 		warnings.push({ code: CredentialParsingError.NotFound });
 
 		return { credentialMetadata: undefined, warnings };
