@@ -59,11 +59,8 @@ const msoDocSchema = commonSchema.extend({
 	doctype: z.string()
 });
 
-const otherFormatsSchema = commonSchema.extend({
-	format: z.string(),
-});
 
-export const CredentialConfigurationSupportedSchema = sdJwtSchema.or(msoDocSchema).or(otherFormatsSchema);
+export const CredentialConfigurationSupportedSchema = sdJwtSchema.or(msoDocSchema);
 
 export type CredentialConfigurationSupported = z.infer<typeof CredentialConfigurationSupportedSchema>;
 
