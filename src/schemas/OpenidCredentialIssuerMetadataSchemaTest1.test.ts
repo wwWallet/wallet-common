@@ -2712,6 +2712,6 @@ describe("OpenidCredentialIssuerMetadataSchemaValera", () => {
 		if (res.error) {
 			console.dir(res.error, { depth: null });
 		}
-		assert(res.success === true);
+		assert(res.success === false);
 	})
 })
