@@ -43,11 +43,11 @@ export function convertSdjwtvcToOpenid4vciDisplay(
 
 			...(simple?.logo?.uri
 				? {
-						logo: {
-							uri: simple.logo.uri,
-							alt_text: simple.logo.alt_text,
-						},
-				  }
+					logo: {
+						uri: simple.logo.uri,
+						alt_text: simple.logo.alt_text,
+					},
+				}
 				: {}),
 		};
 
