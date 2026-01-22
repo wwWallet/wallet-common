@@ -73,3 +73,8 @@ export type CredentialIssuerMetadata = {
 export type IacasResponse = {
 	iacas?: Array<{ certificate?: string }>;
 };
+
+export enum ResponseMode {
+	DIRECT_POST = 'direct_post',
+	DIRECT_POST_JWT = 'direct_post.jwt'
+}

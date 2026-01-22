@@ -1,4 +1,4 @@
-import { GenericStore } from "../../core";
+import { err, generateRandomIdentifier, GenericStore, ok, Result } from "../../core";
 import { MsoMdocParser } from "../../credential-parsers/MsoMdocParser";
 import { SDJWTVCParser } from "../../credential-parsers/SDJWTVCParser";
 import { MsoMdocVerifier } from "../../credential-verifiers/MsoMdocVerifier";
@@ -9,16 +9,32 @@ import { ParsingEngine } from "../../ParsingEngine";
 import { PublicKeyResolverEngine } from "../../PublicKeyResolverEngine";
 import { CredentialRenderingService } from "../../rendering";
 import { VerifiableCredentialFormat } from "../../types";
-import { fromBase64Url } from "../../utils/util";
+import { fromBase64Url, toBase64Url } from "../../utils/util";
 import { TransactionData } from "./transactionData";
-import { CredentialEngineOptions, CredentialIssuerMetadata, IacasResponse, OpenID4VPOptions, PresentationClaims, PresentationInfo, RPState } from "./types";
+import { CredentialEngineOptions, CredentialIssuerMetadata, IacasResponse, OpenID4VPOptions, PresentationClaims, PresentationInfo, ResponseMode, RPState } from "./types";
 import { DcqlPresentationResult } from 'dcql';
+import { randomUUID } from "crypto";
+import { exportJWK, generateKeyPair, importPKCS8, SignJWT, compactDecrypt, CompactDecryptResult, importJWK } from "jose";
+import { serializeDcqlQuery } from "../../utils/serializeDcqlQuery";
+
+export const HandleResponseErrors = {
+	MissingRPStateForKid: "missing_rpstate_for_kid",
+	MissingRPState: "missing_rpstate",
+	JWEDecryptionFailure: "jwe_decryption_failure",
+	MissingState: "missing_state",
+	PresentationAlreadyCompleted: "presentation_already_completed",
+	MissingVpToken: "missing_vp_token",
+	MissingPresentationSubmissionAndVpToken: "missing_presentation_submission_and_vp_token",
+} as const;
+
+export type HandleResponseError = typeof HandleResponseErrors[keyof typeof HandleResponseErrors];
 
 const RESERVED_SDJWT_TOPLEVEL = new Set([
 	'iss', 'sub', 'aud', 'nbf', 'exp', 'iat', 'jti', 'vct', 'cnf',
 	'transaction_data_hashes', 'transaction_data_hashes_alg', 'vct#integrity'
 ]);
 const decoder = new TextDecoder();
+const encoder = new TextEncoder();
 
 export class OpenID4VPHelper {
 	private rpStateKV: GenericStore<string, RPState | string>;
@@ -84,6 +100,151 @@ export class OpenID4VPHelper {
 			credentialRendering,
 		};
 }
+	async generateAuthorizationRequestURL(presentationRequest: any, sessionId: string, responseUri: string, baseUri: string, privateKeyPem: string, x5c: string[], responseMode: ResponseMode, callbackEndpoint?: string): Promise<{ url: URL; stateId: string }> {
+
+		console.log("Presentation Request: Session id used for authz req ", sessionId);
+
+		const nonce = randomUUID();
+		const state = sessionId;
+
+		const client_id = new URL(responseUri).hostname
+
+		const [rsaImportedPrivateKey, rpEphemeralKeypair] = await Promise.all([
+			importPKCS8(privateKeyPem, 'ES256'),
+			generateKeyPair('ECDH-ES')
+		]);
+		const [exportedEphPub, exportedEphPriv] = await Promise.all([
+			exportJWK(rpEphemeralKeypair.publicKey),
+			exportJWK(rpEphemeralKeypair.privateKey)
+		]);
+
+		exportedEphPub.kid = generateRandomIdentifier(8);
+		exportedEphPriv.kid = exportedEphPub.kid;
+		exportedEphPub.use = 'enc';
+		let transactionDataObject: any[] = [];
+		if (presentationRequest?.dcql_query?.credentials) {
+			transactionDataObject = await Promise.all(presentationRequest?.dcql_query?.credentials
+				.filter((cred: any) => cred._transaction_data_type !== undefined)
+				.map(async (cred: any) => {
+					if (!cred._transaction_data_type) {
+						return null;
+					}
+					const txData = TransactionData(cred._transaction_data_type);
+					if (!txData) {
+						return null;
+					}
+					return await txData
+						.generateTransactionDataRequestObject(cred.id);
+				}));
+		}
+
+		transactionDataObject = transactionDataObject.filter((td) => td !== null);
+		const signedRequestObject = await new SignJWT({
+			response_uri: responseUri,
+			aud: "https://self-issued.me/v2",
+			iss: new URL(responseUri).hostname,
+			client_id: "x509_san_dns:" + client_id,
+			response_type: "vp_token",
+			response_mode: responseMode,
+			state: state,
+			nonce: nonce,
+			dcql_query: presentationRequest?.dcql_query?.credentials ? serializeDcqlQuery(JSON.parse(JSON.stringify(presentationRequest.dcql_query))) : null,
+			client_metadata: {
+				"jwks": {
+					"keys": [
+						exportedEphPub
+					]
+				},
+				"authorization_encrypted_response_alg": "ECDH-ES",
+				"authorization_encrypted_response_enc": "A256GCM",
+				"vp_formats": {
+					"vc+sd-jwt": {
+						"sd-jwt_alg_values": [
+							"ES256",
+						],
+						"kb-jwt_alg_values": [
+							"ES256",
+						]
+					},
+					"dc+sd-jwt": {
+						"sd-jwt_alg_values": [
+							"ES256",
+						],
+						"kb-jwt_alg_values": [
+							"ES256",
+						]
+					},
+					"mso_mdoc": {
+						"alg": ["ES256"]
+					}
+				}
+			},
+			transaction_data: transactionDataObject.length > 0 ? transactionDataObject : undefined
+		})
+			.setIssuedAt()
+			.setProtectedHeader({
+				alg: 'ES256',
+				x5c: x5c,
+				typ: 'oauth-authz-req+jwt',
+			})
+			.sign(rsaImportedPrivateKey);
+		const redirectUri = "openid4vp://cb";
+
+		const newRpState: RPState = {
+			session_id: sessionId,
+			is_cross_device: true,
+			signed_request: signedRequestObject,
+			state,
+			nonce,
+
+			callback_endpoint: callbackEndpoint ?? null,
+
+			audience: `x509_san_dns:${client_id}`,
+			presentation_request_id:
+				presentationRequest.id ??
+				(presentationRequest.dcql_query as any)?.credentials?.[0]?.id,
+
+			presentation_definition: null,
+			dcql_query: presentationRequest?.dcql_query ?? null,
+
+			rp_eph_kid: exportedEphPub.kid ?? "",
+			rp_eph_pub: exportedEphPub,
+			rp_eph_priv: exportedEphPriv,
+
+			apv_jarm_encrypted_response_header: null,
+			apu_jarm_encrypted_response_header: null,
+
+			encrypted_response: null,
+			vp_token: null,
+
+			presentation_submission: null,
+			response_code: null,
+
+			claims: null,
+			completed: null,
+			presentation_during_issuance_session: null,
+
+			date_created: Date.now(),
+			};
+
+		this.saveRPState(sessionId, newRpState);
+		this.rpStateKV.set("key:" + exportedEphPub.kid, sessionId);
+
+		// await this.rpStateRepository.save(newRpState);
+
+		const requestUri = baseUri + "/verification/request-object?id=" + state;
+
+		const redirectParameters = {
+			client_id: "x509_san_dns:" + client_id,
+			request_uri: requestUri
+		};
+
+		const searchParams = new URLSearchParams(redirectParameters);
+		const authorizationRequestURL = new URL(redirectUri + "?" + searchParams.toString()); // must be openid4vp://cb
+
+		console.log("AUTHZ REQ = ", authorizationRequestURL);
+		return { url: authorizationRequestURL, stateId: state };
+	}
 
 	public saveRPState(sessionId: string, state: RPState): void {
 		this.rpStateKV.set(`rpstate:${sessionId}`, state);
@@ -349,5 +510,74 @@ export class OpenID4VPHelper {
 		}
 
 		return rpState;
+	}
+
+
+	public async handleResponseJARM(response: any, kid :string): Promise<Result<RPState, HandleResponseError>> {
+		// get rpstate only to get the private key to decrypt the response
+
+		// match kid with rpstate
+		const kidToRP = await this.rpStateKV.get("key:" + kid);
+		if (!kidToRP) {
+			return err(
+				HandleResponseErrors.MissingRPStateForKid,
+				"responseHandler: Could not retrieve rpState from kid"
+			);
+		}
+		const rpState = await this.rpStateKV.get(`rpstate:${kidToRP}`) as RPState;
+		if (!rpState) {
+			return err(
+				HandleResponseErrors.MissingRPState,
+				"responseHandler: Could not retrieve rpState"
+			);
+		}
+
+		const rp_eph_priv = await importJWK(rpState.rp_eph_priv, 'ECDH-ES');
+		const result = await compactDecrypt(response, rp_eph_priv).then((r: any) => ({ data: r, err: null })).catch((err: any) => ({ data: null, err: err }));
+		if (result.err) {
+			const errorDescription = result.err instanceof Error ? result.err.message : String(result.err);
+			console.error({ error: "JWE Decryption failure", error_description: result.err });
+			console.log("Received JWE headers: ", JSON.parse(decoder.decode(fromBase64Url(response.split('.')[0]))));
+			console.log("Received JWE: ", response);
+			//ctx.res.status(500).send(error);
+			return err(HandleResponseErrors.JWEDecryptionFailure, errorDescription);
+		}
+
+		const { protectedHeader, plaintext } = result.data as CompactDecryptResult;
+		console.log("Protected header = ", protectedHeader)
+		const payload = JSON.parse(new TextDecoder().decode(plaintext)) as { state: string | undefined, vp_token: string | undefined, presentation_submission: any };
+		if (!payload?.state) {
+			return err(HandleResponseErrors.MissingState, "Missing state");
+		}
+
+		if (rpState.completed) {
+			return err(HandleResponseErrors.PresentationAlreadyCompleted, "Presentation flow already completed");
+		}
+
+		if (!payload.vp_token) {
+			return err(HandleResponseErrors.MissingVpToken, "Encrypted Response: vp_token is missing");
+		}
+
+		if (!payload.presentation_submission && !payload.vp_token) {
+			return err(
+				HandleResponseErrors.MissingPresentationSubmissionAndVpToken,
+				"Encrypted Response: presentation_submission and vp_token are missing"
+			);
+		}
+		rpState.response_code = toBase64Url(encoder.encode(randomUUID()));
+		this.saveResponseCodeMapping(rpState.response_code, rpState.session_id);
+		rpState.encrypted_response = response;
+		rpState.presentation_submission = payload.presentation_submission;
+		console.log("Encoding....")
+		rpState.vp_token = toBase64Url(encoder.encode(JSON.stringify(payload.vp_token)));
+		rpState.date_created = Date.now();
+		rpState.apv_jarm_encrypted_response_header = protectedHeader.apv && typeof protectedHeader.apv == 'string' ? protectedHeader.apv as string : null;
+		rpState.apu_jarm_encrypted_response_header = protectedHeader.apu && typeof protectedHeader.apu == 'string' ? protectedHeader.apu as string : null;
+		rpState.completed = true;
+
+		console.log("Stored rp state = ", rpState)
+		//await this.rpStateRepository.save(rpState);
+		this.saveRPState(rpState.session_id, rpState);
+		return ok(rpState);
 	}
 }
