@@ -227,8 +227,8 @@ export class OpenID4VPHelper {
 			date_created: Date.now(),
 			};
 
-		this.saveRPState(sessionId, newRpState);
-		this.rpStateKV.set("key:" + exportedEphPub.kid, sessionId);
+		await this.saveRPState(sessionId, newRpState);
+		await this.rpStateKV.set("key:" + exportedEphPub.kid, sessionId);
 
 		// await this.rpStateRepository.save(newRpState);
 
@@ -246,12 +246,12 @@ export class OpenID4VPHelper {
 		return { url: authorizationRequestURL, stateId: state };
 	}
 
-	public saveRPState(sessionId: string, state: RPState): void {
-		this.rpStateKV.set(`rpstate:${sessionId}`, state);
+	public async saveRPState(sessionId: string, state: RPState): Promise<void> {
+		await this.rpStateKV.set(`rpstate:${sessionId}`, state);
 	}
 
-	private saveResponseCodeMapping(responseCode: string, sessionId: string): void {
-		this.rpStateKV.set(`response_code:${responseCode}`, sessionId);
+	private async saveResponseCodeMapping(responseCode: string, sessionId: string): Promise<void> {
+		await this.rpStateKV.set(`response_code:${responseCode}`, sessionId);
 	}
 
 	private async validateDcqlVpToken(
@@ -465,7 +465,7 @@ export class OpenID4VPHelper {
 			// await this.rpStateRepository.save(rpState);
 			this.saveRPState(sessionId, rpState);
 			if (responseCode) {
-				this.rpStateKV.delete(`response_code:${responseCode}`);
+				await this.rpStateKV.delete(`response_code:${responseCode}`);
 			}
 		}
 		if (!rpState.claims && presentationClaims) {
@@ -486,7 +486,7 @@ export class OpenID4VPHelper {
 	}
 
 	public async getRPStateByResponseCode(responseCode: string): Promise<RPState | null> {
-		const sessionId = this.rpStateKV.get(`response_code:${responseCode}`);
+		const sessionId = await this.rpStateKV.get(`response_code:${responseCode}`);
 
 		if (!sessionId) {
 			console.error("getPresentationByResponseCode: No session id for response code");
@@ -577,6 +577,39 @@ export class OpenID4VPHelper {
 
 		console.log("Stored rp state = ", rpState)
 		//await this.rpStateRepository.save(rpState);
+		this.saveRPState(rpState.session_id, rpState);
+		return ok(rpState);
+	}
+
+	public async handleResponseDirectPost(
+		state: string | undefined,
+		vp_token: string | string[] | Record<string, string> | undefined,
+		presentation_submission: any
+	): Promise<Result<RPState, HandleResponseError>> {
+		if (!state) {
+			return err(HandleResponseErrors.MissingState, "Missing state param");
+		}
+
+		if (!vp_token) {
+			return err(HandleResponseErrors.MissingVpToken, "Missing vp_token param");
+		}
+
+		const rpState = await this.rpStateKV.get(`rpstate:${state}`) as RPState;
+		if (!rpState) {
+			return err(HandleResponseErrors.MissingRPState, "Couldn't get rp state with state");
+		}
+
+		if (rpState.completed) {
+			return err(HandleResponseErrors.PresentationAlreadyCompleted, "Presentation flow already completed");
+		}
+
+		rpState.response_code = toBase64Url(encoder.encode(randomUUID()));
+		this.saveResponseCodeMapping(rpState.response_code, rpState.session_id);
+		rpState.presentation_submission = presentation_submission;
+		rpState.vp_token = toBase64Url(encoder.encode(JSON.stringify(vp_token)));
+		rpState.date_created = Date.now();
+		rpState.completed = true;
+
 		this.saveRPState(rpState.session_id, rpState);
 		return ok(rpState);
 	}
