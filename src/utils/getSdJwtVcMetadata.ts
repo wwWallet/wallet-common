@@ -6,14 +6,14 @@ import { CredentialParsingError, isCredentialParsingWarnings } from '../error';
 import { TypeMetadata as TypeMetadataSchema } from "../schemas/SdJwtVcTypeMetadataSchema";
 
 function validateTypeMetadataShape(
-	metadata: Record<string, any>,
-): CredentialParsingError | undefined {
+	metadata: unknown,
+): { ok: true; data: TypeMetadataSchema } | { ok: false; code: CredentialParsingError } {
 	const res = TypeMetadataSchema.safeParse(metadata);
 	if (!res.success) {
 		console.error("❌ Type Metadata shape validation failed:", res.error.issues);
-		return CredentialParsingError.SchemaShapeFail;
+		return { ok: false, code: CredentialParsingError.SchemaShapeFail };
 	}
-	return undefined;
+	return { ok: true, data: res.data };
 }
 
 function handleMetadataCode(
@@ -118,61 +118,55 @@ async function fetchAndMergeMetadata(
 	}
 	visited.add(metadataId);
 
-	let metadata;
+	let metadata: TypeMetadataSchema | undefined;
 
-	if (metadataArray && Array.isArray(metadataArray)) {
-		metadata = metadataArray.find((m) => m.vct === metadataId);
-
-		if (!metadata) {
-			return undefined;
-		}
-
-		const resultShapeCheckCode = validateTypeMetadataShape(metadata);
-		if (resultShapeCheckCode) {
-			const resultCode = handleMetadataCode(resultShapeCheckCode, warnings);
-			if (resultCode) return resultCode;
-		}
-
-		if (!integrity) {
-			const resultCode = handleMetadataCode(CredentialParsingError.IntegrityMissing, warnings);
-			if (resultCode) return resultCode;
-		} else {
-			const isValid = await verifySRIFromObject(context, metadata, integrity);
-			if (!isValid) {
-				const resultCode = handleMetadataCode(CredentialParsingError.IntegrityFail, warnings);
-				if (resultCode) return resultCode;
-			}
-		}
-
-	}
-	else {
-		const result = await httpClient.get(metadataId, {}, { useCache: true });
+	// HTTP (only if valid URL)
+	if (isValidHttpUrl(metadataId)) {
+		const res = await httpClient.get(metadataId, {}, { useCache: true });
 
 		if (
-			!result ||
-			result.status !== 200 ||
-			typeof result.data !== 'object' ||
-			result.data === null ||
-			!('vct' in result.data)
+			res &&
+			res.status === 200 &&
+			typeof res.data === 'object' &&
+			res.data !== null &&
+			'vct' in (res.data as any)
 		) {
-			return undefined;
-		}
+			const validated = validateTypeMetadataShape(res.data);
 
-		const resultShapeCheckCode = validateTypeMetadataShape(result.data);
-		if (resultShapeCheckCode) {
-			const resultCode = handleMetadataCode(resultShapeCheckCode, warnings);
-			if (resultCode) return resultCode;
-		}
-
-		if (integrity) {
-			const isValid = await verifySRIFromObject(context, result.data, integrity);
-			if (!isValid) {
-				const resultCode = handleMetadataCode(CredentialParsingError.IntegrityFail, warnings);
+			if (!validated.ok) {
+				const resultCode = handleMetadataCode(validated.code, warnings);
 				if (resultCode) return resultCode;
+
+			} else {
+				metadata = validated.data as TypeMetadataSchema;
 			}
 		}
+	}
 
-		metadata = result.data;
+	// Registry
+	if (!metadata) {
+		const maybe = context.vctResolutionEngine?.getVctMetadataDocument(metadataId);
+		const resolved = maybe ? await Promise.resolve(maybe) : undefined;
+
+		if (!resolved) return undefined;
+
+		if (typeof resolved === "object" && "error" in resolved) {
+			const resultCode = handleMetadataCode(CredentialParsingError.SchemaShapeFail, warnings);
+			if (resultCode) return resultCode;
+
+		} else {
+			metadata = resolved as TypeMetadataSchema;
+		}
+	}
+
+	if (!metadata) return undefined;
+
+	if (integrity) {
+		const isValid = await verifySRIFromObject(context, metadata, integrity);
+		if (!isValid) {
+			const resultCode = handleMetadataCode(CredentialParsingError.IntegrityFail, warnings);
+			if (resultCode) return resultCode;
+		}
 	}
 
 	let merged;
@@ -255,13 +249,15 @@ export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClien
 			return { error: CredentialParsingError.PayloadFail };
 		}
 		const vct = credentialPayload.vct;
-		if (vct && typeof vct === 'string' && isValidHttpUrl(vct)) {
+		if (vct && typeof vct === 'string') {
 
 			// Check jwt-vc-issuer by iss
-			const checkIssuer = await resolveIssuerMetadata(httpClient, credentialPayload.iss);
-			if (checkIssuer) {
-				const resultCode = handleMetadataCode(checkIssuer.code, warnings);
-				if (resultCode) return resultCode;
+			if (isValidHttpUrl(vct)) {
+				const checkIssuer = await resolveIssuerMetadata(httpClient, credentialPayload.iss);
+				if (checkIssuer) {
+					const resultCode = handleMetadataCode(checkIssuer.code, warnings);
+					if (resultCode) return resultCode;
+				}
 			}
 
 			try {
@@ -279,30 +275,7 @@ export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClien
 			}
 		}
 
-		if (credentialHeader.vctm && Array.isArray(credentialHeader.vctm)) {
-			const decodedVctmList = credentialHeader.vctm.map((encoded: string, index: number) => {
-				try {
-					return JSON.parse(new TextDecoder().decode(fromBase64Url(encoded)));
-				} catch (err) {
-					return { error: "VctmDecodeFail" }
-				}
-			});
-
-			const vctIntegrity = credentialPayload['vct#integrity'] as string | undefined;
-			const vctmMergedMetadata = await fetchAndMergeMetadata(context, httpClient, credentialPayload.vct, decodedVctmList, new Set(), vctIntegrity, credentialPayload, warnings);
-
-			if (vctmMergedMetadata) {
-				if ('error' in vctmMergedMetadata) {
-					return { error: vctmMergedMetadata.error }
-				} else {
-					// console.log('Final vctm Metadata:', vctmMergedMetadata);
-					return { credentialMetadata: vctmMergedMetadata, warnings };
-				}
-			}
-		}
-
 		// if no metafata found return NotFound
-		// here you add more ways to find metadata (eg registry)
 		warnings.push({ code: CredentialParsingError.NotFound });
 
 		return { credentialMetadata: undefined, warnings };
