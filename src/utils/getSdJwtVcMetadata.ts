@@ -144,18 +144,13 @@ async function fetchAndMergeMetadata(
 	}
 
 	// Registry
-	if (!metadata) {
-		const maybe = context.vctResolutionEngine?.getVctMetadataDocument(metadataId);
-		const resolved = maybe ? await Promise.resolve(maybe) : undefined;
-
-		if (!resolved) return undefined;
-
-		if (typeof resolved === "object" && "error" in resolved) {
+	if (!metadata && context.vctResolutionEngine) {
+		const maybe = await context.vctResolutionEngine.getVctMetadataDocument(metadataId);
+		if (maybe?.ok) {
+			metadata = maybe.value as TypeMetadataSchema;
+		} else if (maybe?.error === "invalid_schema") {
 			const resultCode = handleMetadataCode(CredentialParsingError.SchemaShapeFail, warnings);
 			if (resultCode) return resultCode;
-
-		} else {
-			metadata = resolved as TypeMetadataSchema;
 		}
 	}
 
