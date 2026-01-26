@@ -1,6 +1,7 @@
 import { JWK } from "jose";
 import { CredentialParsingError, CredentialVerificationError, PublicKeyResolutionError, CredentialRenderingError, ValidatePresentationRequirementsError } from "./error";
 import { Result, ParsedCredential, CredentialClaims, ParserResult, CredentialClaimPath } from "./types";
+import { VctDocumentProvider } from "./core";
 
 export interface CredentialRendering {
 	renderSvgTemplate(args: {
@@ -77,7 +78,5 @@ export interface Context {
 	 * each string is Base64-encoded DER representation without line breaks or headers like -----BEGIN CERTIFICATE----- and -----END CERTIFICATE-----
 	 */
 	trustedCertificates: string[];
-	config?: {
-		vctRegistryUri: string;
-	};
+	vctResolutionEngine?: VctDocumentProvider;
 }
