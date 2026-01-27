@@ -319,7 +319,7 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 function createHttpClient(): HttpClient {
 	return {
 		get: async () => {
-			throw new Error("Should not be called for vctm tests");
+			throw new Error("Should not be called for vct url or registry tests");
 		},
 		post: async () => {
 			throw new Error("POST not implemented");
@@ -348,19 +348,6 @@ export function decodeBase64UrlToObject(base64url: string): unknown {
 }
 
 /**
- * Decodes an array of base64url-encoded metadata strings (for vctm).
- */
-export function decodeVctmArray(encodedArray: string[]): Record<string, any>[] {
-	return encodedArray.map((entry, index) => {
-		try {
-			return decodeBase64UrlToObject(entry) as Record<string, any>;
-		} catch (e) {
-			throw new Error(`VctmDecodeFail at index ${index}: ${e instanceof Error ? e.message : String(e)}`);
-		}
-	});
-}
-
-/**
  * Builds a JWT string from header and payload objects.
  */
 export function buildJwtLikeCredential(header: any, payload: any): string {
@@ -371,158 +358,16 @@ export function buildJwtLikeCredential(header: any, payload: any): string {
 	].join(".");
 }
 
-describe("getSdJwtVcTypeMetadata - failure cases (vctm)", () => {
+describe("getSdJwtVcTypeMetadata - failure cases", () => {
 
-	it("warning on vctm#integrity mismatch", async () => {
-		const badIntegrity = "sha256-wronghash===";
-		const payload = { vct: "urn:eudi:pid:1", iss: "https://issuer.com" };
-
-		const header = {
-			alg: "ES256",
-			vctm: [encodeBase64Url(metadata1), encodeBase64Url(metadata2)],
-		};
-
-
-		const result = await getSdJwtVcMetadata(context, createHttpClient(), encodeBase64Url(header), payload);
-		if ('warnings' in result) {
-			expect(result.warnings.some(w => w.code === 'IntegrityMissing')).toBe(true);
-
-		} else {
-			throw new Error(`Expected result to be success with warnings`);
-		}
-	});
-
-	it("warning on vctm#integrity failed", async () => {
-		const badIntegrity = "sha256-wronghash===";
-		const payload = { vct: "urn:eudi:pid:1", iss: "https://issuer.com", "vct#integrity": badIntegrity };
-
-		const header = {
-			vctm: [encodeBase64Url(metadata1), encodeBase64Url(metadata2)],
-		};
-
-
-		const result = await getSdJwtVcMetadata(context, createHttpClient(), encodeBase64Url(header), payload);
-		if ('warnings' in result) {
-			expect(result.warnings.some(w => w.code === 'IntegrityFail')).toBe(true);
-
-		} else {
-			throw new Error(`Expected result to be success with warnings`);
-		}
-	});
-
-
-	it("succeeds with valid vctm list and matching vct#integrity", async () => {
-		const metadata = {
-			vct: "urn:eudi:pid:1",
-			display: [{ locale: "en-US", name: "PID", description: "Person ID" }],
-			claims: [{ path: ["pid"], sd: "always", display: [{ locale: "en-US", label: "PID" }] }]
-		};
-
-		const encodedMetadata = encodeBase64Url(metadata);
-		const integrity = generateSRIFromObject(metadata);
-
-		const header = {
-			alg: "ES256",
-			vctm: [encodedMetadata],
-			"vctm#integrity": [integrity]
-		};
-
-		const payload = {
-			vct: "urn:eudi:pid:1",
-			iss: "https://issuer.com",
-			"vct#integrity": integrity,
-			pid: "123456789"
-		};
-
-		const credential = buildJwtLikeCredential(header, payload);
-
-		const result = await getSdJwtVcMetadata(context, createHttpClient(), credential, payload);
-		expect(result).toMatchObject({
-			credentialMetadata: {
-				...metadata
-			}
-		});
-
-
-	});
-
-	it("succeeds when child metadata in vctm extends parent metadata", async () => {
-		const parentMetadata = {
-			vct: "urn:eudi:parent",
-			display: [{ locale: "en-US", name: "Base Person", description: "Parent Metadata" }],
-			claims: [{ path: ["name"], sd: "always", display: [{ locale: "en-US", label: "Full Name" }] }]
-		};
-
-		const parentIntegrity = generateSRIFromObject(parentMetadata);
-
-		const childMetadata = {
-			vct: "urn:eudi:pid:1",
-			extends: "urn:eudi:parent",
-			"extends#integrity": parentIntegrity,
-			display: [{ locale: "en-US", name: "PID", description: "Extended Metadata" }],
-			claims: [{ path: ["pid"], sd: "always", display: [{ locale: "en-US", label: "PID" }] }]
-		};
-
-		const childIntegrity = generateSRIFromObject(childMetadata);
-
-		const header = {
-			alg: "ES256",
-			vctm: [encodeBase64Url(childMetadata), encodeBase64Url(parentMetadata)],
-			"vctm#integrity": [childIntegrity, parentIntegrity]
-		};
-
-		const payload = {
-			vct: "urn:eudi:pid:1",
-			iss: "https://issuer.com",
-			"vct#integrity": childIntegrity,
-			pid: "123456789",
-			name: "Jane Doe" // from parent
-		};
-
-		const credential = buildJwtLikeCredential(header, payload);
-
-		const result = await getSdJwtVcMetadata(context, createHttpClient(), credential, payload);
-
-		expect(result).toMatchObject({
-			credentialMetadata: {
-				...parentMetadata,
-				...childMetadata,
-				claims: [...parentMetadata.claims, ...childMetadata.claims]
-			}
-		});
-	});
-
-	it("warning when vct is a URN and vctm is IS empty", async () => {
+	it("warning when vct is a URN and registry is missing", async () => {
 		const payload = {
 			vct: "urn:eudi:pid:1", // not a URL
 			iss: "https://issuer.com"
 		};
 
 		const header = {
-			alg: "ES256",
-			vctm: []
-		};
-
-		const credential = buildJwtLikeCredential(header, payload);
-
-		const result = await getSdJwtVcMetadata(context, createHttpClient(), credential, payload);
-		if ('warnings' in result) {
-			expect(result.warnings.some(w => w.code === 'NotFound')).toBe(true);
-
-		} else {
-			throw new Error(`Expected result to be success with warnings`);
-		}
-	});
-
-	it("warning when vct is a URN and vctm is missing", async () => {
-		const payload = {
-			vct: "urn:eudi:pid:1", // not a URL
-			iss: "https://issuer.com"
-		};
-
-		const header = {
-			alg: "ES256",
-			// ⚠️ no vctm provided
+			alg: "ES256"
 		};
 
 		const credential = buildJwtLikeCredential(header, payload);
