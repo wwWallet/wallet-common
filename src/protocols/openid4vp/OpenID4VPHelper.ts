@@ -100,7 +100,7 @@ export class OpenID4VPHelper {
 			credentialRendering,
 		};
 }
-	async generateAuthorizationRequestURL(presentationRequest: any, sessionId: string, responseUri: string, baseUri: string, privateKeyPem: string, x5c: string[], responseMode: ResponseMode, callbackEndpoint?: string): Promise<{ url: URL; stateId: string }> {
+	async generateAuthorizationRequestURL(presentationRequest: any, sessionId: string, responseUri: string, baseUri: string, privateKeyPem: string, x5c: string[], responseMode: ResponseMode, callbackEndpoint?: string): Promise<{ url: URL; stateId: string; rpState: RPState }> {
 
 		console.log("Presentation Request: Session id used for authz req ", sessionId);
 
@@ -243,7 +243,7 @@ export class OpenID4VPHelper {
 		const authorizationRequestURL = new URL(redirectUri + "?" + searchParams.toString()); // must be openid4vp://cb
 
 		console.log("AUTHZ REQ = ", authorizationRequestURL);
-		return { url: authorizationRequestURL, stateId: state };
+		return { url: authorizationRequestURL, stateId: state, rpState: newRpState };
 	}
 
 	public async saveRPState(sessionId: string, state: RPState): Promise<void> {
@@ -512,23 +512,27 @@ export class OpenID4VPHelper {
 		return rpState;
 	}
 
+	public async getRPStateByKid(kid: string): Promise<RPState | null> {
+		const sessionId = await this.rpStateKV.get("key:" + kid);
+		if (!sessionId) {
+			return null;
+		}
+		const rpState = await this.rpStateKV.get(`rpstate:${sessionId}`) as RPState;
+		if (!rpState) {
+			return null;
+		}
+		return rpState;
+	}
+
 
 	public async handleResponseJARM(response: any, kid :string): Promise<Result<RPState, HandleResponseError>> {
 		// get rpstate only to get the private key to decrypt the response
 
-		// match kid with rpstate
-		const kidToRP = await this.rpStateKV.get("key:" + kid);
-		if (!kidToRP) {
+		const rpState = await this.getRPStateByKid(kid);
+		if (!rpState) {
 			return err(
 				HandleResponseErrors.MissingRPStateForKid,
 				"responseHandler: Could not retrieve rpState from kid"
-			);
-		}
-		const rpState = await this.rpStateKV.get(`rpstate:${kidToRP}`) as RPState;
-		if (!rpState) {
-			return err(
-				HandleResponseErrors.MissingRPState,
-				"responseHandler: Could not retrieve rpState"
 			);
 		}
 
