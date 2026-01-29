@@ -99,3 +99,252 @@ describe("OpenID4VPHelper.generateAuthorizationRequestURL", () => {
 		assert(payload.client_metadata?.jwks?.keys?.length === 1);
 	});
 });
+
+describe("OpenID4VPHelper small get/set helpers", () => {
+	it("should save and load rpState by session id", async () => {
+		const kv = new MemoryStore<string, any>();
+		const httpClient: HttpClient = {
+			get: async () => {
+				throw new Error("unexpected http call");
+			}
+		};
+
+		const helper = new OpenID4VPHelper(
+			kv,
+			{
+				credentialEngineOptions: {
+					clockTolerance: 0,
+					subtle: crypto.subtle,
+					lang: "en",
+					trustedCertificates: [],
+					trustedCredentialIssuerIdentifiers: undefined
+				},
+				redirectUri: "openid4vp://cb"
+			},
+			httpClient
+		);
+
+		const rpState = {
+			session_id: "session-a",
+			is_cross_device: true,
+			signed_request: "signed",
+			state: "session-a",
+			nonce: "nonce",
+			callback_endpoint: null,
+			audience: "aud",
+			presentation_request_id: "pid",
+			presentation_definition: null,
+			dcql_query: null,
+			rp_eph_kid: "kid-a",
+			rp_eph_pub: { kty: "EC", crv: "P-256", x: "x", y: "y" },
+			rp_eph_priv: { kty: "EC", crv: "P-256", x: "x", y: "y", d: "d" },
+			apv_jarm_encrypted_response_header: null,
+			apu_jarm_encrypted_response_header: null,
+			encrypted_response: null,
+			vp_token: null,
+			presentation_submission: null,
+			response_code: null,
+			claims: null,
+			completed: null,
+			presentation_during_issuance_session: null,
+			date_created: Date.now()
+		};
+
+		await helper.saveRPState(rpState.session_id, rpState);
+		const loaded = await helper.getRPStateBySessionId("session-a");
+		assert(loaded?.session_id === "session-a");
+	});
+
+	it("should return null when rpState is missing by session id", async () => {
+		const kv = new MemoryStore<string, any>();
+		const httpClient: HttpClient = {
+			get: async () => {
+				throw new Error("unexpected http call");
+			}
+		};
+
+		const helper = new OpenID4VPHelper(
+			kv,
+			{
+				credentialEngineOptions: {
+					clockTolerance: 0,
+					subtle: crypto.subtle,
+					lang: "en",
+					trustedCertificates: [],
+					trustedCredentialIssuerIdentifiers: undefined
+				},
+				redirectUri: "openid4vp://cb"
+			},
+			httpClient
+		);
+
+		const loaded = await helper.getRPStateBySessionId("missing");
+		assert(loaded === null);
+	});
+
+	it("should return null when rpState is missing by kid", async () => {
+		const kv = new MemoryStore<string, any>();
+		const httpClient: HttpClient = {
+			get: async () => {
+				throw new Error("unexpected http call");
+			}
+		};
+
+		const helper = new OpenID4VPHelper(
+			kv,
+			{
+				credentialEngineOptions: {
+					clockTolerance: 0,
+					subtle: crypto.subtle,
+					lang: "en",
+					trustedCertificates: [],
+					trustedCredentialIssuerIdentifiers: undefined
+				},
+				redirectUri: "openid4vp://cb"
+			},
+			httpClient
+		);
+
+		const loaded = await helper.getRPStateByKid("missing-kid");
+		assert(loaded === null);
+	});
+
+	it("should return rpState by kid when mapping exists", async () => {
+		const kv = new MemoryStore<string, any>();
+		const httpClient: HttpClient = {
+			get: async () => {
+				throw new Error("unexpected http call");
+			}
+		};
+
+		const helper = new OpenID4VPHelper(
+			kv,
+			{
+				credentialEngineOptions: {
+					clockTolerance: 0,
+					subtle: crypto.subtle,
+					lang: "en",
+					trustedCertificates: [],
+					trustedCredentialIssuerIdentifiers: undefined
+				},
+				redirectUri: "openid4vp://cb"
+			},
+			httpClient
+		);
+
+		const rpState = {
+			session_id: "session-b",
+			is_cross_device: true,
+			signed_request: "signed",
+			state: "session-b",
+			nonce: "nonce",
+			callback_endpoint: null,
+			audience: "aud",
+			presentation_request_id: "pid",
+			presentation_definition: null,
+			dcql_query: null,
+			rp_eph_kid: "kid-b",
+			rp_eph_pub: { kty: "EC", crv: "P-256", x: "x", y: "y" },
+			rp_eph_priv: { kty: "EC", crv: "P-256", x: "x", y: "y", d: "d" },
+			apv_jarm_encrypted_response_header: null,
+			apu_jarm_encrypted_response_header: null,
+			encrypted_response: null,
+			vp_token: null,
+			presentation_submission: null,
+			response_code: null,
+			claims: null,
+			completed: null,
+			presentation_during_issuance_session: null,
+			date_created: Date.now()
+		};
+
+		await helper.saveRPState(rpState.session_id, rpState);
+		await kv.set("key:kid-b", rpState.session_id);
+
+		const loaded = await helper.getRPStateByKid("kid-b");
+		assert(loaded?.session_id === "session-b");
+	});
+
+	it("should return null when response code mapping is missing", async () => {
+		const kv = new MemoryStore<string, any>();
+		const httpClient: HttpClient = {
+			get: async () => {
+				throw new Error("unexpected http call");
+			}
+		};
+
+		const helper = new OpenID4VPHelper(
+			kv,
+			{
+				credentialEngineOptions: {
+					clockTolerance: 0,
+					subtle: crypto.subtle,
+					lang: "en",
+					trustedCertificates: [],
+					trustedCredentialIssuerIdentifiers: undefined
+				},
+				redirectUri: "openid4vp://cb"
+			},
+			httpClient
+		);
+
+		const loaded = await helper.getRPStateByResponseCode("missing-code");
+		assert(loaded === null);
+	});
+
+	it("should return rpState by response code when mapping exists", async () => {
+		const kv = new MemoryStore<string, any>();
+		const httpClient: HttpClient = {
+			get: async () => {
+				throw new Error("unexpected http call");
+			}
+		};
+
+		const helper = new OpenID4VPHelper(
+			kv,
+			{
+				credentialEngineOptions: {
+					clockTolerance: 0,
+					subtle: crypto.subtle,
+					lang: "en",
+					trustedCertificates: [],
+					trustedCredentialIssuerIdentifiers: undefined
+				},
+				redirectUri: "openid4vp://cb"
+			},
+			httpClient
+		);
+
+		const rpState = {
+			session_id: "session-c",
+			is_cross_device: true,
+			signed_request: "signed",
+			state: "session-c",
+			nonce: "nonce",
+			callback_endpoint: null,
+			audience: "aud",
+			presentation_request_id: "pid",
+			presentation_definition: null,
+			dcql_query: null,
+			rp_eph_kid: "kid-c",
+			rp_eph_pub: { kty: "EC", crv: "P-256", x: "x", y: "y" },
+			rp_eph_priv: { kty: "EC", crv: "P-256", x: "x", y: "y", d: "d" },
+			apv_jarm_encrypted_response_header: null,
+			apu_jarm_encrypted_response_header: null,
+			encrypted_response: null,
+			vp_token: null,
+			presentation_submission: null,
+			response_code: "resp-code",
+			claims: null,
+			completed: null,
+			presentation_during_issuance_session: null,
+			date_created: Date.now()
+		};
+
+		await helper.saveRPState(rpState.session_id, rpState);
+		await kv.set("response_code:resp-code", rpState.session_id);
+
+		const loaded = await helper.getRPStateByResponseCode("resp-code");
+		assert(loaded?.session_id === "session-c");
+	});
+});
