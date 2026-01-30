@@ -10,10 +10,10 @@ export function ParsingEngine(): ParsingEngineI {
 			parsers.push(parser);
 		},
 
-		async parse({ rawCredential }: { rawCredential: unknown }) {
+		async parse({ rawCredential,credentialIssuer }) {
 
 			for (const p of parsers) {
-				const result = await p.parse({ rawCredential });
+				const result = await p.parse({ rawCredential,credentialIssuer });
 				if (result.success) {
 					return result;
 				}

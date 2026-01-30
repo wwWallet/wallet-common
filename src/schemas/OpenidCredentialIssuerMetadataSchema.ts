@@ -14,10 +14,15 @@ export const OpenidCredentialIssuerMetadataSchema = z.object({
 	display: z.array(z.object({
 		name: z.string(),
 		locale: z.string(),
+		logo: z.object({
+			uri: z.string(),
+			alt_text: z.string().optional(),
+		}).optional(),
 	})).optional(),
 	batch_credential_issuance: z.object({
 		batch_size: z.number(),
 	}).optional(),
+	deferred_credential_endpoint: z.string().optional(),
 	credential_configurations_supported: z.record(CredentialConfigurationSupportedSchema),
 	signed_metadata: z.string().optional(),
 	mdoc_iacas_uri: z.string().optional(),
