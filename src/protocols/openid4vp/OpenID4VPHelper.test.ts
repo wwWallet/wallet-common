@@ -2,8 +2,8 @@ import { assert, describe, it } from "vitest";
 import { MemoryStore } from "../../core/MemoryStore";
 import { OpenID4VPHelper } from "./OpenID4VPHelper";
 import { ResponseMode } from "./types";
-import { generateKeyPair, exportPKCS8 } from "jose";
-import { fromBase64Url } from "../../utils/util";
+import { generateKeyPair, exportPKCS8, exportJWK, CompactEncrypt } from "jose";
+import { fromBase64Url, toBase64Url } from "../../utils/util";
 import type { HttpClient } from "../../interfaces";
 
 const x5c = [
@@ -346,5 +346,347 @@ describe("OpenID4VPHelper small get/set helpers", () => {
 
 		const loaded = await helper.getRPStateByResponseCode("resp-code");
 		assert(loaded?.session_id === "session-c");
+	});
+});
+
+describe("OpenID4VPHelper.handleResponseDirectPost", () => {
+	it("should store response details and mark completed", async () => {
+		const kv = new MemoryStore<string, any>();
+		const httpClient: HttpClient = { get: async () => { throw new Error("unexpected http call"); } };
+
+		const helper = new OpenID4VPHelper(
+			kv,
+			{
+				credentialEngineOptions: {
+					clockTolerance: 0,
+					subtle: crypto.subtle,
+					lang: "en",
+					trustedCertificates: [],
+					trustedCredentialIssuerIdentifiers: undefined
+				},
+				redirectUri: "openid4vp://cb"
+			},
+			httpClient
+		);
+
+		const rpState = {
+			session_id: "session-d",
+			is_cross_device: true,
+			signed_request: "signed",
+			state: "session-d",
+			nonce: "nonce",
+			callback_endpoint: null,
+			audience: "aud",
+			presentation_request_id: "pid",
+			presentation_definition: null,
+			dcql_query: null,
+			rp_eph_kid: "kid-d",
+			rp_eph_pub: { kty: "EC", crv: "P-256", x: "x", y: "y" },
+			rp_eph_priv: { kty: "EC", crv: "P-256", x: "x", y: "y", d: "d" },
+			apv_jarm_encrypted_response_header: null,
+			apu_jarm_encrypted_response_header: null,
+			encrypted_response: null,
+			vp_token: null,
+			presentation_submission: null,
+			response_code: null,
+			claims: null,
+			completed: null,
+			presentation_during_issuance_session: null,
+			date_created: Date.now()
+		};
+
+		await helper.saveRPState(rpState.session_id, rpState);
+
+		const vpToken = { pid: "vp" };
+		const result = await helper.handleResponseDirectPost("session-d", vpToken, { id: "ps" });
+		assert(result.ok === true);
+
+		const stored = await helper.getRPStateBySessionId("session-d");
+		assert(stored?.completed === true);
+		assert(stored?.response_code);
+		assert(stored?.presentation_submission?.id === "ps");
+		assert(stored?.vp_token);
+
+		const mapped = await kv.get(`response_code:${stored?.response_code}`);
+		assert(mapped === "session-d");
+	});
+
+	it("should return errors for invalid inputs or state", async () => {
+		const kv = new MemoryStore<string, any>();
+		const httpClient: HttpClient = { get: async () => { throw new Error("unexpected http call"); } };
+		const helper = new OpenID4VPHelper(
+			kv,
+			{
+				credentialEngineOptions: {
+					clockTolerance: 0,
+					subtle: crypto.subtle,
+					lang: "en",
+					trustedCertificates: [],
+					trustedCredentialIssuerIdentifiers: undefined
+				},
+				redirectUri: "openid4vp://cb"
+			},
+			httpClient
+		);
+
+		const missingState = await helper.handleResponseDirectPost(undefined, "vp", null);
+		assert(missingState.ok === false);
+
+		const missingVp = await helper.handleResponseDirectPost("state", undefined, null);
+		assert(missingVp.ok === false);
+
+		const missingRp = await helper.handleResponseDirectPost("missing", "vp", null);
+		assert(missingRp.ok === false);
+
+		const rpState = {
+			session_id: "session-e",
+			is_cross_device: true,
+			signed_request: "signed",
+			state: "session-e",
+			nonce: "nonce",
+			callback_endpoint: null,
+			audience: "aud",
+			presentation_request_id: "pid",
+			presentation_definition: null,
+			dcql_query: null,
+			rp_eph_kid: "kid-e",
+			rp_eph_pub: { kty: "EC", crv: "P-256", x: "x", y: "y" },
+			rp_eph_priv: { kty: "EC", crv: "P-256", x: "x", y: "y", d: "d" },
+			apv_jarm_encrypted_response_header: null,
+			apu_jarm_encrypted_response_header: null,
+			encrypted_response: null,
+			vp_token: null,
+			presentation_submission: null,
+			response_code: null,
+			claims: null,
+			completed: true,
+			presentation_during_issuance_session: null,
+			date_created: Date.now()
+		};
+		await helper.saveRPState(rpState.session_id, rpState);
+
+		const alreadyDone = await helper.handleResponseDirectPost("session-e", "vp", null);
+		assert(alreadyDone.ok === false);
+	});
+});
+
+describe("OpenID4VPHelper.handleResponseJARM", () => {
+	it("should decrypt and store response details", async () => {
+		const kv = new MemoryStore<string, any>();
+		const httpClient: HttpClient = { get: async () => { throw new Error("unexpected http call"); } };
+
+		const helper = new OpenID4VPHelper(
+			kv,
+			{
+				credentialEngineOptions: {
+					clockTolerance: 0,
+					subtle: crypto.subtle,
+					lang: "en",
+					trustedCertificates: [],
+					trustedCredentialIssuerIdentifiers: undefined
+				},
+				redirectUri: "openid4vp://cb"
+			},
+			httpClient
+		);
+
+		const { publicKey, privateKey } = await generateKeyPair("ECDH-ES");
+		const rpEphPub = await exportJWK(publicKey);
+		const rpEphPriv = await exportJWK(privateKey);
+		rpEphPub.kid = "kid-jarm";
+		rpEphPriv.kid = "kid-jarm";
+
+		const rpState = {
+			session_id: "session-j",
+			is_cross_device: true,
+			signed_request: "signed",
+			state: "session-j",
+			nonce: "nonce",
+			callback_endpoint: null,
+			audience: "aud",
+			presentation_request_id: "pid",
+			presentation_definition: null,
+			dcql_query: null,
+			rp_eph_kid: "kid-jarm",
+			rp_eph_pub: rpEphPub,
+			rp_eph_priv: rpEphPriv,
+			apv_jarm_encrypted_response_header: null,
+			apu_jarm_encrypted_response_header: null,
+			encrypted_response: null,
+			vp_token: null,
+			presentation_submission: null,
+			response_code: null,
+			claims: null,
+			completed: null,
+			presentation_during_issuance_session: null,
+			date_created: Date.now()
+		};
+
+		await helper.saveRPState(rpState.session_id, rpState);
+		await kv.set("key:kid-jarm", rpState.session_id);
+
+		const apu = toBase64Url(new TextEncoder().encode("apu"));
+		const apv = toBase64Url(new TextEncoder().encode("apv"));
+		const payload = { state: "session-j", vp_token: { pid: "vp" }, presentation_submission: { id: "ps" } };
+		const jwe = await new CompactEncrypt(new TextEncoder().encode(JSON.stringify(payload)))
+			.setProtectedHeader({ alg: "ECDH-ES", enc: "A256GCM" })
+			.setKeyManagementParameters({ apu: new TextEncoder().encode("apu"), apv: new TextEncoder().encode("apv") })
+			.encrypt(publicKey);
+
+		const result = await helper.handleResponseJARM(jwe, "kid-jarm");
+		assert(result.ok === true);
+
+		const stored = await helper.getRPStateBySessionId("session-j");
+		assert(stored?.completed === true);
+		assert(stored?.response_code);
+		assert(stored?.apu_jarm_encrypted_response_header === apu);
+		assert(stored?.apv_jarm_encrypted_response_header === apv);
+		assert(stored?.presentation_submission?.id === "ps");
+		assert(stored?.vp_token);
+
+		const mapped = await kv.get(`response_code:${stored?.response_code}`);
+		assert(mapped === "session-j");
+	});
+
+	it("should return errors for missing state, missing vp_token, and completed session", async () => {
+		const kv = new MemoryStore<string, any>();
+		const httpClient: HttpClient = { get: async () => { throw new Error("unexpected http call"); } };
+
+		const helper = new OpenID4VPHelper(
+			kv,
+			{
+				credentialEngineOptions: {
+					clockTolerance: 0,
+					subtle: crypto.subtle,
+					lang: "en",
+					trustedCertificates: [],
+					trustedCredentialIssuerIdentifiers: undefined
+				},
+				redirectUri: "openid4vp://cb"
+			},
+			httpClient
+		);
+
+		const { publicKey, privateKey } = await generateKeyPair("ECDH-ES");
+		const rpEphPub = await exportJWK(publicKey);
+		const rpEphPriv = await exportJWK(privateKey);
+		rpEphPub.kid = "kid-jarm-2";
+		rpEphPriv.kid = "kid-jarm-2";
+
+		const rpState = {
+			session_id: "session-j2",
+			is_cross_device: true,
+			signed_request: "signed",
+			state: "session-j2",
+			nonce: "nonce",
+			callback_endpoint: null,
+			audience: "aud",
+			presentation_request_id: "pid",
+			presentation_definition: null,
+			dcql_query: null,
+			rp_eph_kid: "kid-jarm-2",
+			rp_eph_pub: rpEphPub,
+			rp_eph_priv: rpEphPriv,
+			apv_jarm_encrypted_response_header: null,
+			apu_jarm_encrypted_response_header: null,
+			encrypted_response: null,
+			vp_token: null,
+			presentation_submission: null,
+			response_code: null,
+			claims: null,
+			completed: true,
+			presentation_during_issuance_session: null,
+			date_created: Date.now()
+		};
+
+		await helper.saveRPState(rpState.session_id, rpState);
+		await kv.set("key:kid-jarm-2", rpState.session_id);
+
+		const payloadMissingState = { vp_token: { pid: "vp" }, presentation_submission: null };
+		const jweMissingState = await new CompactEncrypt(new TextEncoder().encode(JSON.stringify(payloadMissingState)))
+			.setProtectedHeader({ alg: "ECDH-ES", enc: "A256GCM" })
+			.encrypt(publicKey);
+		const missingState = await helper.handleResponseJARM(jweMissingState, "kid-jarm-2");
+		assert(missingState.ok === false);
+
+		const payloadMissingVp = { state: "session-j2", presentation_submission: null };
+		const jweMissingVp = await new CompactEncrypt(new TextEncoder().encode(JSON.stringify(payloadMissingVp)))
+			.setProtectedHeader({ alg: "ECDH-ES", enc: "A256GCM" })
+			.encrypt(publicKey);
+		const missingVp = await helper.handleResponseJARM(jweMissingVp, "kid-jarm-2");
+		assert(missingVp.ok === false);
+
+		const payloadOk = { state: "session-j2", vp_token: "vp", presentation_submission: null };
+		const jweOk = await new CompactEncrypt(new TextEncoder().encode(JSON.stringify(payloadOk)))
+			.setProtectedHeader({ alg: "ECDH-ES", enc: "A256GCM" })
+			.encrypt(publicKey);
+		const completed = await helper.handleResponseJARM(jweOk, "kid-jarm-2");
+		assert(completed.ok === false);
+	});
+
+	it("should return error when rpState or decryption is missing/invalid", async () => {
+		const kv = new MemoryStore<string, any>();
+		const httpClient: HttpClient = { get: async () => { throw new Error("unexpected http call"); } };
+
+		const helper = new OpenID4VPHelper(
+			kv,
+			{
+				credentialEngineOptions: {
+					clockTolerance: 0,
+					subtle: crypto.subtle,
+					lang: "en",
+					trustedCertificates: [],
+					trustedCredentialIssuerIdentifiers: undefined
+				},
+				redirectUri: "openid4vp://cb"
+			},
+			httpClient
+		);
+
+		const missingRp = await helper.handleResponseJARM("invalid.jwe", "missing-kid");
+		assert(missingRp.ok === false);
+
+		const { publicKey, privateKey } = await generateKeyPair("ECDH-ES");
+		const rpEphPub = await exportJWK(publicKey);
+		const rpEphPriv = await exportJWK(privateKey);
+		rpEphPub.kid = "kid-jarm-3";
+		rpEphPriv.kid = "kid-jarm-3";
+
+		const rpState = {
+			session_id: "session-j3",
+			is_cross_device: true,
+			signed_request: "signed",
+			state: "session-j3",
+			nonce: "nonce",
+			callback_endpoint: null,
+			audience: "aud",
+			presentation_request_id: "pid",
+			presentation_definition: null,
+			dcql_query: null,
+			rp_eph_kid: "kid-jarm-3",
+			rp_eph_pub: rpEphPub,
+			rp_eph_priv: rpEphPriv,
+			apv_jarm_encrypted_response_header: null,
+			apu_jarm_encrypted_response_header: null,
+			encrypted_response: null,
+			vp_token: null,
+			presentation_submission: null,
+			response_code: null,
+			claims: null,
+			completed: null,
+			presentation_during_issuance_session: null,
+			date_created: Date.now()
+		};
+
+		await helper.saveRPState(rpState.session_id, rpState);
+		await kv.set("key:kid-jarm-3", rpState.session_id);
+
+		const okPayload = { state: "session-j3", vp_token: "vp", presentation_submission: null };
+		const okJwe = await new CompactEncrypt(new TextEncoder().encode(JSON.stringify(okPayload)))
+			.setProtectedHeader({ alg: "ECDH-ES", enc: "A256GCM" })
+			.encrypt(publicKey);
+		const tamperedJwe = okJwe.slice(0, -1) + (okJwe.endsWith("A") ? "B" : "A");
+		const decryptFail = await helper.handleResponseJARM(tamperedJwe, "kid-jarm-3");
+		assert(decryptFail.ok === false);
 	});
 });
