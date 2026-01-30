@@ -8,7 +8,7 @@ export async function generateHS512Key() {
 		},
 		true,
 		["sign", "verify"]
-    );
+	);
 	const exportedKey = await crypto.subtle.exportKey("raw", secret as CryptoKey);
 	const base64Key = Buffer.from(exportedKey).toString("base64");
 	return { secret, exportedKey: "$b64:" + base64Key };
