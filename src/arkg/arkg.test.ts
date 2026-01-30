@@ -7,7 +7,7 @@ import { asyncAssertThrows } from '../testutil';
 
 
 async function exportPubSeed<B>(pub: ArkgPublicSeed<B, CryptoKey>): Promise<ArkgPublicSeed<B, JsonWebKey>> {
-	return { pubk_bl: pub.pubk_bl, pubk_kem: await crypto.subtle.exportKey("jwk", pub.pubk_kem) };
+	return { pk_bl: pub.pk_bl, pk_kem: await crypto.subtle.exportKey("jwk", pub.pk_kem) };
 }
 
 
@@ -205,13 +205,13 @@ describe("ARKG", async () => {
 							const arkgInstance = getEcInstance('ARKG-P256');
 
 							const [seed_pk, seed_sk] = await arkgInstance.deriveSeed(fromHex(ikmBlHex), fromHex(ikmKemHex));
-							assert.deepEqual(seed_pk.pubk_bl, await ec.pointFromRaw(crv, fromHex(expectPkBlRawHex)));
+							assert.deepEqual(seed_pk.pk_bl, await ec.pointFromRaw(crv, fromHex(expectPkBlRawHex)));
 							assert.deepEqual(
-								await ec.pointFromPublicKey(crv, seed_pk.pubk_kem),
+								await ec.pointFromPublicKey(crv, seed_pk.pk_kem),
 								await ec.pointFromRaw(crv, fromHex(expectPkKemRawHex)),
 							);
-							assert.deepEqual(seed_sk.prik_bl, BigInt("0x" + expectSkBlHex));
-							assert.deepEqual(await ec.scalarFromPrivateKey(seed_sk.prik_kem), BigInt("0x" + expectSkKemHex));
+							assert.deepEqual(seed_sk.sk_bl, BigInt("0x" + expectSkBlHex));
+							assert.deepEqual(await ec.scalarFromPrivateKey(seed_sk.sk_kem), BigInt("0x" + expectSkKemHex));
 
 							const [derivedPubKey, kh] = await arkgInstance.derivePublicKey(seed_pk, fromHex(ikmHex), ctxBytes);
 							assert.deepEqual(derivedPubKey, await ec.pointFromRaw(crv, fromHex(expectDerivedPkRawHex)));
