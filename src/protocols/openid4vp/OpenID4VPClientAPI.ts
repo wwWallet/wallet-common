@@ -17,7 +17,7 @@ import { randomUUID } from "crypto";
 import { exportJWK, generateKeyPair, importPKCS8, SignJWT, compactDecrypt, CompactDecryptResult, importJWK } from "jose";
 import { serializeDcqlQuery } from "../../utils/serializeDcqlQuery";
 
-export const HandleResponseErrors = {
+export const OpenID4VPClientErrors = {
 	MissingRPStateForKid: "missing_rpstate_for_kid",
 	MissingRPState: "missing_rpstate",
 	JWEDecryptionFailure: "jwe_decryption_failure",
@@ -25,9 +25,10 @@ export const HandleResponseErrors = {
 	PresentationAlreadyCompleted: "presentation_already_completed",
 	MissingVpToken: "missing_vp_token",
 	MissingPresentationSubmissionAndVpToken: "missing_presentation_submission_and_vp_token",
+	SignedRequestObjectInvalidated: "signed_request_object_invalidated"
 } as const;
 
-export type HandleResponseError = typeof HandleResponseErrors[keyof typeof HandleResponseErrors];
+export type OpenID4VPClientError = typeof OpenID4VPClientErrors[keyof typeof OpenID4VPClientErrors];
 
 const RESERVED_SDJWT_TOPLEVEL = new Set([
 	'iss', 'sub', 'aud', 'nbf', 'exp', 'iat', 'jti', 'vct', 'cnf',
@@ -471,7 +472,7 @@ export class OpenID4VPClientAPI {
 		if (!rpState.claims && presentationClaims) {
 			rpState.claims = presentationClaims;
 			// await this.rpStateRepository.save(rpState);
-			this.saveRPState(sessionId, rpState);
+			await this.saveRPState(sessionId, rpState);
 		}
 		if (rpState) {
 			return {
@@ -525,13 +526,13 @@ export class OpenID4VPClientAPI {
 	}
 
 
-	public async handleResponseJARM(response: any, kid :string): Promise<Result<RPState, HandleResponseError>> {
+	public async handleResponseJARM(response: any, kid :string): Promise<Result<RPState, OpenID4VPClientError>> {
 		// get rpstate only to get the private key to decrypt the response
 
 		const rpState = await this.getRPStateByKid(kid);
 		if (!rpState) {
 			return err(
-				HandleResponseErrors.MissingRPStateForKid,
+				OpenID4VPClientErrors.MissingRPStateForKid,
 				"responseHandler: Could not retrieve rpState from kid"
 			);
 		}
@@ -544,32 +545,32 @@ export class OpenID4VPClientAPI {
 			console.log("Received JWE headers: ", JSON.parse(decoder.decode(fromBase64Url(response.split('.')[0]))));
 			console.log("Received JWE: ", response);
 			//ctx.res.status(500).send(error);
-			return err(HandleResponseErrors.JWEDecryptionFailure, errorDescription);
+			return err(OpenID4VPClientErrors.JWEDecryptionFailure, errorDescription);
 		}
 
 		const { protectedHeader, plaintext } = result.data as CompactDecryptResult;
 		console.log("Protected header = ", protectedHeader)
 		const payload = JSON.parse(new TextDecoder().decode(plaintext)) as { state: string | undefined, vp_token: string | undefined, presentation_submission: any };
 		if (!payload?.state) {
-			return err(HandleResponseErrors.MissingState, "Missing state");
+			return err(OpenID4VPClientErrors.MissingState, "Missing state");
 		}
 
 		if (rpState.completed) {
-			return err(HandleResponseErrors.PresentationAlreadyCompleted, "Presentation flow already completed");
+			return err(OpenID4VPClientErrors.PresentationAlreadyCompleted, "Presentation flow already completed");
 		}
 
 		if (!payload.vp_token) {
-			return err(HandleResponseErrors.MissingVpToken, "Encrypted Response: vp_token is missing");
+			return err(OpenID4VPClientErrors.MissingVpToken, "Encrypted Response: vp_token is missing");
 		}
 
 		if (!payload.presentation_submission && !payload.vp_token) {
 			return err(
-				HandleResponseErrors.MissingPresentationSubmissionAndVpToken,
+				OpenID4VPClientErrors.MissingPresentationSubmissionAndVpToken,
 				"Encrypted Response: presentation_submission and vp_token are missing"
 			);
 		}
 		rpState.response_code = toBase64Url(encoder.encode(randomUUID()));
-		this.saveResponseCodeMapping(rpState.response_code, rpState.session_id);
+		await this.saveResponseCodeMapping(rpState.response_code, rpState.session_id);
 		rpState.encrypted_response = response;
 		rpState.presentation_submission = payload.presentation_submission;
 		console.log("Encoding....")
@@ -581,7 +582,7 @@ export class OpenID4VPClientAPI {
 
 		console.log("Stored rp state = ", rpState)
 		//await this.rpStateRepository.save(rpState);
-		this.saveRPState(rpState.session_id, rpState);
+		await this.saveRPState(rpState.session_id, rpState);
 		return ok(rpState);
 	}
 
@@ -589,32 +590,47 @@ export class OpenID4VPClientAPI {
 		state: string | undefined,
 		vp_token: string | string[] | Record<string, string> | undefined,
 		presentation_submission: any
-	): Promise<Result<RPState, HandleResponseError>> {
+	): Promise<Result<RPState, OpenID4VPClientError>> {
 		if (!state) {
-			return err(HandleResponseErrors.MissingState, "Missing state param");
+			return err(OpenID4VPClientErrors.MissingState, "Missing state param");
 		}
 
 		if (!vp_token) {
-			return err(HandleResponseErrors.MissingVpToken, "Missing vp_token param");
+			return err(OpenID4VPClientErrors.MissingVpToken, "Missing vp_token param");
 		}
 
 		const rpState = await this.rpStateKV.get(`rpstate:${state}`) as RPState;
 		if (!rpState) {
-			return err(HandleResponseErrors.MissingRPState, "Couldn't get rp state with state");
+			return err(OpenID4VPClientErrors.MissingRPState, "Couldn't get rp state with state");
 		}
 
 		if (rpState.completed) {
-			return err(HandleResponseErrors.PresentationAlreadyCompleted, "Presentation flow already completed");
+			return err(OpenID4VPClientErrors.PresentationAlreadyCompleted, "Presentation flow already completed");
 		}
 
 		rpState.response_code = toBase64Url(encoder.encode(randomUUID()));
-		this.saveResponseCodeMapping(rpState.response_code, rpState.session_id);
+		await this.saveResponseCodeMapping(rpState.response_code, rpState.session_id);
 		rpState.presentation_submission = presentation_submission;
 		rpState.vp_token = toBase64Url(encoder.encode(JSON.stringify(vp_token)));
 		rpState.date_created = Date.now();
 		rpState.completed = true;
 
-		this.saveRPState(rpState.session_id, rpState);
+		await this.saveRPState(rpState.session_id, rpState);
 		return ok(rpState);
+	}
+
+	public async getSignedRequestObject(sessionId: string): Promise<Result<string, OpenID4VPClientError>>{
+		const rpState = await this.getRPStateBySessionId(sessionId);
+
+		if (!rpState) {
+			return err(OpenID4VPClientErrors.MissingRPState, "rpState state could not be fetched with this id");
+		}
+		if (rpState.signed_request === "") {
+			return err(OpenID4VPClientErrors.SignedRequestObjectInvalidated, "rpState state signed request object has been invalidated");
+		}
+		const signedRequest = rpState.signed_request;
+		rpState.signed_request = "";
+		await this.saveRPState(sessionId, rpState);
+		return ok(signedRequest);
 	}
 }
