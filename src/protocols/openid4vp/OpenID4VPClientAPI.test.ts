@@ -1,6 +1,6 @@
 import { assert, describe, it } from "vitest";
 import { MemoryStore } from "../../core/MemoryStore";
-import { OpenID4VPHelper } from "./OpenID4VPHelper";
+import { OpenID4VPClientAPI } from "./OpenID4VPClientAPI";
 import { ResponseMode } from "./types";
 import { generateKeyPair, exportPKCS8, exportJWK, CompactEncrypt } from "jose";
 import { fromBase64Url, toBase64Url } from "../../utils/util";
@@ -28,7 +28,7 @@ const presentationRequest = {
 	}
 };
 
-describe("OpenID4VPHelper.generateAuthorizationRequestURL", () => {
+describe("OpenID4VPClientAPI.generateAuthorizationRequestURL", () => {
 	it("should build a valid URL, store rpState, and include DCQL in the request JWT", async () => {
 		const kv = new MemoryStore<string, any>();
 		const httpClient: HttpClient = {
@@ -40,7 +40,7 @@ describe("OpenID4VPHelper.generateAuthorizationRequestURL", () => {
 		const { privateKey } = await generateKeyPair("ES256");
 		const privateKeyPem = await exportPKCS8(privateKey);
 
-		const helper = new OpenID4VPHelper(
+		const helper = new OpenID4VPClientAPI(
 			kv,
 			{
 				credentialEngineOptions: {
@@ -100,7 +100,7 @@ describe("OpenID4VPHelper.generateAuthorizationRequestURL", () => {
 	});
 });
 
-describe("OpenID4VPHelper small get/set helpers", () => {
+describe("OpenID4VPClientAPI small get/set helpers", () => {
 	it("should save and load rpState by session id", async () => {
 		const kv = new MemoryStore<string, any>();
 		const httpClient: HttpClient = {
@@ -109,7 +109,7 @@ describe("OpenID4VPHelper small get/set helpers", () => {
 			}
 		};
 
-		const helper = new OpenID4VPHelper(
+		const helper = new OpenID4VPClientAPI(
 			kv,
 			{
 				credentialEngineOptions: {
@@ -163,7 +163,7 @@ describe("OpenID4VPHelper small get/set helpers", () => {
 			}
 		};
 
-		const helper = new OpenID4VPHelper(
+		const helper = new OpenID4VPClientAPI(
 			kv,
 			{
 				credentialEngineOptions: {
@@ -190,7 +190,7 @@ describe("OpenID4VPHelper small get/set helpers", () => {
 			}
 		};
 
-		const helper = new OpenID4VPHelper(
+		const helper = new OpenID4VPClientAPI(
 			kv,
 			{
 				credentialEngineOptions: {
@@ -217,7 +217,7 @@ describe("OpenID4VPHelper small get/set helpers", () => {
 			}
 		};
 
-		const helper = new OpenID4VPHelper(
+		const helper = new OpenID4VPClientAPI(
 			kv,
 			{
 				credentialEngineOptions: {
@@ -273,7 +273,7 @@ describe("OpenID4VPHelper small get/set helpers", () => {
 			}
 		};
 
-		const helper = new OpenID4VPHelper(
+		const helper = new OpenID4VPClientAPI(
 			kv,
 			{
 				credentialEngineOptions: {
@@ -300,7 +300,7 @@ describe("OpenID4VPHelper small get/set helpers", () => {
 			}
 		};
 
-		const helper = new OpenID4VPHelper(
+		const helper = new OpenID4VPClientAPI(
 			kv,
 			{
 				credentialEngineOptions: {
@@ -349,12 +349,12 @@ describe("OpenID4VPHelper small get/set helpers", () => {
 	});
 });
 
-describe("OpenID4VPHelper.handleResponseDirectPost", () => {
+describe("OpenID4VPClientAPI.handleResponseDirectPost", () => {
 	it("should store response details and mark completed", async () => {
 		const kv = new MemoryStore<string, any>();
 		const httpClient: HttpClient = { get: async () => { throw new Error("unexpected http call"); } };
 
-		const helper = new OpenID4VPHelper(
+		const helper = new OpenID4VPClientAPI(
 			kv,
 			{
 				credentialEngineOptions: {
@@ -414,7 +414,7 @@ describe("OpenID4VPHelper.handleResponseDirectPost", () => {
 	it("should return errors for invalid inputs or state", async () => {
 		const kv = new MemoryStore<string, any>();
 		const httpClient: HttpClient = { get: async () => { throw new Error("unexpected http call"); } };
-		const helper = new OpenID4VPHelper(
+		const helper = new OpenID4VPClientAPI(
 			kv,
 			{
 				credentialEngineOptions: {
@@ -470,12 +470,12 @@ describe("OpenID4VPHelper.handleResponseDirectPost", () => {
 	});
 });
 
-describe("OpenID4VPHelper.handleResponseJARM", () => {
+describe("OpenID4VPClientAPI.handleResponseJARM", () => {
 	it("should decrypt and store response details", async () => {
 		const kv = new MemoryStore<string, any>();
 		const httpClient: HttpClient = { get: async () => { throw new Error("unexpected http call"); } };
 
-		const helper = new OpenID4VPHelper(
+		const helper = new OpenID4VPClientAPI(
 			kv,
 			{
 				credentialEngineOptions: {
@@ -552,7 +552,7 @@ describe("OpenID4VPHelper.handleResponseJARM", () => {
 		const kv = new MemoryStore<string, any>();
 		const httpClient: HttpClient = { get: async () => { throw new Error("unexpected http call"); } };
 
-		const helper = new OpenID4VPHelper(
+		const helper = new OpenID4VPClientAPI(
 			kv,
 			{
 				credentialEngineOptions: {
@@ -628,7 +628,7 @@ describe("OpenID4VPHelper.handleResponseJARM", () => {
 		const kv = new MemoryStore<string, any>();
 		const httpClient: HttpClient = { get: async () => { throw new Error("unexpected http call"); } };
 
-		const helper = new OpenID4VPHelper(
+		const helper = new OpenID4VPClientAPI(
 			kv,
 			{
 				credentialEngineOptions: {

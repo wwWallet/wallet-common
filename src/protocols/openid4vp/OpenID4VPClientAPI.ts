@@ -36,7 +36,7 @@ const RESERVED_SDJWT_TOPLEVEL = new Set([
 const decoder = new TextDecoder();
 const encoder = new TextEncoder();
 
-export class OpenID4VPHelper {
+export class OpenID4VPClientAPI {
 	private rpStateKV: GenericStore<string, RPState | string>;
 	private options: OpenID4VPOptions;
 	private httpClient: HttpClient;
