@@ -68,7 +68,7 @@ export function OpenID4VCICredentialRendering(args: { httpClient: HttpClient }):
 	const renderCustomSvgTemplate = async ({ signedClaims, displayConfig }: { signedClaims: CredentialClaims, displayConfig: any }) => {
 		const name =  displayConfig?.name ? escapeSVG(displayConfig?.name) : defaultName;
 		const description = displayConfig?.description ? escapeSVG(displayConfig?.description) : "";
-		const backgroundColor = displayConfig.backgroundColor || defaultBackgroundColor;
+		const backgroundColor = displayConfig.background_color || defaultBackgroundColor;
 		const textColor = displayConfig.text_color || defaultTextColor;
 		const backgroundImageBase64 = displayConfig?.background_image?.uri ?
 			displayConfig?.background_image?.uri?.startsWith("data:") ?
