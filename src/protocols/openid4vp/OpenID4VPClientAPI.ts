@@ -11,7 +11,7 @@ import { CredentialRenderingService } from "../../rendering";
 import { VerifiableCredentialFormat } from "../../types";
 import { fromBase64Url, toBase64Url } from "../../utils/util";
 import { TransactionData } from "./transactionData";
-import { CredentialEngineOptions, CredentialIssuerMetadata, IacasResponse, OpenID4VPOptions, PresentationClaims, PresentationInfo, ResponseMode, RPState } from "./types";
+import { CredentialEngineOptions, CredentialIssuerMetadata, IacasResponse, OpenID4VPOptions, PresentationClaims, PresentationInfo, OpenID4VPClientResponseMode, RPState } from "./types";
 import { DcqlPresentationResult } from 'dcql';
 import { randomUUID } from "crypto";
 import { exportJWK, generateKeyPair, importPKCS8, SignJWT, compactDecrypt, CompactDecryptResult, importJWK } from "jose";
@@ -101,7 +101,7 @@ export class OpenID4VPClientAPI {
 			credentialRendering,
 		};
 }
-	async generateAuthorizationRequestURL(presentationRequest: any, sessionId: string, responseUri: string, baseUri: string, privateKeyPem: string, x5c: string[], responseMode: ResponseMode, callbackEndpoint?: string): Promise<{ url: URL; stateId: string; rpState: RPState }> {
+	async generateAuthorizationRequestURL(presentationRequest: any, sessionId: string, responseUri: string, baseUri: string, privateKeyPem: string, x5c: string[], responseMode: OpenID4VPClientResponseMode, callbackEndpoint?: string): Promise<{ url: URL; stateId: string; rpState: RPState }> {
 
 		console.log("Presentation Request: Session id used for authz req ", sessionId);
 
