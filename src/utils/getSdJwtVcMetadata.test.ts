@@ -105,20 +105,6 @@ describe("getSdJwtVcMetadata - payload failure cases", () => {
 
 		expect(result).toMatchObject({ error: "PayloadFail" });
 	});
-
-	it("fails when parsed claims are missing `iss`", async () => {
-		const validHeader = encodeBase64Url({ alg: "ES256" });
-		const credential = `${validHeader}.payload.sig`;
-
-		const result = await getSdJwtVcMetadata(
-			context,
-			defaultHttpClient,
-			credential,
-			{ vct: "https://example.com/vct.json" } // missing 'iss'
-		);
-
-		expect(result).toMatchObject({ error: "PayloadFail" });
-	});
 });
 
 describe("getSdJwtVcMetadata - vct url failure cases", () => {

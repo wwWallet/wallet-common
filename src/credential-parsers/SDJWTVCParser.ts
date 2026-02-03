@@ -111,7 +111,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 			}
 
 
-			const { metadata: issuerMetadata } = await getIssuerMetadata(args.httpClient, validatedParsedClaims.iss, warnings);
+			const { metadata: issuerMetadata } = validatedParsedClaims.iss ? await getIssuerMetadata(args.httpClient, validatedParsedClaims.iss, warnings) : { metadata: undefined };
 
 			const getSdJwtMetadataResult = await getSdJwtVcMetadata(args.context, args.httpClient, rawCredential, validatedParsedClaims, warnings);
 			if ('error' in getSdJwtMetadataResult) {
@@ -235,8 +235,8 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 							name: credentialFriendlyName,
 						},
 						issuer: {
-							id: validatedParsedClaims.iss,
-							name: validatedParsedClaims.iss,
+							id: validatedParsedClaims.iss ?? "UnknownIssuer",
+							name: validatedParsedClaims.iss ?? "UnknownIssuer",
 						}
 					},
 					validityInfo: {

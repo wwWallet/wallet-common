@@ -20,8 +20,8 @@ export const OpenidCredentialIssuerMetadataSchema = z.object({
 	}).optional(),
 	authorization_servers: z.array(z.string()).optional(),
 	display: z.array(z.object({
-		name: z.string(),
-		locale: z.string(),
+		name: z.string().optional(),
+		locale: z.string().optional(),
 		logo: z.object({
 			uri: z.string(),
 			alt_text: z.string().optional(),
