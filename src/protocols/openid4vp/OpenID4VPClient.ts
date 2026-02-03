@@ -30,6 +30,34 @@ export const OpenID4VPClientErrors = {
 
 export type OpenID4VPClientError = typeof OpenID4VPClientErrors[keyof typeof OpenID4VPClientErrors];
 
+export interface OpenID4VPClientI {
+	generateAuthorizationRequestURL(
+		presentationRequest: any,
+		sessionId: string,
+		responseUri: string,
+		baseUri: string,
+		privateKeyPem: string,
+		x5c: string[],
+		responseMode: OpenID4VPClientResponseMode,
+		callbackEndpoint?: string
+	): Promise<{ url: URL; stateId: string; rpState: RPState }>;
+	saveRPState(sessionId: string, state: RPState): Promise<void>;
+	getPresentationBySessionId(
+		sessionId?: string,
+		cleanupSession?: boolean
+	): Promise<{ status: true, presentations: unknown[], presentationInfo: PresentationInfo, rpState: RPState } | { status: false, error: Error }>;
+	getRPStateByResponseCode(responseCode: string): Promise<RPState | null>;
+	getRPStateBySessionId(sessionId: string): Promise<RPState | null>;
+	getRPStateByKid(kid: string): Promise<RPState | null>;
+	handleResponseJARM(response: any, kid: string): Promise<Result<RPState, OpenID4VPClientError>>;
+	handleResponseDirectPost(
+		state: string | undefined,
+		vp_token: string | string[] | Record<string, string> | undefined,
+		presentation_submission: any
+	): Promise<Result<RPState, OpenID4VPClientError>>;
+	getSignedRequestObject(sessionId: string): Promise<Result<string, OpenID4VPClientError>>;
+}
+
 const RESERVED_SDJWT_TOPLEVEL = new Set([
 	'iss', 'sub', 'aud', 'nbf', 'exp', 'iat', 'jti', 'vct', 'cnf',
 	'transaction_data_hashes', 'transaction_data_hashes_alg', 'vct#integrity'
@@ -37,37 +65,35 @@ const RESERVED_SDJWT_TOPLEVEL = new Set([
 const decoder = new TextDecoder();
 const encoder = new TextEncoder();
 
-export class OpenID4VPClientAPI {
-	private rpStateKV: GenericStore<string, RPState | string>;
-	private options: OpenID4VPOptions;
-	private httpClient: HttpClient;
+export function OpenID4VPClient(
+	kvStore: GenericStore<string, RPState | string>,
+	optionsInput: OpenID4VPOptions,
+	httpClientInput: HttpClient
+): OpenID4VPClientI {
+	const rpStateKV = kvStore;
+	const options = optionsInput;
+	const httpClient = httpClientInput;
 
-	constructor(kvStore: GenericStore<string, RPState | string>, options: OpenID4VPOptions, httpClient: HttpClient) {
-		this.rpStateKV = kvStore;
-		this.options = options;
-		this.httpClient = httpClient;
-	}
-
-	private async initializeCredentialEngine() {
+	async function initializeCredentialEngine() {
 		console.log("Initializing credential engine...")
 
 		const ctx = {
-			clockTolerance: this.options.credentialEngineOptions.clockTolerance,
-			subtle: this.options.credentialEngineOptions.subtle,
-			lang: this.options.credentialEngineOptions.lang,
-			trustedCertificates: [...this.options.credentialEngineOptions.trustedCertificates],
+			clockTolerance: options.credentialEngineOptions.clockTolerance,
+			subtle: options.credentialEngineOptions.subtle,
+			lang: options.credentialEngineOptions.lang,
+			trustedCertificates: [...options.credentialEngineOptions.trustedCertificates],
 		};
 
-		if (this.options.credentialEngineOptions.trustedCredentialIssuerIdentifiers) {
-			const result = (await Promise.all(this.options.credentialEngineOptions.trustedCredentialIssuerIdentifiers.map(async (credentialIssuerIdentifier) =>
-				this.httpClient.get(`${credentialIssuerIdentifier}/openid/.well-known/openid-credential-issuer`)
+		if (options.credentialEngineOptions.trustedCredentialIssuerIdentifiers) {
+			const result = (await Promise.all(options.credentialEngineOptions.trustedCredentialIssuerIdentifiers.map(async (credentialIssuerIdentifier) =>
+				httpClient.get(`${credentialIssuerIdentifier}/openid/.well-known/openid-credential-issuer`)
 					.then((res) => res.data as CredentialIssuerMetadata)
 					.catch((e) => { console.error(e); return null; })
 			))).filter((r): r is CredentialIssuerMetadata => r !== null);
 
 			const iacasResponses = (await Promise.all(result.map(async (metadata) => {
 				if (metadata && metadata.mdoc_iacas_uri) {
-					return this.httpClient.get(metadata.mdoc_iacas_uri).then((res) => res.data as IacasResponse).catch((e) => { console.error(e); return null; })
+					return httpClient.get(metadata.mdoc_iacas_uri).then((res) => res.data as IacasResponse).catch((e) => { console.error(e); return null; })
 				}
 				return null;
 			}))).filter((r): r is IacasResponse => r !== null);
@@ -85,23 +111,23 @@ export class OpenID4VPClientAPI {
 		}
 
 		const credentialParsingEngine = ParsingEngine();
-		credentialParsingEngine.register(SDJWTVCParser({ context: ctx, httpClient: this.httpClient }));
+		credentialParsingEngine.register(SDJWTVCParser({ context: ctx, httpClient: httpClient }));
 		console.log("Registered SDJWTVCParser...");
-		credentialParsingEngine.register(MsoMdocParser({ context: ctx, httpClient: this.httpClient }));
+		credentialParsingEngine.register(MsoMdocParser({ context: ctx, httpClient: httpClient }));
 		console.log("Registered MsoMdocParser...");
 
 		const pkResolverEngine = PublicKeyResolverEngine();
-		const openid4vcRendering = OpenID4VCICredentialRendering({ httpClient: this.httpClient });
+		const openid4vcRendering = OpenID4VCICredentialRendering({ httpClient: httpClient });
 		const credentialRendering = CredentialRenderingService();
 		return {
 			credentialParsingEngine,
 			msoMdocVerifier: MsoMdocVerifier({ context: ctx, pkResolverEngine: pkResolverEngine }),
-			sdJwtVerifier: SDJWTVCVerifier({ context: ctx, pkResolverEngine: pkResolverEngine, httpClient: this.httpClient }),
+			sdJwtVerifier: SDJWTVCVerifier({ context: ctx, pkResolverEngine: pkResolverEngine, httpClient: httpClient }),
 			openid4vcRendering,
 			credentialRendering,
 		};
 }
-	async generateAuthorizationRequestURL(presentationRequest: any, sessionId: string, responseUri: string, baseUri: string, privateKeyPem: string, x5c: string[], responseMode: OpenID4VPClientResponseMode, callbackEndpoint?: string): Promise<{ url: URL; stateId: string; rpState: RPState }> {
+	async function generateAuthorizationRequestURL(presentationRequest: any, sessionId: string, responseUri: string, baseUri: string, privateKeyPem: string, x5c: string[], responseMode: OpenID4VPClientResponseMode, callbackEndpoint?: string): Promise<{ url: URL; stateId: string; rpState: RPState }> {
 
 		console.log("Presentation Request: Session id used for authz req ", sessionId);
 
@@ -228,10 +254,10 @@ export class OpenID4VPClientAPI {
 			date_created: Date.now(),
 			};
 
-		await this.saveRPState(sessionId, newRpState);
-		await this.rpStateKV.set("key:" + exportedEphPub.kid, sessionId);
+		await saveRPState(sessionId, newRpState);
+		await rpStateKV.set("key:" + exportedEphPub.kid, sessionId);
 
-		// await this.rpStateRepository.save(newRpState);
+		// await rpStateRepository.save(newRpState);
 
 		const requestUri = baseUri + "/verification/request-object?id=" + state;
 
@@ -247,21 +273,21 @@ export class OpenID4VPClientAPI {
 		return { url: authorizationRequestURL, stateId: state, rpState: newRpState };
 	}
 
-	public async saveRPState(sessionId: string, state: RPState): Promise<void> {
-		await this.rpStateKV.set(`rpstate:${sessionId}`, state);
+	async function saveRPState(sessionId: string, state: RPState): Promise<void> {
+		await rpStateKV.set(`rpstate:${sessionId}`, state);
 	}
 
-	private async saveResponseCodeMapping(responseCode: string, sessionId: string): Promise<void> {
-		await this.rpStateKV.set(`response_code:${responseCode}`, sessionId);
+	async function saveResponseCodeMapping(responseCode: string, sessionId: string): Promise<void> {
+		await rpStateKV.set(`response_code:${responseCode}`, sessionId);
 	}
 
-	private async validateDcqlVpToken(
+	async function validateDcqlVpToken(
 		vp_token_list: any,
 		dcql_query: any,
 		rpState: RPState
 	): Promise<{ presentationClaims?: PresentationClaims, messages?: PresentationInfo, error?: Error }> {
 		const presentationClaims: PresentationClaims = {};
-		const ce = await this.initializeCredentialEngine();
+		const ce = await initializeCredentialEngine();
 		const messages: PresentationInfo = {};
 
 		for (const descriptor of dcql_query.credentials) {
@@ -372,7 +398,7 @@ export class OpenID4VPClientAPI {
 							holderNonce: rpState.apu_jarm_encrypted_response_header
 								? decoder.decode(fromBase64Url(rpState.apu_jarm_encrypted_response_header))
 								: undefined,
-							responseUri: this.options.redirectUri,
+							responseUri: options.redirectUri,
 						},
 					});
 					if (!verificationResult.success) {
@@ -423,13 +449,13 @@ export class OpenID4VPClientAPI {
 		return { presentationClaims, messages };
 	}
 
-	public async getPresentationBySessionId(sessionId?: string, cleanupSession: boolean = false): Promise<{ status: true, presentations: unknown[], presentationInfo: PresentationInfo, rpState: RPState } | { status: false, error: Error }> {
+	async function getPresentationBySessionId(sessionId?: string, cleanupSession: boolean = false): Promise<{ status: true, presentations: unknown[], presentationInfo: PresentationInfo, rpState: RPState } | { status: false, error: Error }> {
 		if (!sessionId) {
 			console.error("getPresentationBySessionId: Invalid sessionId");
 			const error = new Error("getPresentationBySessionId: Invalid sessionId");
 			return { status: false, error };
 		}
-		const rpState = await this.rpStateKV.get(`rpstate:${sessionId}`) as RPState;
+		const rpState = await rpStateKV.get(`rpstate:${sessionId}`) as RPState;
 
 		if (!rpState) {
 			console.error("Couldn't get rpState with the session_id " + sessionId);
@@ -449,7 +475,7 @@ export class OpenID4VPClientAPI {
 		let presentationInfo: PresentationInfo = {};
 		let error: Error | undefined;
 		if (rpState.dcql_query) {
-			const result = await this.validateDcqlVpToken(vp_token as any, rpState.dcql_query, rpState);
+			const result = await validateDcqlVpToken(vp_token as any, rpState.dcql_query, rpState);
 			presentationClaims = result.presentationClaims;
 			presentationInfo = result.messages ? result.messages : {};
 			error = result.error;
@@ -463,16 +489,16 @@ export class OpenID4VPClientAPI {
 			rpState.state = "";
 			rpState.session_id = ""; // invalidate session id
 			rpState.response_code = "";
-			// await this.rpStateRepository.save(rpState);
-			this.saveRPState(sessionId, rpState);
+			// await rpStateRepository.save(rpState);
+			saveRPState(sessionId, rpState);
 			if (responseCode) {
-				await this.rpStateKV.delete(`response_code:${responseCode}`);
+				await rpStateKV.delete(`response_code:${responseCode}`);
 			}
 		}
 		if (!rpState.claims && presentationClaims) {
 			rpState.claims = presentationClaims;
-			// await this.rpStateRepository.save(rpState);
-			await this.saveRPState(sessionId, rpState);
+			// await rpStateRepository.save(rpState);
+			await saveRPState(sessionId, rpState);
 		}
 		if (rpState) {
 			return {
@@ -486,15 +512,15 @@ export class OpenID4VPClientAPI {
 		return { status: false, error: unkownErr };
 	}
 
-	public async getRPStateByResponseCode(responseCode: string): Promise<RPState | null> {
-		const sessionId = await this.rpStateKV.get(`response_code:${responseCode}`);
+	async function getRPStateByResponseCode(responseCode: string): Promise<RPState | null> {
+		const sessionId = await rpStateKV.get(`response_code:${responseCode}`);
 
 		if (!sessionId) {
 			console.error("getPresentationByResponseCode: No session id for response code");
 			return null;
 		}
 
-		const rpState = await this.rpStateKV.get(`rpstate:${sessionId}`) as RPState;
+		const rpState = await rpStateKV.get(`rpstate:${sessionId}`) as RPState;
 		if (!rpState) {
 			console.error("getPresentationByResponseCode: Missing rpState for session id");
 			return null;
@@ -503,8 +529,8 @@ export class OpenID4VPClientAPI {
 		return rpState;
 	}
 
-	public async getRPStateBySessionId(sessionId: string): Promise<RPState | null> {
-		const rpState = await this.rpStateKV.get(`rpstate:${sessionId}`) as RPState;
+	async function getRPStateBySessionId(sessionId: string): Promise<RPState | null> {
+		const rpState = await rpStateKV.get(`rpstate:${sessionId}`) as RPState;
 		if (!rpState) {
 			console.error("getRPStateBySessionId: Missing rpState for session id");
 			return null;
@@ -513,12 +539,12 @@ export class OpenID4VPClientAPI {
 		return rpState;
 	}
 
-	public async getRPStateByKid(kid: string): Promise<RPState | null> {
-		const sessionId = await this.rpStateKV.get("key:" + kid);
+	async function getRPStateByKid(kid: string): Promise<RPState | null> {
+		const sessionId = await rpStateKV.get("key:" + kid);
 		if (!sessionId) {
 			return null;
 		}
-		const rpState = await this.rpStateKV.get(`rpstate:${sessionId}`) as RPState;
+		const rpState = await rpStateKV.get(`rpstate:${sessionId}`) as RPState;
 		if (!rpState) {
 			return null;
 		}
@@ -526,10 +552,10 @@ export class OpenID4VPClientAPI {
 	}
 
 
-	public async handleResponseJARM(response: any, kid :string): Promise<Result<RPState, OpenID4VPClientError>> {
+	async function handleResponseJARM(response: any, kid :string): Promise<Result<RPState, OpenID4VPClientError>> {
 		// get rpstate only to get the private key to decrypt the response
 
-		const rpState = await this.getRPStateByKid(kid);
+		const rpState = await getRPStateByKid(kid);
 		if (!rpState) {
 			return err(
 				OpenID4VPClientErrors.MissingRPStateForKid,
@@ -570,7 +596,7 @@ export class OpenID4VPClientAPI {
 			);
 		}
 		rpState.response_code = toBase64Url(encoder.encode(randomUUID()));
-		await this.saveResponseCodeMapping(rpState.response_code, rpState.session_id);
+		await saveResponseCodeMapping(rpState.response_code, rpState.session_id);
 		rpState.encrypted_response = response;
 		rpState.presentation_submission = payload.presentation_submission;
 		console.log("Encoding....")
@@ -581,12 +607,12 @@ export class OpenID4VPClientAPI {
 		rpState.completed = true;
 
 		console.log("Stored rp state = ", rpState)
-		//await this.rpStateRepository.save(rpState);
-		await this.saveRPState(rpState.session_id, rpState);
+		//await rpStateRepository.save(rpState);
+		await saveRPState(rpState.session_id, rpState);
 		return ok(rpState);
 	}
 
-	public async handleResponseDirectPost(
+	async function handleResponseDirectPost(
 		state: string | undefined,
 		vp_token: string | string[] | Record<string, string> | undefined,
 		presentation_submission: any
@@ -599,7 +625,7 @@ export class OpenID4VPClientAPI {
 			return err(OpenID4VPClientErrors.MissingVpToken, "Missing vp_token param");
 		}
 
-		const rpState = await this.rpStateKV.get(`rpstate:${state}`) as RPState;
+		const rpState = await rpStateKV.get(`rpstate:${state}`) as RPState;
 		if (!rpState) {
 			return err(OpenID4VPClientErrors.MissingRPState, "Couldn't get rp state with state");
 		}
@@ -609,18 +635,18 @@ export class OpenID4VPClientAPI {
 		}
 
 		rpState.response_code = toBase64Url(encoder.encode(randomUUID()));
-		await this.saveResponseCodeMapping(rpState.response_code, rpState.session_id);
+		await saveResponseCodeMapping(rpState.response_code, rpState.session_id);
 		rpState.presentation_submission = presentation_submission;
 		rpState.vp_token = toBase64Url(encoder.encode(JSON.stringify(vp_token)));
 		rpState.date_created = Date.now();
 		rpState.completed = true;
 
-		await this.saveRPState(rpState.session_id, rpState);
+		await saveRPState(rpState.session_id, rpState);
 		return ok(rpState);
 	}
 
-	public async getSignedRequestObject(sessionId: string): Promise<Result<string, OpenID4VPClientError>>{
-		const rpState = await this.getRPStateBySessionId(sessionId);
+	async function getSignedRequestObject(sessionId: string): Promise<Result<string, OpenID4VPClientError>>{
+		const rpState = await getRPStateBySessionId(sessionId);
 
 		if (!rpState) {
 			return err(OpenID4VPClientErrors.MissingRPState, "rpState state could not be fetched with this id");
@@ -630,7 +656,19 @@ export class OpenID4VPClientAPI {
 		}
 		const signedRequest = rpState.signed_request;
 		rpState.signed_request = "";
-		await this.saveRPState(sessionId, rpState);
+		await saveRPState(sessionId, rpState);
 		return ok(signedRequest);
 	}
+
+	return {
+		generateAuthorizationRequestURL,
+		saveRPState,
+		getPresentationBySessionId,
+		getRPStateByResponseCode,
+		getRPStateBySessionId,
+		getRPStateByKid,
+		handleResponseJARM,
+		handleResponseDirectPost,
+		getSignedRequestObject,
+	};
 }

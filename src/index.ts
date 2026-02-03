@@ -20,5 +20,6 @@ export * from './functions';
 
 export * from './core';
 
-export * from './protocols/openid4vp/OpenID4VPClientAPI';
+export { OpenID4VPClient, OpenID4VPClientErrors } from './protocols/openid4vp/OpenID4VPClient';
+export type { OpenID4VPClientI, OpenID4VPClientError } from './protocols/openid4vp/OpenID4VPClient';
 export * from './protocols/openid4vp/types';
