@@ -1,6 +1,10 @@
 import type { HttpClient, CredentialRendering, OpenID4VCICredentialRendering } from "../interfaces";
 import type { CredentialClaimPath, ImageDataUriCallback } from "../types";
 import { matchDisplayByLocale } from "../utils/matchLocalizedDisplay";
+import type { TypeDisplayEntry,ClaimMetadataEntry } from "../schemas/SdJwtVcTypeMetadataSchema";
+import type { CredentialConfigurationSupported } from "../schemas/CredentialConfigurationSupportedSchema";
+
+type IssuerDisplayEntry = NonNullable<CredentialConfigurationSupported["display"]>[number];
 
 type DataUriResolverOptions = {
 	httpClient: HttpClient;
@@ -8,11 +12,11 @@ type DataUriResolverOptions = {
 
 	signedClaims?: Record<string, unknown>;
 
-	credentialDisplayArray?: any[];
-	issuerDisplayArray?: any[];
+	credentialDisplayArray?: TypeDisplayEntry[];
+	issuerDisplayArray?: IssuerDisplayEntry[];
 
 	sdJwtVcRenderer?: CredentialRendering;
-	sdJwtVcMetadataClaims?: any;
+	sdJwtVcMetadataClaims?: ClaimMetadataEntry[];
 
 	fallbackName?: string;
 };
