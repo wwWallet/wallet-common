@@ -2,7 +2,7 @@ import { CredentialParsingError } from "../error";
 import { Context, CredentialParser, HttpClient, CredentialIssuerInfo } from "../interfaces";
 import { DataItem, DeviceSignedDocument, parse } from "@auth0/mdl";
 import { fromBase64Url } from "../utils/util";
-import { CredentialClaimPath, CredentialFriendlyNameCallback, ImageDataUriCallback, ParsedCredential, VerifiableCredentialFormat, TypeMetadata } from "../types";
+import { CredentialFriendlyNameCallback, ImageDataUriCallback, ParsedCredential, VerifiableCredentialFormat, TypeMetadata } from "../types";
 import { cborDecode, cborEncode } from "@auth0/mdl/lib/cbor";
 import { IssuerSigned } from "@auth0/mdl/lib/mdoc/model/types";
 import { OpenID4VCICredentialRendering } from "../functions/openID4VCICredentialRendering";
@@ -11,6 +11,7 @@ import { convertOpenid4vciToSdjwtvcClaims } from "../functions/convertOpenid4vci
 import { matchDisplayByLocale } from '../utils/matchLocalizedDisplay';
 import type { z } from "zod";
 import { OpenidCredentialIssuerMetadataSchema, } from "../schemas";
+import { dataUriResolver } from "../resolvers/dataUriResolver";
 
 type IssuerMetadata = z.infer<typeof OpenidCredentialIssuerMetadataSchema>;
 
@@ -70,30 +71,6 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 		};
 	}
 
-	function makeDataUri(
-		renderer: ReturnType<typeof OpenID4VCICredentialRendering>,
-		signedClaims: Record<string, unknown>,
-		issuerMetadata: IssuerMetadata | null,
-		credentialIssuer?: CredentialIssuerInfo | null
-	): ImageDataUriCallback {
-		const mdocDisplayConfig = { name: "mdoc Verifiable Credential" };
-		return async (filter?: Array<CredentialClaimPath>, preferredLangs: string[] = ["en-US"]) => {
-			try {
-
-				const issuerDisplayArray = credentialIssuer?.credentialConfigurationId
-					? issuerMetadata?.credential_configurations_supported?.[credentialIssuer.credentialConfigurationId]?.display
-					: undefined;
-
-				const issuerDisplayLocalized = matchDisplayByLocale(issuerDisplayArray, preferredLangs);
-
-				return await renderer.renderCustomSvgTemplate({ signedClaims, displayConfig: issuerDisplayLocalized ?? mdocDisplayConfig });
-			} catch (err) {
-				console.error(err);
-				return null;
-			}
-		};
-	}
-
 	function toParsedCredential(
 		parsedDocument: DeviceSignedDocument,
 		signedClaims: Record<string, unknown>,
@@ -133,8 +110,18 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 			const renderer = OpenID4VCICredentialRendering({ httpClient: args.httpClient });
 			const { issuerMetadata, TypeMetadata } = await fetchIssuerMetadataAndDocs(credentialIssuer);
 
+			const issuerDisplayArray = credentialIssuer?.credentialConfigurationId
+				? issuerMetadata?.credential_configurations_supported?.[credentialIssuer.credentialConfigurationId]?.display
+				: undefined;
+
 			const credentialFriendlyName = makeCredentialFriendlyName(issuerMetadata, credentialIssuer);
-			const dataUri = makeDataUri(renderer, {}, issuerMetadata, credentialIssuer);
+
+			const dataUri = dataUriResolver({
+				httpClient: args.httpClient,
+				customRenderer: renderer,
+				issuerDisplayArray,
+				fallbackName: "mdoc Verifiable Credential",
+			});
 
 			return toParsedCredential(parsedDocument, signedClaims, TypeMetadata, credentialFriendlyName, dataUri);
 		} catch {
@@ -168,8 +155,18 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 			const renderer = OpenID4VCICredentialRendering({ httpClient: args.httpClient });
 			const { issuerMetadata, TypeMetadata } = await fetchIssuerMetadataAndDocs(credentialIssuer);
 
+			const issuerDisplayArray = credentialIssuer?.credentialConfigurationId
+				? issuerMetadata?.credential_configurations_supported?.[credentialIssuer.credentialConfigurationId]?.display
+				: undefined;
+
 			const credentialFriendlyName = makeCredentialFriendlyName(issuerMetadata, credentialIssuer);
-			const dataUri = makeDataUri(renderer, {}, issuerMetadata, credentialIssuer);
+
+			const dataUri = dataUriResolver({
+				httpClient: args.httpClient,
+				customRenderer: renderer,
+				issuerDisplayArray,
+				fallbackName: "mdoc Verifiable Credential",
+			});
 
 			return toParsedCredential(parsedDocument, signedClaims, TypeMetadata, credentialFriendlyName, dataUri);
 		} catch {
