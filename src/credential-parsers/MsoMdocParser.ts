@@ -8,10 +8,10 @@ import { IssuerSigned } from "@auth0/mdl/lib/mdoc/model/types";
 import { OpenID4VCICredentialRendering } from "../functions/openID4VCICredentialRendering";
 import { getIssuerMetadata } from "../utils/getIssuerMetadata";
 import { convertOpenid4vciToSdjwtvcClaims } from "../functions/convertOpenid4vciToSdjwtvcClaims";
-import { matchDisplayByLocale } from '../utils/matchLocalizedDisplay';
 import type { z } from "zod";
 import { OpenidCredentialIssuerMetadataSchema, } from "../schemas";
 import { dataUriResolver } from "../resolvers/dataUriResolver";
+import { friendlyNameResolver } from "../resolvers/friendlyNameResolver";
 
 type IssuerMetadata = z.infer<typeof OpenidCredentialIssuerMetadataSchema>;
 
@@ -55,27 +55,11 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 		return { issuerMetadata, TypeMetadata };
 	}
 
-	function makeCredentialFriendlyName(
-		issuerMetadata: IssuerMetadata | null,
-		credentialIssuer?: CredentialIssuerInfo | null
-	): CredentialFriendlyNameCallback {
-		return async (preferredLangs: string[] = ["en-US"]): Promise<string | null> => {
-			const issuerDisplayArray = credentialIssuer?.credentialConfigurationId
-				? issuerMetadata?.credential_configurations_supported?.[credentialIssuer.credentialConfigurationId]?.display
-				: undefined;
-
-			const issuerDisplayLocalized = matchDisplayByLocale(issuerDisplayArray, preferredLangs);
-			if (issuerDisplayLocalized?.name) return issuerDisplayLocalized.name;
-
-			return "mdoc Verifiable Credential";
-		};
-	}
-
 	function toParsedCredential(
 		parsedDocument: DeviceSignedDocument,
 		signedClaims: Record<string, unknown>,
 		TypeMetadata: TypeMetadata,
-		credentialFriendlyName: CredentialFriendlyNameCallback,
+		friendlyName: CredentialFriendlyNameCallback,
 		dataUri: ImageDataUriCallback
 	): ParsedCredential {
 		return {
@@ -85,7 +69,7 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 					doctype: parsedDocument.docType,
 					TypeMetadata,
 					image: { dataUri },
-					name: credentialFriendlyName
+					name: friendlyName
 				},
 				issuer: {
 					id: parsedDocument.issuerSigned.issuerAuth.certificate.issuer,
@@ -114,7 +98,10 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 				? issuerMetadata?.credential_configurations_supported?.[credentialIssuer.credentialConfigurationId]?.display
 				: undefined;
 
-			const credentialFriendlyName = makeCredentialFriendlyName(issuerMetadata, credentialIssuer);
+			const friendlyName = friendlyNameResolver({
+				issuerDisplayArray,
+				fallbackName: "mdoc Verifiable Credential",
+			});
 
 			const dataUri = dataUriResolver({
 				httpClient: args.httpClient,
@@ -123,7 +110,7 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 				fallbackName: "mdoc Verifiable Credential",
 			});
 
-			return toParsedCredential(parsedDocument, signedClaims, TypeMetadata, credentialFriendlyName, dataUri);
+			return toParsedCredential(parsedDocument, signedClaims, TypeMetadata, friendlyName, dataUri);
 		} catch {
 			return null;
 		}
@@ -159,7 +146,10 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 				? issuerMetadata?.credential_configurations_supported?.[credentialIssuer.credentialConfigurationId]?.display
 				: undefined;
 
-			const credentialFriendlyName = makeCredentialFriendlyName(issuerMetadata, credentialIssuer);
+			const friendlyName = friendlyNameResolver({
+				issuerDisplayArray,
+				fallbackName: "mdoc Verifiable Credential",
+			});
 
 			const dataUri = dataUriResolver({
 				httpClient: args.httpClient,
@@ -168,7 +158,7 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 				fallbackName: "mdoc Verifiable Credential",
 			});
 
-			return toParsedCredential(parsedDocument, signedClaims, TypeMetadata, credentialFriendlyName, dataUri);
+			return toParsedCredential(parsedDocument, signedClaims, TypeMetadata, friendlyName, dataUri);
 		} catch {
 			return null;
 		}

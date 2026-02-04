@@ -9,10 +9,10 @@ import { getSdJwtVcMetadata } from "../utils/getSdJwtVcMetadata";
 import { OpenID4VCICredentialRendering } from "../functions/openID4VCICredentialRendering";
 import { z } from 'zod';
 import { getIssuerMetadata } from "../utils/getIssuerMetadata";
-import { matchDisplayByLocale } from '../utils/matchLocalizedDisplay';
 import { TypeMetadata as TypeMetadataSchema } from "../schemas/SdJwtVcTypeMetadataSchema";
 import { convertOpenid4vciToSdjwtvcClaims } from "../functions/convertOpenid4vciToSdjwtvcClaims";
 import { dataUriResolver } from "../resolvers/dataUriResolver";
+import { friendlyNameResolver } from "../resolvers/friendlyNameResolver";
 
 export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }): CredentialParser {
 	const encoder = new TextEncoder();
@@ -64,8 +64,6 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 					error: CredentialParsingError.InvalidDatatype
 				};
 			}
-
-			let credentialFriendlyName: CredentialFriendlyNameCallback = async () => null;
 
 			const warnings: MetadataWarning[] = [];
 
@@ -137,22 +135,11 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 				}
 			}
 
-			credentialFriendlyName = async (
-				preferredLangs: string[] = ['en-US']
-			): Promise<string | null> => {
-
-				// 1. Try to match localized credential display
-				const credentialDisplayArray = credentialMetadata?.display;
-				const credentialDisplayLocalized = matchDisplayByLocale(credentialDisplayArray, preferredLangs);
-				if (credentialDisplayLocalized?.name) return credentialDisplayLocalized.name;
-
-				// 2. Try to match localized issuer display
-				const issuerDisplayArray = credentialIssuerMetadata?.display;
-				const issuerDisplayLocalized = matchDisplayByLocale(issuerDisplayArray, preferredLangs);
-				if (issuerDisplayLocalized?.name) return issuerDisplayLocalized.name;
-
-				return 'SD-JWT Verifiable Credential';
-			};
+			const friendlyName = friendlyNameResolver({
+				credentialDisplayArray: credentialMetadata?.display,
+				issuerDisplayArray: credentialIssuerMetadata?.display,
+				fallbackName: "SD-JWT Verifiable Credential",
+			});
 
 			const dataUri = dataUriResolver({
 				httpClient: args.httpClient,
@@ -186,7 +173,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 							image: {
 								dataUri: dataUri,
 							},
-							name: credentialFriendlyName,
+							name: friendlyName,
 						},
 						issuer: {
 							id: validatedParsedClaims.iss ?? "UnknownIssuer",
