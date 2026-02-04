@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const SdJwtVcPayloadSchema = z
 	.object({
-		iss: z.string().url({ message: "'iss' must be a valid URL" }),
+		iss: z.string().url({ message: "'iss' must be a valid URL" }).optional(),
 		iat: z.number().int().optional(),
 		nbf: z.number().int().optional(),
 		exp: z.number().int().optional(),

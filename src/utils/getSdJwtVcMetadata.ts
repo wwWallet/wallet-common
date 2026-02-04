@@ -218,7 +218,7 @@ function isValidHttpUrl(value: string): boolean {
 }
 
 function isCredentialPayload(obj: unknown): obj is CredentialPayload {
-	return typeof obj === 'object' && obj !== null && 'iss' in obj && typeof (obj as any).iss === 'string';
+	return typeof obj === 'object' && obj !== null;
 }
 
 export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClient, credential: string, parsedClaims: Record<string, unknown>, warnings: MetadataWarning[] = []): Promise<{ credentialMetadata: TypeMetadataSchema | undefined; warnings: MetadataWarning[] } | MetadataError> {
