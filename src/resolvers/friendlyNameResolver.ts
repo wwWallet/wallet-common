@@ -1,4 +1,4 @@
-import type { CredentialFriendlyNameCallback } from "../types";
+import type { FriendlyNameCallback } from "../types";
 import { matchDisplayByLocale } from "../utils/matchLocalizedDisplay";
 import type { TypeDisplayEntry } from "../schemas/SdJwtVcTypeMetadataSchema";
 import type { CredentialConfigurationSupported } from "../schemas/CredentialConfigurationSupportedSchema";
@@ -15,7 +15,7 @@ export function friendlyNameResolver({
 	credentialDisplayArray,
 	issuerDisplayArray,
 	fallbackName = "Verifiable Credential",
-}: FriendlyNameResolverOptions): CredentialFriendlyNameCallback {
+}: FriendlyNameResolverOptions): FriendlyNameCallback {
 	return async (preferredLangs: string[] = ["en-US"]): Promise<string | null> => {
 		// 1) Credential display name
 		const credentialDisplayLocalized = matchDisplayByLocale(

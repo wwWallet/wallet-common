@@ -2,7 +2,7 @@ import { CredentialParsingError } from "../error";
 import { Context, CredentialParser, HttpClient, CredentialIssuerInfo } from "../interfaces";
 import { DataItem, DeviceSignedDocument, parse } from "@auth0/mdl";
 import { fromBase64Url } from "../utils/util";
-import { CredentialFriendlyNameCallback, ImageDataUriCallback, ParsedCredential, VerifiableCredentialFormat, TypeMetadata } from "../types";
+import { FriendlyNameCallback, ImageDataUriCallback, ParsedCredential, VerifiableCredentialFormat, TypeMetadata } from "../types";
 import { cborDecode, cborEncode } from "@auth0/mdl/lib/cbor";
 import { IssuerSigned } from "@auth0/mdl/lib/mdoc/model/types";
 import { OpenID4VCICredentialRendering } from "../functions/openID4VCICredentialRendering";
@@ -59,7 +59,7 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 		parsedDocument: DeviceSignedDocument,
 		signedClaims: Record<string, unknown>,
 		TypeMetadata: TypeMetadata,
-		friendlyName: CredentialFriendlyNameCallback,
+		friendlyName: FriendlyNameCallback,
 		dataUri: ImageDataUriCallback
 	): ParsedCredential {
 		return {
