@@ -18,4 +18,6 @@ export * from './utils';
 
 export * from './functions';
 
+export * from './resolvers';
+
 export * from './core';
