@@ -105,10 +105,8 @@ async function fetchAndMergeMetadata(
 	context: Context,
 	httpClient: HttpClient,
 	metadataId: string,
-	metadataArray?: Object,
 	visited = new Set<string>(),
 	integrity?: string,
-	credentialPayload?: Record<string, any>,
 	warnings: MetadataWarning[] = []
 ): Promise<TypeMetadataSchema | MetadataError | undefined> {
 
@@ -168,7 +166,7 @@ async function fetchAndMergeMetadata(
 
 	if (typeof metadata.extends === 'string') {
 		const childIntegrity = metadata['extends#integrity'] as string | undefined;
-		const parent = await fetchAndMergeMetadata(context, httpClient, metadata.extends, metadataArray || undefined, visited, childIntegrity, warnings);
+		const parent = await fetchAndMergeMetadata(context, httpClient, metadata.extends, visited, childIntegrity, warnings);
 		if (parent === undefined) {
 			const resultCode = handleMetadataCode(CredentialParsingError.NotFoundExtends, warnings);
 			if (resultCode) return resultCode;
@@ -217,11 +215,7 @@ function isValidHttpUrl(value: string): boolean {
 	}
 }
 
-function isCredentialPayload(obj: unknown): obj is CredentialPayload {
-	return typeof obj === 'object' && obj !== null;
-}
-
-export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClient, vct: string, warnings: MetadataWarning[] = []): Promise<{ credentialMetadata: TypeMetadataSchema | undefined; warnings: MetadataWarning[] } | MetadataError> {
+export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClient, vct: string, vctIntegrity: string | undefined, warnings: MetadataWarning[] = []): Promise<{ credentialMetadata: TypeMetadataSchema | undefined; warnings: MetadataWarning[] } | MetadataError> {
 	try {
 		if (vct && typeof vct === 'string') {
 
@@ -236,8 +230,7 @@ export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClien
 			// }
 
 			try {
-				const vctIntegrity = credentialPayload['vct#integrity'] as string | undefined;
-				const mergedMetadata = await fetchAndMergeMetadata(context, httpClient, vct, undefined, new Set(), vctIntegrity, credentialPayload, warnings);
+				const mergedMetadata = await fetchAndMergeMetadata(context, httpClient, vct, new Set(), vctIntegrity, warnings);
 				if (mergedMetadata) {
 					if ('error' in mergedMetadata) {
 						return { error: mergedMetadata.error }
