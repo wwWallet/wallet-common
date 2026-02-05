@@ -1,7 +1,6 @@
 import { Context, HttpClient } from '../interfaces';
-import { fromBase64Url } from './util';
 import { verifySRIFromObject } from './verifySRIFromObject';
-import { CredentialPayload, MetadataError, MetadataWarning } from '../types';
+import { MetadataError, MetadataWarning } from '../types';
 import { CredentialParsingError, isCredentialParsingWarnings } from '../error';
 import { TypeMetadata as TypeMetadataSchema } from "../schemas/SdJwtVcTypeMetadataSchema";
 
