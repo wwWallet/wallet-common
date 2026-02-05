@@ -439,7 +439,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 				}
 
 				let transactionDataResponseParams: TransactionDataResponseParams | undefined;
-				if (transaction_data && this.deps.transactionDataResponseGenerator) {
+				if (transaction_data?.length && this.deps.transactionDataResponseGenerator) {
 					const [res, err] = await this.deps
 						.transactionDataResponseGenerator({ descriptor_id: selectionKey, dcql_query })
 						.generateTransactionDataResponse(transaction_data);
@@ -585,12 +585,9 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 			dcql_query,
 		} = this.parseAuthorizationParams(url);
 
-		if (!client_id || !response_uri || !nonce) {
+		if (!client_id) {
 			return { error: HandleAuthorizationRequestErrors.COULD_NOT_RESOLVE_REQUEST };
 		}
-		const resolvedClientId = client_id;
-		const resolvedResponseUri = response_uri;
-		const resolvedNonce = nonce;
 
 		const client_id_scheme = client_id.split(":")[0];
 		if (client_id_scheme !== "x509_san_dns") {
@@ -635,10 +632,6 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 			}
 		}
 
-		if (!client_id || !response_uri || !nonce) {
-			return { error: HandleAuthorizationRequestErrors.COULD_NOT_RESOLVE_REQUEST };
-		}
-
 		const lastUsedNonce = this.deps.lastUsedNonceStore?.get?.() ?? null;
 		if (lastUsedNonce && lastUsedNonce === nonce) {
 			return { error: HandleAuthorizationRequestErrors.OLD_STATE };
@@ -655,9 +648,9 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		const vcList = vcEntityList.filter((cred) => cred.instanceId === 0);
 
 		await this.deps.rpStateStore.store({
-			nonce: resolvedNonce,
-			response_uri: resolvedResponseUri,
-			client_id: resolvedClientId,
+			nonce: nonce ?? '',
+			response_uri: response_uri ?? '',
+			client_id: client_id ?? '',
 			state: state ?? "",
 			client_metadata: client_metadata ?? { vp_formats: {} },
 			response_mode,
@@ -677,9 +670,9 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 			mapping: Map<string, any>;
 			descriptorPurpose: string;
 		};
-		const verifierDomainName = resolvedClientId.includes("http")
-			? new URL(resolvedClientId).hostname
-			: resolvedClientId;
+		const verifierDomainName = client_id.includes("http")
+			? new URL(client_id).hostname
+			: client_id;
 
 		if (mapping.size === 0) {
 			throw new Error("Credentials don't satisfy any descriptor");
