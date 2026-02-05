@@ -3,7 +3,6 @@ export enum CredentialParsingError {
 	InvalidSdJwtVcPayload = "InvalidSdJwtVcPayload",
 	InvalidDatatype = "InvalidDatatype",
 	NotSupportedCredentialType = "NotSupportedCredentialType",
-	HeaderFail = "HeaderFail",
 	InfiniteRecursion = "InfiniteRecursion",
 	PayloadFail = "PayloadFail",
 	VctmDecodeFail = "VctmDecodeFail",

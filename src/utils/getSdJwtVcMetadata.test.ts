@@ -45,38 +45,6 @@ const validPayload = {
 	"vct#integrity": childIntegrity
 };
 
-
-describe("getSdJwtVcMetadata - header failure cases", () => {
-
-
-	it("fails on malformed base64 header", async () => {
-		const malformedCredential = "!!notbase64!!.payload.sig"; // invalid base64
-
-		const result = await getSdJwtVcMetadata(
-			context,
-			defaultHttpClient,
-			malformedCredential,
-			{} // doesn't matter for this test
-		);
-
-		expect(result).toMatchObject({ error: "HeaderFail" });
-	});
-
-	it("fails on non-object header", async () => {
-		const badHeader = btoa('"notAnObject"');
-		const credential = `${badHeader}.payload.sig`;
-
-		const result = await getSdJwtVcMetadata(
-			context,
-			defaultHttpClient,
-			credential,
-			{}
-		);
-
-		expect(result).toMatchObject({ error: "HeaderFail" });
-	});
-});
-
 describe("getSdJwtVcMetadata - payload failure cases", () => {
 	it("fails when parsed claims are null", async () => {
 		const validHeader = encodeBase64Url({ alg: "ES256" });

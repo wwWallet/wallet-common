@@ -224,20 +224,6 @@ function isCredentialPayload(obj: unknown): obj is CredentialPayload {
 export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClient, credential: string, parsedClaims: Record<string, unknown>, warnings: MetadataWarning[] = []): Promise<{ credentialMetadata: TypeMetadataSchema | undefined; warnings: MetadataWarning[] } | MetadataError> {
 	try {
 
-		// Decode Header
-		let credentialHeader: any;
-		try {
-			credentialHeader = JSON.parse(new TextDecoder().decode(fromBase64Url(credential.split('.')[0] as string)));
-		} catch (e) {
-			console.warn('Failed to decode credential header:', e);
-			const resultCode = handleMetadataCode(CredentialParsingError.HeaderFail, warnings);
-			if (resultCode) return resultCode;
-		}
-
-		if (!credentialHeader || typeof credentialHeader !== 'object') {
-			console.warn('Invalid or missing credential header structure.');
-			return { error: CredentialParsingError.HeaderFail };
-		}
 		const credentialPayload = parsedClaims;
 
 		if (!credentialPayload || !isCredentialPayload(credentialPayload)) {
@@ -246,14 +232,15 @@ export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClien
 		const vct = credentialPayload.vct;
 		if (vct && typeof vct === 'string') {
 
+			// TODO: Move to SDJWTVCVerifier
 			// Check jwt-vc-issuer by iss
-			if (isValidHttpUrl(vct)) {
-				const checkIssuer = await resolveIssuerMetadata(httpClient, credentialPayload.iss);
-				if (checkIssuer) {
-					const resultCode = handleMetadataCode(checkIssuer.code, warnings);
-					if (resultCode) return resultCode;
-				}
-			}
+			// if (isValidHttpUrl(vct)) {
+			// 	const checkIssuer = await resolveIssuerMetadata(httpClient, credentialPayload.iss);
+			// 	if (checkIssuer) {
+			// 		const resultCode = handleMetadataCode(checkIssuer.code, warnings);
+			// 		if (resultCode) return resultCode;
+			// 	}
+			// }
 
 			try {
 				const vctIntegrity = credentialPayload['vct#integrity'] as string | undefined;
