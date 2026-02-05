@@ -8,6 +8,8 @@ export * from './VerifyingEngine';
 export * from './credential-verifiers/SDJWTVCVerifier';
 export * from './credential-verifiers/MsoMdocVerifier';
 
+export * from './rendering';
+
 export * from './PublicKeyResolverEngine';
 
 export * from './interfaces';
