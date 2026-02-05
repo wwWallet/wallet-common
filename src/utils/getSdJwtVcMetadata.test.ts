@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { getSdJwtVcMetadata } from "./getSdJwtVcMetadata";
 import { Context, HttpClient } from "../interfaces";
-import { defaultHttpClient } from "../defaultHttpClient";
 
 
 import crypto from "crypto";
@@ -13,13 +12,6 @@ export function generateSRIFromObject(obj: Record<string, any>, algorithm: "sha2
 }
 
 const encodeBase64Url = (obj) => Buffer.from(JSON.stringify(obj)).toString("base64url");
-
-const context: Context = {
-	clockTolerance: 0,
-	locale: "en-US",
-	subtle: crypto.subtle,
-	trustedCertificates: []
-};
 
 const parentMetadata = {
 	vct: "https://issuer.com/parent.json",
@@ -38,74 +30,7 @@ const childMetadata = {
 };
 
 const childIntegrity = "sha256-ilSsfKQ7sIAV8o2aXWOxzotWG6mJNK8TwemSpdFB57k=";
-
-const validPayload = {
-	iss: "https://issuer.com",
-	vct: "https://issuer.com/child.json",
-	"vct#integrity": childIntegrity
-};
-
-
-describe("getSdJwtVcMetadata - header failure cases", () => {
-
-
-	it("fails on malformed base64 header", async () => {
-		const malformedCredential = "!!notbase64!!.payload.sig"; // invalid base64
-
-		const result = await getSdJwtVcMetadata(
-			context,
-			defaultHttpClient,
-			malformedCredential,
-			{} // doesn't matter for this test
-		);
-
-		expect(result).toMatchObject({ error: "HeaderFail" });
-	});
-
-	it("fails on non-object header", async () => {
-		const badHeader = btoa('"notAnObject"');
-		const credential = `${badHeader}.payload.sig`;
-
-		const result = await getSdJwtVcMetadata(
-			context,
-			defaultHttpClient,
-			credential,
-			{}
-		);
-
-		expect(result).toMatchObject({ error: "HeaderFail" });
-	});
-});
-
-describe("getSdJwtVcMetadata - payload failure cases", () => {
-	it("fails when parsed claims are null", async () => {
-		const validHeader = encodeBase64Url({ alg: "ES256" });
-		const credential = `${validHeader}.payload.sig`;
-
-		const result = await getSdJwtVcMetadata(
-			context,
-			defaultHttpClient,
-			credential,
-			null as any // simulate corrupted or missing parsedClaims
-		);
-
-		expect(result).toMatchObject({ error: "PayloadFail" });
-	});
-
-	it("fails when parsed claims are not an object", async () => {
-		const validHeader = encodeBase64Url({ alg: "ES256" });
-		const credential = `${validHeader}.payload.sig`;
-
-		const result = await getSdJwtVcMetadata(
-			context,
-			defaultHttpClient,
-			credential,
-			"not-an-object" as any
-		);
-
-		expect(result).toMatchObject({ error: "PayloadFail" });
-	});
-});
+const childVct = "https://issuer.com/child.json";
 
 describe("getSdJwtVcMetadata - vct url failure cases", () => {
 	function createHttpClient({
@@ -124,10 +49,6 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 		return {
 			get: async (url: string) => {
 				const baseResponse = { headers: {} };
-
-				if (url.endsWith("/.well-known/jwt-vc-issuer")) {
-					return { status: 200, data: { issuer: wellKnownIssuer }, ...baseResponse };
-				}
 
 				if (url.endsWith("child.json")) {
 					if (failChild) return { status: 404, data: null };
@@ -155,27 +76,11 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 		};
 	}
 
-
-	it("warning on /jwt-vc-issuer mismatch", async () => {
-		const payload = { ...validPayload, iss: "https://attacker.com" };
-		const credential = `${encodeBase64Url({})}.${encodeBase64Url(payload)}.sig`;
-		const result = await getSdJwtVcMetadata(context, createHttpClient(), credential, payload);
-		if ('warnings' in result) {
-			expect(result.warnings.some(w => w.code === 'JwtVcIssuerMismatch')).toBe(true);
-
-		} else {
-			throw new Error(`Expected result to be success with warnings`);
-		}
-	});
-
-
 	it("warning when fetching main vct fails", async () => {
-		const payload = { ...validPayload };
-		const credential = `${encodeBase64Url({})}.${encodeBase64Url(payload)}.sig`;
 
 		const httpClient = createHttpClient({ failChild: true });
 
-		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
+		const result = await getSdJwtVcMetadata(undefined,crypto.subtle, httpClient, childVct, childIntegrity);
 		if ('warnings' in result) {
 			expect(result.warnings.some(w => w.code === 'NotFound')).toBe(true);
 
@@ -185,8 +90,6 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 	});
 
 	it("warning when fetching parent metadata (extends) not found", async () => {
-		const payload = { ...validPayload };
-		const credential = `${encodeBase64Url({})}.${encodeBase64Url(payload)}.sig`;
 
 		const httpClient = createHttpClient({
 			childMetadataOverride: {
@@ -197,7 +100,7 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 			failParent: true
 		});
 
-		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
+		const result = await getSdJwtVcMetadata(undefined,crypto.subtle, httpClient, childVct, childIntegrity);
 		if ('warnings' in result) {
 			expect(result.warnings.some(w => w.code === 'NotFoundExtends')).toBe(true);
 
@@ -222,21 +125,12 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 		};
 
 		const circularChildIntegrity = generateSRIFromObject(circularChild);
-
-		const payload = {
-			iss: "https://issuer.com",
-			vct: "https://issuer.com/child.json",
-			"vct#integrity": circularChildIntegrity
-		};
-
-		const credential = `${encodeBase64Url({})}.${encodeBase64Url(payload)}.sig`;
-
 		const httpClient = createHttpClient({
 			childMetadataOverride: circularChild,
 			parentMetadataOverride: circularParent,
 		});
 
-		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
+		const result = await getSdJwtVcMetadata(undefined, crypto.subtle, httpClient, "https://issuer.com/child.json", circularChildIntegrity);
 		expect(result).toMatchObject({ error: "InfiniteRecursion" });
 	});
 
@@ -244,56 +138,13 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 	it("warning on incorrect vct#integrity", async () => {
 		const badIntegrity = "sha256-invalidhash===";
 
-		const payload = {
-			iss: "https://issuer.com",
-			vct: "https://issuer.com/child.json",
-			"vct#integrity": badIntegrity // invalid SRI that won't match actual data
-		};
-
-		const credential = `${encodeBase64Url({})}.${encodeBase64Url(payload)}.sig`;
-
 		const httpClient = createHttpClient({
 			childMetadataOverride: childMetadata
 		});
 
-		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
+		const result = await getSdJwtVcMetadata(undefined,crypto.subtle, httpClient, "https://issuer.com/child.json",badIntegrity);
 		if ('warnings' in result) {
 			expect(result.warnings.some(w => w.code === 'IntegrityFail')).toBe(true);
-
-		} else {
-			throw new Error(`Expected result to be success with warnings`);
-		}
-	});
-
-	it("warning with JwtVcIssuerFail when .well-known/jwt-vc-issuer fetch fails", async () => {
-		const payload = {
-			iss: "https://issuer.com",
-			vct: "https://issuer.com/child.json",
-			"vct#integrity": generateSRIFromObject(childMetadata)
-		};
-
-		const credential = `${encodeBase64Url({})}.${encodeBase64Url(payload)}.sig`;
-
-		const httpClient = createHttpClient({
-			childMetadataOverride: childMetadata
-		});
-
-		httpClient.get = async (url: string) => {
-			if (url.endsWith("/.well-known/jwt-vc-issuer")) {
-				return { status: 404, data: null };
-			}
-			if (url.endsWith("child.json")) {
-				return { status: 200, data: childMetadata };
-			}
-			if (url.endsWith("parent.json")) {
-				return { status: 200, data: parentMetadata };
-			}
-			return { status: 404, data: null };
-		};
-
-		const result = await getSdJwtVcMetadata(context, httpClient, credential, payload);
-		if ('warnings' in result) {
-			expect(result.warnings.some(w => w.code === 'JwtVcIssuerFail')).toBe(true);
 
 		} else {
 			throw new Error(`Expected result to be success with warnings`);
@@ -347,18 +198,8 @@ export function buildJwtLikeCredential(header: any, payload: any): string {
 describe("getSdJwtVcTypeMetadata - failure cases", () => {
 
 	it("warning when vct is a URN and registry is missing", async () => {
-		const payload = {
-			vct: "urn:eudi:pid:1", // not a URL
-			iss: "https://issuer.com"
-		};
 
-		const header = {
-			alg: "ES256"
-		};
-
-		const credential = buildJwtLikeCredential(header, payload);
-
-		const result = await getSdJwtVcMetadata(context, createHttpClient(), credential, payload);
+		const result = await getSdJwtVcMetadata(undefined,crypto.subtle, createHttpClient(), "urn:eudi:pid:1",undefined);
 
 		if ('warnings' in result) {
 			expect(result.warnings.some(w => w.code === 'NotFound')).toBe(true);
@@ -372,9 +213,6 @@ describe("getSdJwtVcTypeMetadata - failure cases", () => {
 		function httpWithSimpleRendering(child: any): HttpClient {
 			return {
 				get: async (url: string) => {
-					if (url.endsWith("/.well-known/jwt-vc-issuer")) {
-						return { status: 200, data: { issuer: "https://issuer.com" }, headers: {} };
-					}
 					if (url.endsWith("child.json")) {
 						return { status: 200, data: child, headers: {} };
 					}
@@ -403,13 +241,7 @@ describe("getSdJwtVcTypeMetadata - failure cases", () => {
 				claims: [{ path: ["id"], sd: "always", display: [{ locale: "en-US", label: "ID" }] }]
 			};
 
-			const payload = {
-				iss: "https://issuer.com",
-				vct: "https://issuer.com/child.json"
-			};
-
-			const cred = `${encodeBase64Url({})}.${encodeBase64Url(payload)}.sig`;
-			const result = await getSdJwtVcMetadata(context, httpWithSimpleRendering(childWithSimple), cred, payload);
+			const result = await getSdJwtVcMetadata(undefined,crypto.subtle, httpWithSimpleRendering(childWithSimple), "https://issuer.com/child.json",undefined);
 
 			if ("error" in result) throw new Error(`Unexpected error: ${result.error}`);
 			expect(result.credentialMetadata?.display?.[0]?.rendering?.simple?.logo?.uri)
@@ -427,9 +259,6 @@ describe("getSdJwtVcTypeMetadata - failure cases", () => {
 		function http(child: any): HttpClient {
 			return {
 				get: async (url: string) => {
-					if (url.endsWith("/.well-known/jwt-vc-issuer")) {
-						return { status: 200, data: { issuer: "https://issuer.com" }, headers: {} };
-					}
 					if (url.endsWith("child.json")) {
 						return { status: 200, data: child, headers: {} };
 					}
@@ -455,10 +284,7 @@ describe("getSdJwtVcTypeMetadata - failure cases", () => {
 				claims: [{ path: ["id"], sd: "always", display: [{ locale: "en-US", label: "ID" }] }]
 			};
 
-			const payload = { iss: "https://issuer.com", vct: "https://issuer.com/child.json" };
-			const cred = `${encodeBase64Url({})}.${encodeBase64Url(payload)}.sig`;
-
-			const result = await getSdJwtVcMetadata(context, http(bad), cred, payload);
+			const result = await getSdJwtVcMetadata(undefined,crypto.subtle, http(bad), "https://issuer.com/child.json",undefined);
 			expect(result).toMatchObject({ error: "SchemaShapeFail" }); // schema rejects it
 		});
 
@@ -478,10 +304,7 @@ describe("getSdJwtVcTypeMetadata - failure cases", () => {
 				claims: [{ path: ["id"], sd: "always", display: [{ locale: "en-US", label: "ID" }] }]
 			};
 
-			const payload = { iss: "https://issuer.com", vct: "https://issuer.com/child.json" };
-			const cred = `${encodeBase64Url({})}.${encodeBase64Url(payload)}.sig`;
-
-			const result = await getSdJwtVcMetadata(context, http(ok), cred, payload);
+			const result = await getSdJwtVcMetadata(undefined,crypto.subtle, http(ok), "https://issuer.com/child.json",undefined);
 			if ("error" in result) throw new Error(`Unexpected error: ${result.error}`);
 			expect(result.credentialMetadata?.display?.[0]?.rendering?.svg_templates?.length).toBe(2);
 		});
