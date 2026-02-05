@@ -1,8 +1,9 @@
-import { Context, HttpClient } from '../interfaces';
+import { HttpClient } from '../interfaces';
 import { verifySRIFromObject } from './verifySRIFromObject';
 import { MetadataError, MetadataWarning } from '../types';
 import { CredentialParsingError, isCredentialParsingWarnings } from '../error';
 import { TypeMetadata as TypeMetadataSchema } from "../schemas/SdJwtVcTypeMetadataSchema";
+import { VctDocumentProvider } from '../core';
 
 function validateTypeMetadataShape(
 	metadata: unknown,
@@ -101,7 +102,8 @@ function deepMerge(parent: any, child: any): any {
 }
 
 async function fetchAndMergeMetadata(
-	context: Context,
+	vctResolutionEngine: VctDocumentProvider | undefined,
+	subtle: SubtleCrypto,
 	httpClient: HttpClient,
 	metadataId: string,
 	visited = new Set<string>(),
@@ -141,8 +143,8 @@ async function fetchAndMergeMetadata(
 	}
 
 	// Registry
-	if (!metadata && context.vctResolutionEngine) {
-		const maybe = await context.vctResolutionEngine.getVctMetadataDocument(metadataId);
+	if (!metadata && vctResolutionEngine) {
+		const maybe = await vctResolutionEngine.getVctMetadataDocument(metadataId);
 		if (maybe?.ok) {
 			metadata = maybe.value as TypeMetadataSchema;
 		} else if (maybe?.error === "invalid_schema") {
@@ -154,7 +156,7 @@ async function fetchAndMergeMetadata(
 	if (!metadata) return undefined;
 
 	if (integrity) {
-		const isValid = await verifySRIFromObject(context, metadata, integrity);
+		const isValid = await verifySRIFromObject(subtle, metadata, integrity);
 		if (!isValid) {
 			const resultCode = handleMetadataCode(CredentialParsingError.IntegrityFail, warnings);
 			if (resultCode) return resultCode;
@@ -165,7 +167,7 @@ async function fetchAndMergeMetadata(
 
 	if (typeof metadata.extends === 'string') {
 		const childIntegrity = metadata['extends#integrity'] as string | undefined;
-		const parent = await fetchAndMergeMetadata(context, httpClient, metadata.extends, visited, childIntegrity, warnings);
+		const parent = await fetchAndMergeMetadata(vctResolutionEngine, subtle, httpClient, metadata.extends, visited, childIntegrity, warnings);
 		if (parent === undefined) {
 			const resultCode = handleMetadataCode(CredentialParsingError.NotFoundExtends, warnings);
 			if (resultCode) return resultCode;
@@ -214,7 +216,7 @@ function isValidHttpUrl(value: string): boolean {
 	}
 }
 
-export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClient, vct: string, vctIntegrity: string | undefined, warnings: MetadataWarning[] = []): Promise<{ credentialMetadata: TypeMetadataSchema | undefined; warnings: MetadataWarning[] } | MetadataError> {
+export async function getSdJwtVcMetadata(vctResolutionEngine: VctDocumentProvider | undefined, subtle : SubtleCrypto, httpClient: HttpClient, vct: string, vctIntegrity: string | undefined, warnings: MetadataWarning[] = []): Promise<{ credentialMetadata: TypeMetadataSchema | undefined; warnings: MetadataWarning[] } | MetadataError> {
 	try {
 		if (vct && typeof vct === 'string') {
 
@@ -229,7 +231,7 @@ export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClien
 			// }
 
 			try {
-				const mergedMetadata = await fetchAndMergeMetadata(context, httpClient, vct, new Set(), vctIntegrity, warnings);
+				const mergedMetadata = await fetchAndMergeMetadata(vctResolutionEngine, subtle, httpClient, vct, new Set(), vctIntegrity, warnings);
 				if (mergedMetadata) {
 					if ('error' in mergedMetadata) {
 						return { error: mergedMetadata.error }

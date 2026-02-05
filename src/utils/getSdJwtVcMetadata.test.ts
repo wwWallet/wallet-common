@@ -13,13 +13,6 @@ export function generateSRIFromObject(obj: Record<string, any>, algorithm: "sha2
 
 const encodeBase64Url = (obj) => Buffer.from(JSON.stringify(obj)).toString("base64url");
 
-const context: Context = {
-	clockTolerance: 0,
-	locale: "en-US",
-	subtle: crypto.subtle,
-	trustedCertificates: []
-};
-
 const parentMetadata = {
 	vct: "https://issuer.com/parent.json",
 	display: [{ locale: "en-US", name: "Parent Credential", description: "This is the parent metadata." }],
@@ -87,7 +80,7 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 
 		const httpClient = createHttpClient({ failChild: true });
 
-		const result = await getSdJwtVcMetadata(context, httpClient, childVct, childIntegrity);
+		const result = await getSdJwtVcMetadata(undefined,crypto.subtle, httpClient, childVct, childIntegrity);
 		if ('warnings' in result) {
 			expect(result.warnings.some(w => w.code === 'NotFound')).toBe(true);
 
@@ -107,7 +100,7 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 			failParent: true
 		});
 
-		const result = await getSdJwtVcMetadata(context, httpClient, childVct, childIntegrity);
+		const result = await getSdJwtVcMetadata(undefined,crypto.subtle, httpClient, childVct, childIntegrity);
 		if ('warnings' in result) {
 			expect(result.warnings.some(w => w.code === 'NotFoundExtends')).toBe(true);
 
@@ -137,7 +130,7 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 			parentMetadataOverride: circularParent,
 		});
 
-		const result = await getSdJwtVcMetadata(context, httpClient, "https://issuer.com/child.json", circularChildIntegrity);
+		const result = await getSdJwtVcMetadata(undefined, crypto.subtle, httpClient, "https://issuer.com/child.json", circularChildIntegrity);
 		expect(result).toMatchObject({ error: "InfiniteRecursion" });
 	});
 
@@ -149,7 +142,7 @@ describe("getSdJwtVcMetadata - vct url failure cases", () => {
 			childMetadataOverride: childMetadata
 		});
 
-		const result = await getSdJwtVcMetadata(context, httpClient, "https://issuer.com/child.json",badIntegrity);
+		const result = await getSdJwtVcMetadata(undefined,crypto.subtle, httpClient, "https://issuer.com/child.json",badIntegrity);
 		if ('warnings' in result) {
 			expect(result.warnings.some(w => w.code === 'IntegrityFail')).toBe(true);
 
@@ -206,7 +199,7 @@ describe("getSdJwtVcTypeMetadata - failure cases", () => {
 
 	it("warning when vct is a URN and registry is missing", async () => {
 
-		const result = await getSdJwtVcMetadata(context, createHttpClient(), "urn:eudi:pid:1",undefined);
+		const result = await getSdJwtVcMetadata(undefined,crypto.subtle, createHttpClient(), "urn:eudi:pid:1",undefined);
 
 		if ('warnings' in result) {
 			expect(result.warnings.some(w => w.code === 'NotFound')).toBe(true);
@@ -248,7 +241,7 @@ describe("getSdJwtVcTypeMetadata - failure cases", () => {
 				claims: [{ path: ["id"], sd: "always", display: [{ locale: "en-US", label: "ID" }] }]
 			};
 
-			const result = await getSdJwtVcMetadata(context, httpWithSimpleRendering(childWithSimple), "https://issuer.com/child.json",undefined);
+			const result = await getSdJwtVcMetadata(undefined,crypto.subtle, httpWithSimpleRendering(childWithSimple), "https://issuer.com/child.json",undefined);
 
 			if ("error" in result) throw new Error(`Unexpected error: ${result.error}`);
 			expect(result.credentialMetadata?.display?.[0]?.rendering?.simple?.logo?.uri)
@@ -291,7 +284,7 @@ describe("getSdJwtVcTypeMetadata - failure cases", () => {
 				claims: [{ path: ["id"], sd: "always", display: [{ locale: "en-US", label: "ID" }] }]
 			};
 
-			const result = await getSdJwtVcMetadata(context, http(bad), "https://issuer.com/child.json",undefined);
+			const result = await getSdJwtVcMetadata(undefined,crypto.subtle, http(bad), "https://issuer.com/child.json",undefined);
 			expect(result).toMatchObject({ error: "SchemaShapeFail" }); // schema rejects it
 		});
 
@@ -311,7 +304,7 @@ describe("getSdJwtVcTypeMetadata - failure cases", () => {
 				claims: [{ path: ["id"], sd: "always", display: [{ locale: "en-US", label: "ID" }] }]
 			};
 
-			const result = await getSdJwtVcMetadata(context, http(ok), "https://issuer.com/child.json",undefined);
+			const result = await getSdJwtVcMetadata(undefined,crypto.subtle, http(ok), "https://issuer.com/child.json",undefined);
 			if ("error" in result) throw new Error(`Unexpected error: ${result.error}`);
 			expect(result.credentialMetadata?.display?.[0]?.rendering?.svg_templates?.length).toBe(2);
 		});

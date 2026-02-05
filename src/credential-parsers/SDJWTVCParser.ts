@@ -112,7 +112,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 			const { metadata: issuerMetadata } = validatedParsedClaims.iss ? await getIssuerMetadata(args.httpClient, validatedParsedClaims.iss, warnings) : { metadata: undefined };
 
 			const vctIntegrity = validatedParsedClaims['vct#integrity'] as string | undefined;
-			const getSdJwtMetadataResult = await getSdJwtVcMetadata(args.context, args.httpClient, validatedParsedClaims.vct, vctIntegrity, warnings);
+			const getSdJwtMetadataResult = await getSdJwtVcMetadata(args.context.vctResolutionEngine, args.context.subtle, args.httpClient, validatedParsedClaims.vct, vctIntegrity, warnings);
 			if ('error' in getSdJwtMetadataResult) {
 				return {
 					success: false,

@@ -1,4 +1,3 @@
-import { Context } from "../interfaces";
 
 export type Algorithm = 'sha256' | 'sha384' | 'sha512';
 
@@ -9,7 +8,7 @@ export type Algorithm = 'sha256' | 'sha384' | 'sha512';
  * @returns Promise resolving to true if valid, false otherwise
  */
 export async function verifySRIFromObject(
-	context: Context,
+	subtle: SubtleCrypto,
 	obj: Record<string, any>,
 	expectedIntegrity: string,
 ): Promise<boolean> {
@@ -34,7 +33,7 @@ export async function verifySRIFromObject(
 		throw new Error(`Unsupported algorithm: ${algorithm}`);
 	}
 
-	const digest = await context.subtle.digest(subtleAlgo, data);
+	const digest = await subtle.digest(subtleAlgo, data);
 	const hashArray = Array.from(new Uint8Array(digest));
 	const hashBase64 = btoa(String.fromCharCode(...hashArray));
 
