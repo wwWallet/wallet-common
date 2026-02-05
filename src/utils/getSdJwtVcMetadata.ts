@@ -221,7 +221,7 @@ function isCredentialPayload(obj: unknown): obj is CredentialPayload {
 	return typeof obj === 'object' && obj !== null;
 }
 
-export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClient, vct: string, parsedClaims: Record<string, unknown>, warnings: MetadataWarning[] = []): Promise<{ credentialMetadata: TypeMetadataSchema | undefined; warnings: MetadataWarning[] } | MetadataError> {
+export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClient, vct: string, warnings: MetadataWarning[] = []): Promise<{ credentialMetadata: TypeMetadataSchema | undefined; warnings: MetadataWarning[] } | MetadataError> {
 	try {
 		if (vct && typeof vct === 'string') {
 
