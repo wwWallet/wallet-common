@@ -45,36 +45,6 @@ const validPayload = {
 	"vct#integrity": childIntegrity
 };
 
-describe("getSdJwtVcMetadata - payload failure cases", () => {
-	it("fails when parsed claims are null", async () => {
-		const validHeader = encodeBase64Url({ alg: "ES256" });
-		const credential = `${validHeader}.payload.sig`;
-
-		const result = await getSdJwtVcMetadata(
-			context,
-			defaultHttpClient,
-			credential,
-			null as any // simulate corrupted or missing parsedClaims
-		);
-
-		expect(result).toMatchObject({ error: "PayloadFail" });
-	});
-
-	it("fails when parsed claims are not an object", async () => {
-		const validHeader = encodeBase64Url({ alg: "ES256" });
-		const credential = `${validHeader}.payload.sig`;
-
-		const result = await getSdJwtVcMetadata(
-			context,
-			defaultHttpClient,
-			credential,
-			"not-an-object" as any
-		);
-
-		expect(result).toMatchObject({ error: "PayloadFail" });
-	});
-});
-
 describe("getSdJwtVcMetadata - vct url failure cases", () => {
 	function createHttpClient({
 		childMetadataOverride,

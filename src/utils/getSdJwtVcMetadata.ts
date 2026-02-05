@@ -221,15 +221,8 @@ function isCredentialPayload(obj: unknown): obj is CredentialPayload {
 	return typeof obj === 'object' && obj !== null;
 }
 
-export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClient, credential: string, parsedClaims: Record<string, unknown>, warnings: MetadataWarning[] = []): Promise<{ credentialMetadata: TypeMetadataSchema | undefined; warnings: MetadataWarning[] } | MetadataError> {
+export async function getSdJwtVcMetadata(context: Context, httpClient: HttpClient, vct: string, parsedClaims: Record<string, unknown>, warnings: MetadataWarning[] = []): Promise<{ credentialMetadata: TypeMetadataSchema | undefined; warnings: MetadataWarning[] } | MetadataError> {
 	try {
-
-		const credentialPayload = parsedClaims;
-
-		if (!credentialPayload || !isCredentialPayload(credentialPayload)) {
-			return { error: CredentialParsingError.PayloadFail };
-		}
-		const vct = credentialPayload.vct;
 		if (vct && typeof vct === 'string') {
 
 			// TODO: Move to SDJWTVCVerifier

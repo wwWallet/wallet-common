@@ -4,7 +4,6 @@ export enum CredentialParsingError {
 	InvalidDatatype = "InvalidDatatype",
 	NotSupportedCredentialType = "NotSupportedCredentialType",
 	InfiniteRecursion = "InfiniteRecursion",
-	PayloadFail = "PayloadFail",
 	VctmDecodeFail = "VctmDecodeFail",
 	UnknownError = "UnknownError",
 	NotFound = "NotFound",
