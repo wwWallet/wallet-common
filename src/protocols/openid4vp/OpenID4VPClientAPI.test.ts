@@ -685,7 +685,7 @@ describe("OpenID4VPClientAPI.handleResponseJARM", () => {
 		const okJwe = await new CompactEncrypt(new TextEncoder().encode(JSON.stringify(okPayload)))
 			.setProtectedHeader({ alg: "ECDH-ES", enc: "A256GCM" })
 			.encrypt(publicKey);
-		const tamperedJwe = okJwe.slice(0, -1) + (okJwe.endsWith("A") ? "B" : "A");
+		const tamperedJwe = okJwe.split(".").slice(0, 4).concat("invalid!").join(".");
 		const decryptFail = await helper.handleResponseJARM(tamperedJwe, "kid-jarm-3");
 		assert(decryptFail.ok === false);
 	});
