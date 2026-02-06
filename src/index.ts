@@ -1,5 +1,7 @@
 export * from './rendering';
 
+export * from './defaultHttpClient';
+
 export * from './ParsingEngine';
 export * from './credential-parsers/SDJWTVCParser';
 export * from './credential-parsers/MsoMdocParser';
@@ -7,8 +9,6 @@ export * from './credential-parsers/MsoMdocParser';
 export * from './VerifyingEngine';
 export * from './credential-verifiers/SDJWTVCVerifier';
 export * from './credential-verifiers/MsoMdocVerifier';
-
-export * from './rendering';
 
 export * from './PublicKeyResolverEngine';
 

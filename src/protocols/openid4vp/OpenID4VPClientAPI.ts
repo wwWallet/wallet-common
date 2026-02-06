@@ -3,7 +3,7 @@ import { MsoMdocParser } from "../../credential-parsers/MsoMdocParser";
 import { SDJWTVCParser } from "../../credential-parsers/SDJWTVCParser";
 import { MsoMdocVerifier } from "../../credential-verifiers/MsoMdocVerifier";
 import { SDJWTVCVerifier } from "../../credential-verifiers/SDJWTVCVerifier";
-import { OpenID4VCICredentialRendering } from "../../functions/openID4VCICredentialRendering";
+import { CustomCredentialSvg } from "../../functions/CustomCredentialSvg";
 import { HttpClient } from "../../interfaces";
 import { ParsingEngine } from "../../ParsingEngine";
 import { PublicKeyResolverEngine } from "../../PublicKeyResolverEngine";
@@ -91,7 +91,7 @@ export class OpenID4VPClientAPI {
 		console.log("Registered MsoMdocParser...");
 
 		const pkResolverEngine = PublicKeyResolverEngine();
-		const openid4vcRendering = OpenID4VCICredentialRendering({ httpClient: this.httpClient });
+		const openid4vcRendering = CustomCredentialSvg({ httpClient: this.httpClient });
 		const credentialRendering = CredentialRenderingService();
 		return {
 			credentialParsingEngine,
