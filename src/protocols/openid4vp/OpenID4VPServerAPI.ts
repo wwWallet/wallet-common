@@ -351,8 +351,8 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		vcEntityList: CredentialT[]
 	) {
 		const { dcql_query, client_id, nonce, response_uri, transaction_data } = S;
-		let apu: string | undefined;
-		let apv: string | undefined;
+		let apu = undefined;
+		let apv = undefined;
 		const generatedVPs: string[] = [];
 		const originalVCs: CredentialT[] = [];
 
@@ -648,9 +648,9 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		const vcList = vcEntityList.filter((cred) => cred.instanceId === 0);
 
 		await this.deps.rpStateStore.store({
-			nonce: nonce ?? '',
-			response_uri: response_uri ?? '',
-			client_id: client_id ?? '',
+			nonce: nonce ?? "",
+			response_uri: response_uri ?? "",
+			client_id: client_id ?? "",
 			state: state ?? "",
 			client_metadata: client_metadata ?? { vp_formats: {} },
 			response_mode,
