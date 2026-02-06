@@ -20,5 +20,4 @@ export * from './functions';
 
 export * from './core';
 
-export * from './protocols/openid4vp/OpenID4VPClientAPI';
-export * from './protocols/openid4vp/types';
+export * from './protocols';
