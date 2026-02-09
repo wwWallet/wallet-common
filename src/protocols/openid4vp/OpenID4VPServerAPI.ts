@@ -10,7 +10,7 @@ import {
 	OpenID4VPServerLastUsedNonceStore,
 	OpenID4VPServerRequestVerifier,
 	OpenID4VPServerMessages,
-	ResponseMode,
+	OpenID4VPResponseMode,
 	TransactionDataResponseGenerator,
 	TransactionDataResponseGeneratorParams,
 	TransactionDataResponseParams
@@ -78,8 +78,8 @@ const encoder = new TextEncoder();
 const certFromB64 = (certBase64: string) =>
 	`-----BEGIN CERTIFICATE-----\n${certBase64.match(/.{1,64}/g)?.join("\n")}\n-----END CERTIFICATE-----`;
 
-function isResponseMode(value: unknown): value is ResponseMode {
-	return typeof value === "string" && Object.values(ResponseMode).includes(value as ResponseMode);
+function isOpenID4VPResponseMode(value: unknown): value is OpenID4VPResponseMode {
+	return typeof value === "string" && Object.values(OpenID4VPResponseMode).includes(value as OpenID4VPResponseMode);
 }
 
 function getSubtleCrypto(subtle?: SubtleCrypto): SubtleCrypto {
@@ -532,7 +532,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 
 		const formData = new URLSearchParams();
 
-		if ([ResponseMode.DIRECT_POST_JWT, ResponseMode.DC_API_JWT].includes(S.response_mode) && S.client_metadata.authorization_encrypted_response_alg) {
+		if ([OpenID4VPResponseMode.DIRECT_POST_JWT, OpenID4VPResponseMode.DC_API_JWT].includes(S.response_mode) && S.client_metadata.authorization_encrypted_response_alg) {
 			if (!S.client_metadata.authorization_encrypted_response_enc) {
 				throw new Error("Missing authorization_encrypted_response_enc");
 			}
@@ -642,7 +642,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 			return { error: HandleAuthorizationRequestErrors.MISSING_DCQL_QUERY };
 		}
 
-		if (!isResponseMode(response_mode)) {
+		if (!isOpenID4VPResponseMode(response_mode)) {
 			return { error: HandleAuthorizationRequestErrors.INVALID_RESPONSE_MODE };
 		}
 		console.log("VC entity list = ", vcEntityList)

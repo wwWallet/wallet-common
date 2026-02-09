@@ -74,7 +74,7 @@ export type IacasResponse = {
 	iacas?: Array<{ certificate?: string }>;
 };
 
-export enum ResponseMode {
+export enum OpenID4VPResponseMode {
 	DIRECT_POST = "direct_post",
 	DIRECT_POST_JWT = "direct_post.jwt",
 	DC_API = "dc_api",
@@ -95,7 +95,7 @@ export type OpenID4VPRelyingPartyState = {
 	client_id: string;
 	state: string;
 	client_metadata: OpenID4VPClientMetadata;
-	response_mode: ResponseMode;
+	response_mode: OpenID4VPResponseMode;
 	transaction_data: string[];
 	dcql_query: Record<string, unknown>;
 };

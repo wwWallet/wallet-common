@@ -1,7 +1,7 @@
 import { assert, describe, it } from "vitest";
 import { MemoryStore } from "../../core/MemoryStore";
 import { OpenID4VPClientAPI } from "./OpenID4VPClientAPI";
-import { ResponseMode  } from "./types";
+import { OpenID4VPResponseMode  } from "./types";
 import { generateKeyPair, exportPKCS8, exportJWK, CompactEncrypt } from "jose";
 import { fromBase64Url, toBase64Url } from "../../utils/util";
 import type { HttpClient } from "../../interfaces";
@@ -66,7 +66,7 @@ describe("OpenID4VPClientAPI.generateAuthorizationRequestURL", () => {
 			baseUri,
 			privateKeyPem,
 			x5c,
-			ResponseMode.DIRECT_POST,
+			OpenID4VPResponseMode.DIRECT_POST,
 			"https://verifier.example.com/callback"
 		);
 
@@ -90,7 +90,7 @@ describe("OpenID4VPClientAPI.generateAuthorizationRequestURL", () => {
 		const payload = JSON.parse(new TextDecoder().decode(fromBase64Url(encodedPayload)));
 		assert(payload.response_uri === responseUri);
 		assert(payload.response_type === "vp_token");
-		assert(payload.response_mode === ResponseMode.DIRECT_POST);
+		assert(payload.response_mode === OpenID4VPResponseMode.DIRECT_POST);
 		assert(payload.state === sessionId);
 		assert(payload.nonce);
 		assert(payload.client_id === "x509_san_dns:verifier.example.com");
