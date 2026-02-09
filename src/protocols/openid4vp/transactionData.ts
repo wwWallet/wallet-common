@@ -2,6 +2,7 @@ import { base64url } from 'jose';
 import crypto from 'node:crypto';
 import { z } from "zod";
 import { fromBase64Url, toBase64Url } from "../../utils/util";
+import { TransactionDataResponseGenerator, TransactionDataResponseGeneratorParams } from './types';
 
 const sha256 = z.literal("sha-256");
 
@@ -58,15 +59,15 @@ export const TransactionDataRequestObject = z.discriminatedUnion("type", [
 
 export type TransactionDataRequest = z.infer<typeof TransactionDataRequestObject>;
 
-export type ParsedTransactionDataCore = {
+export type ParsedTransactionDataType = {
 	transaction_data_b64u: string;
 	parsed: TransactionDataRequest;
 };
 
-export function parseTransactionDataCore(
+export function parseTransactionData(
 	transaction_data: string[],
 	dcql_query: Record<string, unknown>
-): ParsedTransactionDataCore[] | null {
+): ParsedTransactionDataType[] | null {
 	try {
 		let validCredentialIds: string[] | null = null;
 
@@ -109,24 +110,10 @@ export async function convertTransactionDataB65uToHash(x: string) {
 	return toBase64Url(digest);
 }
 
-export type TransactionDataResponseParams = {
-	transaction_data_hashes: string[],
-	transaction_data_hashes_alg: string[],
-};
-
-export interface TransactionDataResponseGenerator {
-	generateTransactionDataResponse(transaction_data: string[]): Promise<[TransactionDataResponseParams | null, Error | null]>;
-}
-
-export type TransactionDataResponseGeneratorParams = {
-	descriptor_id: string;
-	dcql_query: Record<string, unknown>;
-};
-
 export const TransactionDataResponse = ({ descriptor_id, dcql_query }: TransactionDataResponseGeneratorParams): TransactionDataResponseGenerator => {
 	return {
 		generateTransactionDataResponse: async (transaction_data: string[]) => {
-			const parsedTd = parseTransactionDataCore(transaction_data, dcql_query);
+			const parsedTd = parseTransactionData(transaction_data, dcql_query);
 			if (parsedTd === null) {
 				return [null, new Error("invalid_transaction_data")];
 			}

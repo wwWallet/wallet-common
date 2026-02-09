@@ -9,10 +9,11 @@ import {
 	OpenID4VPRelyingPartyState,
 	OpenID4VPServerLastUsedNonceStore,
 	OpenID4VPServerRequestVerifier,
-	OpenID4VPServerStrings,
+	OpenID4VPServerMessages,
 	ResponseMode,
 	TransactionDataResponseGenerator,
-	TransactionDataResponseParams,
+	TransactionDataResponseGeneratorParams,
+	TransactionDataResponseParams
 } from "./types";
 import { VerifiableCredentialFormat } from "../../types";
 export const HandleAuthorizationRequestErrors = {
@@ -29,7 +30,7 @@ export const HandleAuthorizationRequestErrors = {
 
 export type HandleAuthorizationRequestError = typeof HandleAuthorizationRequestErrors[keyof typeof HandleAuthorizationRequestErrors];
 
-export type OpenID4VPServerKeystore = {
+type OpenID4VPServerKeystore = {
 	signJwtPresentation(
 		nonce: string,
 		audience: string,
@@ -46,7 +47,7 @@ export type OpenID4VPServerKeystore = {
 	): Promise<{ deviceResponseMDoc: any }>;
 };
 
-export type OpenID4VPServerDeps<CredentialT extends OpenID4VPServerCredential, ParsedTransactionDataT> = {
+type OpenID4VPServerDeps<CredentialT extends OpenID4VPServerCredential, ParsedTransactionDataT> = {
 	httpClient: { get: (url: string, options?: Record<string, unknown>) => Promise<{ data: unknown }> };
 	rpStateStore: {
 		store(stateObject: OpenID4VPRelyingPartyState): Promise<void>;
@@ -55,10 +56,10 @@ export type OpenID4VPServerDeps<CredentialT extends OpenID4VPServerCredential, P
 	parseCredential: (credential: CredentialT) => Promise<{ signedClaims: Record<string, unknown> } | null>;
 	selectCredentialForBatch: (batchId: number, vcEntityList: CredentialT[]) => Promise<CredentialT | null>;
 	keystore: OpenID4VPServerKeystore;
-	strings: OpenID4VPServerStrings;
+	strings: OpenID4VPServerMessages;
 	lastUsedNonceStore?: OpenID4VPServerLastUsedNonceStore;
 	parseTransactionData?: (transaction_data: string[], dcql_query: Record<string, unknown>) => ParsedTransactionDataT[] | null;
-	transactionDataResponseGenerator?: (params: { descriptor_id: string; dcql_query: Record<string, unknown> }) => TransactionDataResponseGenerator;
+	transactionDataResponseGenerator?: (params: TransactionDataResponseGeneratorParams) => TransactionDataResponseGenerator;
 	verifyRequestUriAndCerts?: OpenID4VPServerRequestVerifier;
 	subtle?: SubtleCrypto;
 	randomUUID?: () => string;

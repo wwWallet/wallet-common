@@ -74,11 +74,6 @@ export type IacasResponse = {
 	iacas?: Array<{ certificate?: string }>;
 };
 
-export enum OpenID4VPClientResponseMode {
-	DIRECT_POST = 'direct_post',
-	DIRECT_POST_JWT = 'direct_post.jwt'
-}
-
 export enum ResponseMode {
 	DIRECT_POST = "direct_post",
 	DIRECT_POST_JWT = "direct_post.jwt",
@@ -105,7 +100,7 @@ export type OpenID4VPRelyingPartyState = {
 	dcql_query: Record<string, unknown>;
 };
 
-export type OpenID4VPServerStrings = {
+export type OpenID4VPServerMessages = {
 	purposeNotSpecified: string;
 	allClaimsRequested: string;
 };
@@ -128,4 +123,9 @@ export type TransactionDataResponseParams = {
 
 export type TransactionDataResponseGenerator = {
 	generateTransactionDataResponse(transaction_data: string[]): Promise<[TransactionDataResponseParams | null, Error | null]>;
+};
+
+export type TransactionDataResponseGeneratorParams = {
+	descriptor_id: string;
+	dcql_query: Record<string, unknown>;
 };

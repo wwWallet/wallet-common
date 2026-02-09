@@ -24,12 +24,4 @@ export * from './resolvers';
 
 export * from './core';
 
-export * from './protocols/openid4vp/OpenID4VPClientAPI';
-export * from './protocols/openid4vp/OpenID4VPServerAPI';
-export * from './protocols/openid4vp/types';
-export {
-	TransactionDataRequestObject,
-	TransactionDataResponse,
-	parseTransactionDataCore,
-} from './protocols/openid4vp/transactionData';
-export type { TransactionDataRequest } from './protocols/openid4vp/transactionData';
+export * from './protocols';
