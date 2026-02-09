@@ -1,7 +1,7 @@
 import { assert, describe, it } from "vitest";
 import { MemoryStore } from "../../core/MemoryStore";
 import { OpenID4VPClientAPI } from "./OpenID4VPClientAPI";
-import { ResponseMode } from "./types";
+import { ResponseMode  } from "./types";
 import { generateKeyPair, exportPKCS8, exportJWK, CompactEncrypt } from "jose";
 import { fromBase64Url, toBase64Url } from "../../utils/util";
 import type { HttpClient } from "../../interfaces";

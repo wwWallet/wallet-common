@@ -2,10 +2,10 @@ import { CredentialParsingError } from "../error";
 import { Context, CredentialParser, HttpClient, CredentialIssuerInfo } from "../interfaces";
 import { DataItem, DeviceSignedDocument, parse } from "@auth0/mdl";
 import { fromBase64Url } from "../utils/util";
-import { FriendlyNameCallback, ImageDataUriCallback, ParsedCredential, VerifiableCredentialFormat, TypeMetadata } from "../types";
+import { FriendlyNameCallback, ImageDataUriCallback, ParsedCredential, VerifiableCredentialFormat, TypeMetadataResult } from "../types";
 import { cborDecode, cborEncode } from "@auth0/mdl/lib/cbor";
 import { IssuerSigned } from "@auth0/mdl/lib/mdoc/model/types";
-import { OpenID4VCICredentialRendering } from "../functions/openID4VCICredentialRendering";
+import { CustomCredentialSvg } from "../functions/CustomCredentialSvg";
 import { getIssuerMetadata } from "../utils/getIssuerMetadata";
 import { convertOpenid4vciToSdjwtvcClaims } from "../functions/convertOpenid4vciToSdjwtvcClaims";
 import type { z } from "zod";
@@ -30,9 +30,9 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 
 	async function fetchIssuerMetadataAndDocs(
 		credentialIssuer?: CredentialIssuerInfo | null
-	): Promise<{ issuerMetadata: IssuerMetadata | null; TypeMetadata: TypeMetadata }> {
+	): Promise<{ issuerMetadata: IssuerMetadata | null; TypeMetadata: TypeMetadataResult }> {
 		let issuerMetadata: IssuerMetadata | null = null;
-		let TypeMetadata: TypeMetadata = {};
+		let TypeMetadata: TypeMetadataResult = {};
 
 		try {
 			if (credentialIssuer?.credentialIssuerIdentifier) {
@@ -58,7 +58,7 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 	function toParsedCredential(
 		parsedDocument: DeviceSignedDocument,
 		signedClaims: Record<string, unknown>,
-		TypeMetadata: TypeMetadata,
+		TypeMetadata: TypeMetadataResult,
 		friendlyName: FriendlyNameCallback,
 		dataUri: ImageDataUriCallback
 	): ParsedCredential {
@@ -91,7 +91,7 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 			const [parsedDocument] = parsedMDOC.documents as DeviceSignedDocument[];
 
 			const signedClaims = collectAllAttrValues(parsedDocument);
-			const renderer = OpenID4VCICredentialRendering({ httpClient: args.httpClient });
+			const renderer = CustomCredentialSvg({ httpClient: args.httpClient });
 			const { issuerMetadata, TypeMetadata } = await fetchIssuerMetadataAndDocs(credentialIssuer);
 
 			const issuerDisplayArray = credentialIssuer?.credentialConfigurationId
@@ -139,7 +139,7 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 			const [parsedDocument] = mdoc.documents as DeviceSignedDocument[];
 
 			const signedClaims = collectAllAttrValues(parsedDocument);
-			const renderer = OpenID4VCICredentialRendering({ httpClient: args.httpClient });
+			const renderer = CustomCredentialSvg({ httpClient: args.httpClient });
 			const { issuerMetadata, TypeMetadata } = await fetchIssuerMetadataAndDocs(credentialIssuer);
 
 			const issuerDisplayArray = credentialIssuer?.credentialConfigurationId

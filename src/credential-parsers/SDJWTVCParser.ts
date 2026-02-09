@@ -6,7 +6,7 @@ import { MetadataWarning, VerifiableCredentialFormat } from "../types";
 import { SdJwtVcPayloadSchema } from "../schemas";
 import { CredentialRenderingService } from "../rendering";
 import { getSdJwtVcMetadata } from "../utils/getSdJwtVcMetadata";
-import { OpenID4VCICredentialRendering } from "../functions/openID4VCICredentialRendering";
+import { CustomCredentialSvg } from "../functions/CustomCredentialSvg";
 import { z } from 'zod';
 import { getIssuerMetadata } from "../utils/getIssuerMetadata";
 import { TypeMetadata as TypeMetadataSchema } from "../schemas/SdJwtVcTypeMetadataSchema";
@@ -53,7 +53,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 	};
 
 	const cr = CredentialRenderingService();
-	const renderer = OpenID4VCICredentialRendering({ httpClient: args.httpClient });
+	const renderer = CustomCredentialSvg({ httpClient: args.httpClient });
 
 
 	return {
