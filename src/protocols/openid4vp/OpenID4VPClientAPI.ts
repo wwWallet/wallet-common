@@ -1,4 +1,5 @@
-import { err, generateRandomIdentifier, GenericStore, ok, Result } from "../../core";
+import { err, GenericStore, ok, Result } from "../../core";
+import { generateRandomIdentifier } from "../../utils/util";
 import { MsoMdocParser } from "../../credential-parsers/MsoMdocParser";
 import { SDJWTVCParser } from "../../credential-parsers/SDJWTVCParser";
 import { MsoMdocVerifier } from "../../credential-verifiers/MsoMdocVerifier";
