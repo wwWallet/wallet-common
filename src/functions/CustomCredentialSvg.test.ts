@@ -1,5 +1,5 @@
 import { assert, describe, it } from "vitest";
-import { OpenID4VCICredentialRendering } from "./openID4VCICredentialRendering";
+import { CustomCredentialSvg } from "./CustomCredentialSvg";
 import { HttpClient } from "../interfaces";
 import path from "path";
 import { convertDataUriToImage } from "./convertDataUriToImage";
@@ -18,10 +18,10 @@ const httpClient: HttpClient = {
 	},
 };
 
-describe("The openID4VCICredentialRendering", () => {
+describe("The CustomCredentialSvg", () => {
 
 	it("can render credential in svg format", async () => {
-		const renderer = OpenID4VCICredentialRendering({ httpClient });
+		const renderer = CustomCredentialSvg({ httpClient });
 
 		const result = await renderer.renderCustomSvgTemplate({
 			signedClaims: {

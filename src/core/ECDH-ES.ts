@@ -1,5 +1,5 @@
 import { exportJWK, generateKeyPair } from "jose";
-import { generateRandomIdentifier } from "./generateRandomIdentifier";
+import { generateRandomIdentifier } from "../utils";
 
 export async function generateECDHKeypair() {
 	const { privateKey, publicKey } = await generateKeyPair('ECDH-ES', { extractable: true });

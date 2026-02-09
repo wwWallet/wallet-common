@@ -11,4 +11,3 @@ export * from "./MemoryStore";
 export * from "./Result";
 
 export * from "./VctDocumentProvider";
-export * from "./generateRandomIdentifier";

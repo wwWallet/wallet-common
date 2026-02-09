@@ -1,4 +1,4 @@
-import type { HttpClient, CredentialRendering, OpenID4VCICredentialRendering } from "../interfaces";
+import type { HttpClient, CredentialRendering, CustomCredentialSvgI } from "../interfaces";
 import type { CredentialClaimPath, ImageDataUriCallback } from "../types";
 import { matchDisplayByLocale } from "../utils/matchLocalizedDisplay";
 import type { TypeDisplayEntry,ClaimMetadataEntry } from "../schemas/SdJwtVcTypeMetadataSchema";
@@ -8,7 +8,7 @@ type IssuerDisplayEntry = NonNullable<CredentialConfigurationSupported["display"
 
 type DataUriResolverOptions = {
 	httpClient: HttpClient;
-	customRenderer: OpenID4VCICredentialRendering;
+	customRenderer: CustomCredentialSvgI;
 
 	signedClaims?: Record<string, unknown>;
 

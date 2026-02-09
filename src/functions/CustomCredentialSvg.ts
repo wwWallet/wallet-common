@@ -1,9 +1,9 @@
-import { HttpClient, OpenID4VCICredentialRendering } from "../interfaces";
+import { HttpClient, CustomCredentialSvgI } from "../interfaces";
 import { CredentialClaims } from "../types";
 import { escapeSVG } from "../utils/escapeSVG";
 import { formatDate } from "./formatDate";
 
-export function OpenID4VCICredentialRendering(args: { httpClient: HttpClient }): OpenID4VCICredentialRendering {
+export function CustomCredentialSvg(args: { httpClient: HttpClient }): CustomCredentialSvgI {
 
 	const defaultBackgroundColor = "#D3D3D3";
 	const defaultTextColor = "#000000";
