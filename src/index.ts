@@ -25,3 +25,7 @@ export * from './resolvers';
 export * from './core';
 
 export * from './protocols';
+
+export * from './types';
+
+export * from './error';

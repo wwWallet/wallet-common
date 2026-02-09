@@ -2,7 +2,7 @@ import { SDJwt } from "@sd-jwt/core";
 import type { HasherAndAlg } from "@sd-jwt/types";
 import { Context, CredentialVerifier, PublicKeyResolverEngineI, HttpClient } from "../interfaces";
 import { CredentialVerificationError } from "../error";
-import { Result } from "../types";
+import { CustomResult } from "../types";
 import { exportJWK, importJWK, importX509, JWK, jwtVerify, KeyLike } from "jose";
 import { fromBase64Url, toBase64Url } from "../utils/util";
 import { verifyCertificate } from "../utils/verifyCertificate";
@@ -42,7 +42,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 
 	}
 
-	const getHolderPublicKey = async (rawCredential: string): Promise<Result<Uint8Array | KeyLike, CredentialVerificationError>> => {
+	const getHolderPublicKey = async (rawCredential: string): Promise<CustomResult<Uint8Array | KeyLike, CredentialVerificationError>> => {
 		const parseResult = await parse(rawCredential);
 		if (parseResult === CredentialVerificationError.InvalidFormat) {
 			return {
@@ -76,7 +76,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 
 	}
 
-	const verifyIssuerSignature = async (rawCredential: string): Promise<Result<{}, CredentialVerificationError>> => {
+	const verifyIssuerSignature = async (rawCredential: string): Promise<CustomResult<{}, CredentialVerificationError>> => {
 		const parsedSdJwt = await (async () => {
 			try {
 				return (await SDJwt.fromEncode(rawCredential, hasherAndAlgorithm.hasher)).jwt;
@@ -97,7 +97,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 			}
 		}
 
-		const getIssuerPublicKey = async (): Promise<Result<Uint8Array | KeyLike, CredentialVerificationError>> => {
+		const getIssuerPublicKey = async (): Promise<CustomResult<Uint8Array | KeyLike, CredentialVerificationError>> => {
 			const x5c = (parsedSdJwt?.header?.x5c as string[]) ?? "";
 			const alg = (parsedSdJwt?.header?.alg as string) ?? "";
 			if (x5c && x5c instanceof Array && x5c.length > 0 && typeof alg === 'string') { // extract public key from certificate
@@ -200,7 +200,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 	const verifyKbJwt = async (rawPresentation: string, opts: {
 		expectedNonce?: string;
 		expectedAudience?: string;
-	}): Promise<Result<{}, CredentialVerificationError>> => {
+	}): Promise<CustomResult<{}, CredentialVerificationError>> => {
 		const kbJwt = rawPresentation.split('~')[rawPresentation.split('~').length - 1];
 		let temp = rawPresentation.split('~');
 		temp = temp.slice(0, temp.length - 1);
