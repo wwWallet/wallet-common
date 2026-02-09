@@ -3,7 +3,7 @@ import { cborDecode, cborEncode } from "@auth0/mdl/lib/cbor";
 import { parse } from "@auth0/mdl";
 import { base64url, EncryptJWT, importJWK, importX509, jwtVerify } from "jose";
 import { DcqlPresentationResult, DcqlQuery } from "dcql";
-import { generateRandomIdentifier } from "../../core";
+import { generateRandomIdentifier } from "../../utils";
 import {
 	OpenID4VPClientMetadata,
 	OpenID4VPRelyingPartyState,
