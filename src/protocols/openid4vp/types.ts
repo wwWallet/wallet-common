@@ -74,7 +74,58 @@ export type IacasResponse = {
 	iacas?: Array<{ certificate?: string }>;
 };
 
-export enum OpenID4VPClientResponseMode {
-	DIRECT_POST = 'direct_post',
-	DIRECT_POST_JWT = 'direct_post.jwt'
+export enum OpenID4VPResponseMode {
+	DIRECT_POST = "direct_post",
+	DIRECT_POST_JWT = "direct_post.jwt",
+	DC_API = "dc_api",
+	DC_API_JWT = "dc_api.jwt",
 }
+
+export type OpenID4VPClientMetadata = {
+	jwks?: { keys: any[] };
+	jwks_uri?: string;
+	authorization_encrypted_response_alg?: string;
+	authorization_encrypted_response_enc?: string;
+	vp_formats: any;
+};
+
+export type OpenID4VPRelyingPartyState = {
+	nonce: string;
+	response_uri: string;
+	client_id: string;
+	state: string;
+	client_metadata: OpenID4VPClientMetadata;
+	response_mode: OpenID4VPResponseMode;
+	transaction_data: string[];
+	dcql_query: Record<string, unknown>;
+};
+
+export type OpenID4VPServerMessages = {
+	purposeNotSpecified: string;
+	allClaimsRequested: string;
+};
+
+export type OpenID4VPServerLastUsedNonceStore = {
+	get(): string | null;
+	set(nonce: string): void;
+};
+
+export type OpenID4VPServerRequestVerifier = (params: {
+	request_uri: string;
+	response_uri: string;
+	parsedHeader: Record<string, unknown>;
+}) => Promise<void>;
+
+export type TransactionDataResponseParams = {
+	transaction_data_hashes: string[];
+	transaction_data_hashes_alg: string[];
+};
+
+export type TransactionDataResponseGenerator = {
+	generateTransactionDataResponse(transaction_data: string[]): Promise<[TransactionDataResponseParams | null, Error | null]>;
+};
+
+export type TransactionDataResponseGeneratorParams = {
+	descriptor_id: string;
+	dcql_query: Record<string, unknown>;
+};

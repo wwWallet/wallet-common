@@ -1,6 +1,134 @@
 import { base64url } from 'jose';
 import crypto from 'node:crypto';
+import { z } from "zod";
 import { fromBase64Url, toBase64Url } from "../../utils/util";
+import { TransactionDataResponseGenerator, TransactionDataResponseGeneratorParams } from './types';
+
+const sha256 = z.literal("sha-256");
+
+export const TransactionDataRequestObject = z.discriminatedUnion("type", [
+	z.object({
+		type: z.literal("urn:wwwallet:example_transaction_data_type"),
+		credential_ids: z.array(z.string()),
+	}).strict(),
+
+	z.object({
+		type: z.literal("qes_authorization"),
+		credential_ids: z.array(z.string()),
+		signatureQualifier: z.string(),
+		transaction_data_hashes_alg: sha256,
+		documentDigests: z.array(z.object({
+			hash: z.string().optional(),
+			label: z.string(),
+			hashAlgorithmOID: z.string(),
+		})),
+	}).strict(),
+
+	z.object({
+		type: z.literal("qcert_creation_acceptance"),
+		credential_ids: z.array(z.string()),
+		QC_terms_conditions_uri: z.string().optional(),
+		QC_hash: z.string().optional(),
+		QC_hashAlgorithmOID: z.string().optional(),
+		transaction_data_hashes_alg: sha256,
+	}).strict(),
+
+	z.object({
+		type: z.literal("https://cloudsignatureconsortium.org/2025/qes"),
+		credential_ids: z.array(z.string()),
+		numSignatures: z.number().optional(),
+		signatureQualifier: z.string(),
+		transaction_data_hashes_alg: sha256,
+		documentDigests: z.array(z.object({
+			hash: z.string().optional(),
+			label: z.string(),
+			hashType: z.string(),
+		})),
+		processID: z.string().optional(),
+	}).strict(),
+
+	z.object({
+		type: z.literal("https://cloudsignatureconsortium.org/2025/qc-request"),
+		credential_ids: z.array(z.string()),
+		QC_terms_conditions_uri: z.string().optional(),
+		QC_hash: z.string().optional(),
+		QC_hashAlgorithmOID: z.string().optional(),
+		transaction_data_hashes_alg: sha256,
+	}).strict(),
+]);
+
+export type TransactionDataRequest = z.infer<typeof TransactionDataRequestObject>;
+
+export type ParsedTransactionDataType = {
+	transaction_data_b64u: string;
+	parsed: TransactionDataRequest;
+};
+
+export function parseTransactionData(
+	transaction_data: string[],
+	dcql_query: Record<string, unknown>
+): ParsedTransactionDataType[] | null {
+	try {
+		let validCredentialIds: string[] | null = null;
+
+		if ((dcql_query as any)?.credentials instanceof Array) {
+			validCredentialIds = (dcql_query as any).credentials.map(
+				(credential: { id: string }) => credential.id
+			);
+		}
+
+		const parsedTransactionData = transaction_data.map((td) => {
+			const parsed = TransactionDataRequestObject.parse(
+				JSON.parse(new TextDecoder().decode(fromBase64Url(td)))
+			);
+			return {
+				transaction_data_b64u: td,
+				parsed,
+			};
+		});
+		for (const td of parsedTransactionData) {
+			if (td.parsed.credential_ids && validCredentialIds) {
+				for (const cred_id of td.parsed.credential_ids) {
+					if (!validCredentialIds.includes(cred_id)) {
+						throw new Error("Transaction data includes invalid credential ids that don't exist in the definition");
+					}
+				}
+			}
+		}
+		return parsedTransactionData;
+	}
+	catch (e) {
+		console.error(e);
+		return null;
+	}
+}
+
+export async function convertTransactionDataB65uToHash(x: string) {
+	const data = fromBase64Url(x);
+	const webcrypto = globalThis.crypto?.subtle ?? crypto.subtle;
+	const digest = await webcrypto.digest('SHA-256', data);
+	return toBase64Url(digest);
+}
+
+export const TransactionDataResponse = ({ descriptor_id, dcql_query }: TransactionDataResponseGeneratorParams): TransactionDataResponseGenerator => {
+	return {
+		generateTransactionDataResponse: async (transaction_data: string[]) => {
+			const parsedTd = parseTransactionData(transaction_data, dcql_query);
+			if (parsedTd === null) {
+				return [null, new Error("invalid_transaction_data")];
+			}
+			for (const td of parsedTd) {
+				if (td.parsed.credential_ids.includes(descriptor_id)) {
+					return [{
+						transaction_data_hashes: [await convertTransactionDataB65uToHash(td.transaction_data_b64u)],
+						transaction_data_hashes_alg: ["sha-256"],
+					}, null]
+				}
+			}
+			return [null, new Error("Couldn't generate transaction data response")];
+		},
+	}
+}
 
 
 export const QESAuthorizationTransactionData = () => {
