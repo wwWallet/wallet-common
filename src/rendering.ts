@@ -16,7 +16,7 @@ export function CredentialRenderingService(): CredentialRendering {
 
 		if (svgContent) {
 			// Build pathMap from credentialHeader.vctm.claims
-			const pathMap = sdJwtVcMetadataClaims.reduce((acc: any, claim: any) => {
+			const pathMap = (sdJwtVcMetadataClaims ?? []).reduce((acc: any, claim: any) => {
 				if (claim.svg_id && claim.path) {
 					acc[claim.svg_id] = claim.path;
 				}

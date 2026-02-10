@@ -16,7 +16,7 @@ export type CredentialIssuer = {
 
 export type CredentialClaims = Record<string, unknown>;
 
-export type Result<T, E> = { success: true; value: T } | { success: false; error: E };
+export type CustomResult<T, E> = { success: true; value: T } | { success: false; error: E };
 
 export type ParserResult =
 	| { success: true; value: ParsedCredential }
@@ -38,7 +38,7 @@ export type MetadataWarning = {
 
 export type CredentialClaimPath = Array<string>;
 
-export type CredentialFriendlyNameCallback = (
+export type FriendlyNameCallback = (
 	preferredLangs?: string[]
 ) => Promise<string | null>;
 
@@ -52,7 +52,7 @@ export type AugmentedClaimMetadataEntry = ClaimMetadataEntry & {
 	required?: boolean;
 };
 
-export type TypeMetadata = {
+export type TypeMetadataResult = {
 	claims?: Array<AugmentedClaimMetadataEntry>;
 };
 
@@ -61,16 +61,16 @@ export type ParsedCredential = {
 		credential: {
 			format: VerifiableCredentialFormat.VC_SDJWT | VerifiableCredentialFormat.DC_SDJWT,
 			vct: string,
-			name: CredentialFriendlyNameCallback,
-			TypeMetadata: TypeMetadata,
+			name: FriendlyNameCallback,
+			TypeMetadata: TypeMetadataResult,
 			image: {
 				dataUri: ImageDataUriCallback,
 			},
 		} | {
 			format: VerifiableCredentialFormat.MSO_MDOC,
 			doctype: string,
-			name: CredentialFriendlyNameCallback,
-			TypeMetadata: TypeMetadata,
+			name: FriendlyNameCallback,
+			TypeMetadata: TypeMetadataResult,
 			image: {
 				dataUri: ImageDataUriCallback,
 			},

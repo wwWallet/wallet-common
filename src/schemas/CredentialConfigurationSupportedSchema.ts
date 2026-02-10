@@ -8,8 +8,8 @@ const proofTypesSupportedSchema = z.object({
 	attestation: z.object({
 		proof_signing_alg_values_supported: z.array(z.string()),
 		key_attestations_required: z.object({
-			key_storage: z.enum(["iso_18045_high", "iso_18045_moderate", "iso_18045_enhanced-basic", "iso_18045_basic"]).optional(),
-			user_authentication: z.enum(["iso_18045_high", "iso_18045_moderate", "iso_18045_enhanced-basic", "iso_18045_basic"]).optional(),
+			key_storage: z.array(z.enum(["iso_18045_high", "iso_18045_moderate", "iso_18045_enhanced-basic", "iso_18045_basic"])).optional(),
+			user_authentication: z.array(z.enum(["iso_18045_high", "iso_18045_moderate", "iso_18045_enhanced-basic", "iso_18045_basic"])).optional(),
 		})
 	}).optional(),
 });
@@ -56,14 +56,12 @@ const sdJwtSchema = commonSchema.extend({
 
 const msoDocSchema = commonSchema.extend({
 	format: z.literal(VerifiableCredentialFormat.MSO_MDOC),
-	doctype: z.string()
+	doctype: z.string(),
+	credential_signing_alg_values_supported: z.array(z.number()).optional(),
 });
 
-const otherFormatsSchema = commonSchema.extend({
-	format: z.string(),
-});
 
-export const CredentialConfigurationSupportedSchema = sdJwtSchema.or(msoDocSchema).or(otherFormatsSchema);
+export const CredentialConfigurationSupportedSchema = sdJwtSchema.or(msoDocSchema);
 
 export type CredentialConfigurationSupported = z.infer<typeof CredentialConfigurationSupportedSchema>;
 

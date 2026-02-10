@@ -1,6 +1,7 @@
 import { JWK } from "jose";
 import { CredentialParsingError, CredentialVerificationError, PublicKeyResolutionError, CredentialRenderingError, ValidatePresentationRequirementsError } from "./error";
-import { Result, ParsedCredential, CredentialClaims, ParserResult, CredentialClaimPath } from "./types";
+import { CustomResult, ParsedCredential, CredentialClaims, ParserResult, CredentialClaimPath } from "./types";
+import { VctDocumentProvider } from "./core";
 
 export interface CredentialRendering {
 	renderSvgTemplate(args: {
@@ -11,7 +12,7 @@ export interface CredentialRendering {
 	}): Promise<string | null>
 }
 
-export interface OpenID4VCICredentialRendering {
+export interface CustomCredentialSvgI {
 	renderCustomSvgTemplate(args: { signedClaims: CredentialClaims, displayConfig: any }): Promise<string>;
 }
 
@@ -25,17 +26,17 @@ export interface ParsingEngineI {
 	parse({ rawCredential, credentialIssuer }: {
 		rawCredential: unknown,
 		credentialIssuer?: CredentialIssuerInfo;
-	}): Promise<Result<ParsedCredential, CredentialParsingError>>;
+	}): Promise<CustomResult<ParsedCredential, CredentialParsingError>>;
 }
 
 export interface VerifyingEngineI {
 	register(credentialVerifier: CredentialVerifier): void;
-	verify({ rawCredential, opts }: { rawCredential: unknown, opts: { expectedNonce?: string, expectedAudience?: string, holderNonce?: string, responseUri?: string } }): Promise<Result<{ holderPublicKey: JWK; }, CredentialVerificationError>>;
+	verify({ rawCredential, opts }: { rawCredential: unknown, opts: { expectedNonce?: string, expectedAudience?: string, holderNonce?: string, responseUri?: string } }): Promise<CustomResult<{ holderPublicKey: JWK; }, CredentialVerificationError>>;
 }
 
 export interface PublicKeyResolverEngineI {
 	register(resolver: PublicKeyResolver): void;
-	resolve(args: { identifier: string }): Promise<Result<{
+	resolve(args: { identifier: string }): Promise<CustomResult<{
 		jwk: JWK
 	}, PublicKeyResolutionError>>;
 }
@@ -49,14 +50,14 @@ export interface CredentialParser {
 }
 
 export interface CredentialVerifier {
-	verify(args: { rawCredential: unknown, opts: { expectedNonce?: string, expectedAudience?: string, holderNonce?: string, responseUri?: string } }): Promise<Result<{
+	verify(args: { rawCredential: unknown, opts: { expectedNonce?: string, expectedAudience?: string, holderNonce?: string, responseUri?: string } }): Promise<CustomResult<{
 		holderPublicKey: JWK,
 	}, CredentialVerificationError>>;
 }
 
 
 export interface PublicKeyResolver {
-	resolve(args: { identifier: string }): Promise<Result<{
+	resolve(args: { identifier: string }): Promise<CustomResult<{
 		jwk: JWK
 	}, PublicKeyResolutionError>>;
 }
@@ -77,7 +78,5 @@ export interface Context {
 	 * each string is Base64-encoded DER representation without line breaks or headers like -----BEGIN CERTIFICATE----- and -----END CERTIFICATE-----
 	 */
 	trustedCertificates: string[];
-	config?: {
-		vctRegistryUri: string;
-	};
+	vctResolutionEngine?: VctDocumentProvider;
 }
