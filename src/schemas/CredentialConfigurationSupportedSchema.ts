@@ -61,7 +61,12 @@ const msoDocSchema = commonSchema.extend({
 });
 
 
-export const CredentialConfigurationSupportedSchema = sdJwtSchema.or(msoDocSchema);
+const jwtVcJsonSchema = commonSchema.extend({
+	format: z.literal(VerifiableCredentialFormat.JWT_VC_JSON),
+});
+
+
+export const CredentialConfigurationSupportedSchema = sdJwtSchema.or(msoDocSchema).or(jwtVcJsonSchema);
 
 export type CredentialConfigurationSupported = z.infer<typeof CredentialConfigurationSupportedSchema>;
 

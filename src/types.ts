@@ -5,6 +5,7 @@ export enum VerifiableCredentialFormat {
 	VC_SDJWT = "vc+sd-jwt",
 	DC_SDJWT = "dc+sd-jwt",
 	MSO_MDOC = "mso_mdoc",
+	JWT_VC_JSON = "jwt_vc_json"
 }
 
 export type CredentialIssuer = {
