@@ -4,7 +4,10 @@ import { matchDisplayByLocale } from "../utils/matchLocalizedDisplay";
 import type { TypeDisplayEntry,ClaimMetadataEntry } from "../schemas/SdJwtVcTypeMetadataSchema";
 import type { CredentialConfigurationSupported } from "../schemas/CredentialConfigurationSupportedSchema";
 
-type IssuerDisplayEntry = NonNullable<CredentialConfigurationSupported["display"]>[number];
+type IssuerDisplayEntry =
+	NonNullable<
+		NonNullable<CredentialConfigurationSupported["credential_metadata"]>["display"]
+	>[number];
 
 type DataUriResolverOptions = {
 	httpClient: HttpClient;
