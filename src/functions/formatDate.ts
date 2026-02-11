@@ -8,9 +8,19 @@ export function formatDate(value: any, format = 'datetime') {
 
 	let date;
 
-	if (typeof value === 'number' && value.toString().length === 10) {
-		// Handle Unix timestamp (seconds) by converting to milliseconds
-		date = new Date(value * 1000);
+	if (typeof value === 'number') {
+		if (value.toString().length === 10) {
+			// Handle Unix timestamp (seconds) by converting to milliseconds
+			date = new Date(value * 1000);
+		}
+		else if (value.toString().length === 13) {
+			// Timestamp including milliseconds
+			date = new Date(value);
+		}
+		else {
+			// Unsupported timestamp formats
+			return value;
+		}
 	} else if (typeof value === 'string') {
 		if (iso8601Regex.test(value)) {
 			// Handle ISO 8601 format
