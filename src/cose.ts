@@ -1,5 +1,8 @@
 import * as cbor from 'cbor-web';
 
+import { toU8 } from './utils/util';
+
+
 // ARKG-pub https://yubico.github.io/arkg-rfc/draft-bradleylundberg-cfrg-arkg.html#name-cose-key-types-registration
 export const COSE_KTY_ARKG_PUB = -65537;
 export type COSE_KTY_ARKG_PUB = typeof COSE_KTY_ARKG_PUB; // eslint-disable-line @typescript-eslint/no-redeclare
@@ -33,28 +36,15 @@ export type ParsedCOSEKeyEc2Public = ParsedCOSEKey & {
 	y: Uint8Array,
 };
 
+/** See: https://www.ietf.org/archive/id/draft-bradleylundberg-cfrg-arkg-09.html#name-cose-key-type-arkg-public-s */
 export type ParsedCOSEKeyArkgPubSeed = ParsedCOSEKey & {
 	kty: COSE_KTY_ARKG_PUB,
 	alg: COSEAlgorithmIdentifier,
 	pkBl: ParsedCOSEKey,
 	pkKem: ParsedCOSEKey,
+	/** The `alg` parameter of public keys derived from this ARKG public seed. */
+	dkalg?: COSEAlgorithmIdentifier,
 };
-
-export type ParsedCOSEKeyRef = {
-	kty: number | string,
-	kid: Uint8Array,
-	alg?: COSEAlgorithmIdentifier,
-	[name: string]: any,
-};
-
-export type ParsedCOSEKeyRefArkgDerivedBase = ParsedCOSEKeyRef & {
-	kty: COSE_KTY_ARKG_DERIVED,
-};
-
-export type ParsedCOSEKeyRefArkgDerived = ParsedCOSEKeyRefArkgDerivedBase & {
-	kh: Uint8Array,
-	info: Uint8Array,
-}
 
 export async function importCosePublicKey(cose: cbor.Map): Promise<CryptoKey> {
 	const coseKey = parseCoseKeyEc2Public(cose);
@@ -179,12 +169,13 @@ export function parseCoseKeyEc2Public(cose: cbor.Map): ParsedCOSEKeyEc2Public {
 	}
 }
 
+/** See: https://www.ietf.org/archive/id/draft-bradleylundberg-cfrg-arkg-09.html#name-cose-key-type-arkg-public-s */
 export function parseCoseKeyArkgPubSeed(cose: cbor.Map): ParsedCOSEKeyArkgPubSeed {
 	const kty = cose.get(1);
 	switch (kty) {
 		case COSE_KTY_ARKG_PUB:
 			const kid = cose.get(2);
-			if (!(kid instanceof Uint8Array)) {
+			if (kid && !(kid instanceof Uint8Array)) {
 				throw new Error(
 					`Incorrect type of "kid (2)" attribute of ARKG-pub COSE_Key: ${typeof kid} ${kid}`,
 					{ cause: { kid } },
@@ -208,19 +199,25 @@ export function parseCoseKeyArkgPubSeed(cose: cbor.Map): ParsedCOSEKeyArkgPubSee
 
 			const pkBl = parseCoseKeyEc2Public(cose.get(-1));
 			const pkKem = parseCoseKeyEc2Public(cose.get(-2));
-			return { kty, kid, pkBl, pkKem, alg };
+			const dkalg = cose.get(-3);
+
+			return {
+				kty, kid, alg,
+				pkBl, pkKem,
+				...(dkalg ? { dkalg } : {}),
+			};
 
 		default:
 			throw new Error(`Unsupported COSE key type: ${kty}`, { cause: { kty } });
 	}
 }
 
-export function encodeCoseKeyRefArkgDerived(keyRef: ParsedCOSEKeyRefArkgDerived): ArrayBuffer {
+/** See: https://www.ietf.org/archive/id/draft-bradleylundberg-cfrg-arkg-09.html#name-cose-signing-arguments */
+export function encodeArkgSignArgs(alg: COSEAlgorithmIdentifier, args: { kh: BufferSource, ctx: BufferSource }): ArrayBuffer {
+	const { kh, ctx } = args;
 	return new Uint8Array(cbor.encodeCanonical(new cbor.Map([ // Can't use object literal because that turns integer keys into strings
-		[1, keyRef.kty],
-		[2, keyRef.kid.buffer],
-		[3, keyRef.alg],
-		[-1, keyRef.kh.buffer],
-		[-2, keyRef.info.buffer],
+		[3, alg],
+		[-1, toU8(kh).buffer],
+		[-2, toU8(ctx).buffer],
 	]))).buffer;
 }
