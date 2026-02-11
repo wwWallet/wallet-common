@@ -16,10 +16,6 @@ export type COSE_ALG_ESP256_ARKG = typeof COSE_ALG_ESP256_ARKG; // eslint-disabl
 export const COSE_ALG_ARKG_P256 = -65700;
 export type COSE_ALG_ARKG_P256 = typeof COSE_ALG_ARKG_P256; // eslint-disable-line @typescript-eslint/no-redeclare
 
-// Modified Split-BBS with SHA-256 (no spec yet)
-export const COSE_ALG_SPLIT_BBS = -65602;
-export type COSE_ALG_SPLIT_BBS = typeof COSE_ALG_SPLIT_BBS; // eslint-disable-line @typescript-eslint/no-redeclare
-
 
 export type ParsedCOSEKey = {
 	kty: number | string,
@@ -103,9 +99,6 @@ function getCoseCurveCoordinateByteLength(crv: number): number {
 		case 1: // P-256
 			return 32;
 
-		case -65601: // BLS12-381 (placeholder value)
-			return 48;
-
 		default:
 			throw new Error(`Unsupported COSE elliptic curve: ${crv}`, { cause: { crv } })
 	}
@@ -136,13 +129,11 @@ export function parseCoseKeyEc2Public(cose: cbor.Map): ParsedCOSEKeyEc2Public {
 				case -7: // ES256
 				case -9: // ESP256
 				case -25: // ECDH-ES w/ HKDF
-				case -65602: // Modified split-BBS with SHA-256 (placeholder value)
 					const crv = cose.get(-1);
 					const expectLen = getCoseCurveCoordinateByteLength(crv);
 					switch (crv) {
 
 						case 1: // P-256
-						case -65601: // BLS12-381 (placeholder value)
 							const x = cose.get(-2);
 							const y = cose.get(-3);
 							if (x && y) {
@@ -172,7 +163,7 @@ export function parseCoseKeyEc2Public(cose: cbor.Map): ParsedCOSEKeyEc2Public {
 								}
 								return { kty, alg, crv, x, y };
 							} else {
-								throw new Error(`Invalid COSE EC2 ES256, ECDH or Split-BBS key: missing x or y`, { cause: { x, y } });
+								throw new Error(`Invalid COSE EC2 ES256 or ECDH: missing x or y`, { cause: { x, y } });
 							}
 
 						default:
