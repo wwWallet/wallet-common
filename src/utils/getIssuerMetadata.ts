@@ -12,6 +12,8 @@ export async function getIssuerMetadata(
 ): Promise<{
 	metadata: z.infer<typeof OpenidCredentialIssuerMetadataSchema> | null;
 }> {
+	if (!issuer) return { metadata: null };
+
 	const url = `${issuer}/.well-known/openid-credential-issuer`;
 
 	let issuerResponse = null;
@@ -43,4 +45,3 @@ export async function getIssuerMetadata(
 
 	return { metadata: parsed.data };
 }
-
