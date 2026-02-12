@@ -57,7 +57,6 @@ describe("The MsoMdocParser", () => {
 
 	})
 
-	// Needs update openid4vci to 1.0
 	it("should successfully parse a Base64-URL-encoded DeviceResponse in eudiw Pid mso_mdoc format", async () => {
 		const parser = MsoMdocParser({ httpClient, context });
 
@@ -85,7 +84,6 @@ describe("The MsoMdocParser", () => {
 
 	})
 
-	// Needs update openid4vci to 1.0
 	it("should successfully parse a Base64-URL-encoded DeviceResponse in eudiw mdl mso_mdoc format", async () => {
 		const parser = MsoMdocParser({ httpClient, context });
 
