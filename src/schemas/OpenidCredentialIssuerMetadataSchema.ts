@@ -33,8 +33,8 @@ export const OpenidCredentialIssuerMetadataSchema = z.object({
 	}).optional(),
 	deferred_credential_endpoint: z.string().optional(),
 	credential_configurations_supported: z.record(CredentialConfigurationSupportedSchema),
-	signed_metadata: z.string().optional(),	// TODO vmarkop these are not part of oid4vci1.0
-	mdoc_iacas_uri: z.string().optional(),	// TODO vmarkop these are not part of oid4vci1.0
+	signed_metadata: z.string().optional(),	// mdoc-specific property
+	mdoc_iacas_uri: z.string().optional(),	// mdoc-specific property
 	notification_endpoint: z.string().optional(),
 })
 
