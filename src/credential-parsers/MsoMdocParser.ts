@@ -40,7 +40,7 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 				issuerMetadata = metadata ?? null;
 
 				const issuerClaimsArray = credentialIssuer?.credentialConfigurationId
-					? issuerMetadata?.credential_configurations_supported?.[credentialIssuer.credentialConfigurationId]?.claims
+					? issuerMetadata?.credential_configurations_supported?.[credentialIssuer.credentialConfigurationId]?.credential_metadata?.claims
 					: undefined;
 
 				const convertedClaims = issuerClaimsArray ? convertOpenid4vciToSdjwtvcClaims(issuerClaimsArray) : undefined;
@@ -95,7 +95,7 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 			const { issuerMetadata, TypeMetadata } = await fetchIssuerMetadataAndDocs(credentialIssuer);
 
 			const issuerDisplayArray = credentialIssuer?.credentialConfigurationId
-				? issuerMetadata?.credential_configurations_supported?.[credentialIssuer.credentialConfigurationId]?.display
+				? issuerMetadata?.credential_configurations_supported?.[credentialIssuer.credentialConfigurationId]?.credential_metadata?.display
 				: undefined;
 
 			const friendlyName = friendlyNameResolver({
@@ -143,7 +143,7 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 			const { issuerMetadata, TypeMetadata } = await fetchIssuerMetadataAndDocs(credentialIssuer);
 
 			const issuerDisplayArray = credentialIssuer?.credentialConfigurationId
-				? issuerMetadata?.credential_configurations_supported?.[credentialIssuer.credentialConfigurationId]?.display
+				? issuerMetadata?.credential_configurations_supported?.[credentialIssuer.credentialConfigurationId]?.credential_metadata?.display
 				: undefined;
 
 			const friendlyName = friendlyNameResolver({

@@ -138,7 +138,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 
 			const friendlyName = friendlyNameResolver({
 				credentialDisplayArray: credentialMetadata?.display,
-				issuerDisplayArray: credentialIssuerMetadata?.display,
+				issuerDisplayArray: credentialIssuerMetadata?.credential_metadata?.display,
 				fallbackName: "SD-JWT Verifiable Credential",
 			});
 
@@ -148,15 +148,15 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 				signedClaims: validatedParsedClaims,
 
 				credentialDisplayArray: credentialMetadata?.display,
-				issuerDisplayArray: credentialIssuerMetadata?.display,
+				issuerDisplayArray: credentialIssuerMetadata?.credential_metadata?.display,
 
 				sdJwtVcRenderer: cr,
 				sdJwtVcMetadataClaims: credentialMetadata?.claims,
 				fallbackName: "SD-JWT Verifiable Credential",
 			});
 
-			if (!TypeMetadata?.claims && credentialIssuerMetadata?.claims) {
-				const convertedClaims = convertOpenid4vciToSdjwtvcClaims(credentialIssuerMetadata.claims);
+			if (!TypeMetadata?.claims && credentialIssuerMetadata?.credential_metadata?.claims) {
+				const convertedClaims = convertOpenid4vciToSdjwtvcClaims(credentialIssuerMetadata.credential_metadata.claims);
 				if (convertedClaims?.length) {
 					TypeMetadata = { claims: convertedClaims };
 				}

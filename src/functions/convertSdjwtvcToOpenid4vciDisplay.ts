@@ -1,8 +1,9 @@
 import type { TypeDisplayEntry } from "../schemas/SdJwtVcTypeMetadataSchema";
 import type { CredentialConfigurationSupported } from "../schemas/CredentialConfigurationSupportedSchema";
 
-type OpenIdCredentialDisplayEntry =
-	NonNullable<CredentialConfigurationSupported["display"]>[number];
+type CredentialMetadata = NonNullable<CredentialConfigurationSupported["credential_metadata"]>;
+type OpenIdCredentialDisplay = NonNullable<CredentialMetadata["display"]>;
+type IssuerDisplayEntry = OpenIdCredentialDisplay[number];
 
 /**
  * Convert SD-JWT VC TypeMetadata.display -> OpenID4VCI CredentialConfigurationSupported.display
@@ -19,17 +20,18 @@ type OpenIdCredentialDisplayEntry =
  *   - locale -> locale
  *
  */
+
 export function convertSdjwtvcToOpenid4vciDisplay(
 	display?: TypeDisplayEntry[]
-): CredentialConfigurationSupported["display"] {
+): OpenIdCredentialDisplay | undefined {
 	if (!display?.length) return undefined;
 
-	const byLocale = new Map<string, OpenIdCredentialDisplayEntry>();
+	const byLocale = new Map<string, IssuerDisplayEntry>();
 
 	for (const d of display) {
 		const simple = d.rendering?.simple;
 
-		const candidate: OpenIdCredentialDisplayEntry = {
+		const candidate: IssuerDisplayEntry = {
 			name: d.name,
 			description: d.description,
 			locale: d.locale,
@@ -52,7 +54,7 @@ export function convertSdjwtvcToOpenid4vciDisplay(
 		};
 
 		// remove undefined keys (keeps output tidy)
-		for (const key of Object.keys(candidate) as (keyof OpenIdCredentialDisplayEntry)[]) {
+		for (const key of Object.keys(candidate) as (keyof IssuerDisplayEntry)[]) {
 			if (candidate[key] === undefined) delete candidate[key];
 		}
 

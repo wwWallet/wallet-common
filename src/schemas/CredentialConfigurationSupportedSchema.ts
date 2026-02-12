@@ -26,23 +26,25 @@ const OpenIdClaimSchema = z.object({
 });
 
 const commonSchema = z.object({
-	display: z.array(z.object({
-		name: z.string(),
-		description: z.string().optional(),
-		background_color: z.string().optional(),
-		text_color: z.string().optional(),
-		alt_text: z.string().optional(),
-		background_image: z.object({
-			uri: z.string()
-		}).optional(),
-		locale: z.string().optional(),
-		logo: z.object({
-			uri: z.string(),
+	credential_metadata: z.object({
+		display: z.array(z.object({
+			name: z.string(),
+			description: z.string().optional(),
+			background_color: z.string().optional(),
+			text_color: z.string().optional(),
 			alt_text: z.string().optional(),
-		}).optional(),
-	})).optional(),
+			background_image: z.object({
+				uri: z.string()
+			}).optional(),
+			locale: z.string().optional(),
+			logo: z.object({
+				uri: z.string(),
+				alt_text: z.string().optional(),
+			}).optional(),
+		})).optional(),
+		claims: z.array(OpenIdClaimSchema).optional(),
+	}).optional(),
 	scope: z.string(),
-	claims: z.array(OpenIdClaimSchema).optional(),
 	cryptographic_binding_methods_supported: z.array(z.string()).optional(),
 	credential_signing_alg_values_supported: z.array(z.string()).optional(),
 	proof_types_supported: proofTypesSupportedSchema.optional(),
@@ -61,7 +63,12 @@ const msoDocSchema = commonSchema.extend({
 });
 
 
-export const CredentialConfigurationSupportedSchema = sdJwtSchema.or(msoDocSchema);
+const jwtVcJsonSchema = commonSchema.extend({
+	format: z.literal(VerifiableCredentialFormat.JWT_VC_JSON),
+});
+
+
+export const CredentialConfigurationSupportedSchema = sdJwtSchema.or(msoDocSchema).or(jwtVcJsonSchema);
 
 export type CredentialConfigurationSupported = z.infer<typeof CredentialConfigurationSupportedSchema>;
 
