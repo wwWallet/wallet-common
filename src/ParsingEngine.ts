@@ -1,6 +1,5 @@
 import { CredentialParsingError } from "./error";
 import { CredentialParser, ParsingEngineI } from "./interfaces";
-import { VerifiableCredentialFormat } from "./types";
 
 export function ParsingEngine(): ParsingEngineI {
 	const parsers: CredentialParser[] = [];
@@ -10,19 +9,26 @@ export function ParsingEngine(): ParsingEngineI {
 			parsers.push(parser);
 		},
 
-		async parse({ rawCredential,credentialIssuer }) {
+		async parse({ rawCredential, credentialIssuer }) {
+			for (const parser of parsers) {
+				try {
+					const result = await parser.parse({ rawCredential, credentialIssuer });
 
-			for (const p of parsers) {
-				const result = await p.parse({ rawCredential,credentialIssuer });
-				if (result.success) {
+					// Parser not supported this format, try next parser
+					if (!result.success && result.error === CredentialParsingError.UnsupportedFormat) {
+						continue;
+					}
+
+					// Otherwise return immediately
 					return result;
+
+				} catch {
+					return { success: false, error: CredentialParsingError.UnknownError };
 				}
 			}
-			return {
-				success: false,
-				error: CredentialParsingError.CouldNotParse
-			}
 
+			// No parser handled it
+			return { success: false, error: CredentialParsingError.UnsupportedFormat };
 		}
-	}
+	};
 }

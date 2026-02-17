@@ -1,4 +1,5 @@
 export enum CredentialParsingError {
+	UnsupportedFormat = "UnsupportedFormat",
 	CouldNotParse = "CouldNotParse",
 	InvalidSdJwtVcPayload = "InvalidSdJwtVcPayload",
 	InvalidDatatype = "InvalidDatatype",

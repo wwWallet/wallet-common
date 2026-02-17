@@ -13,9 +13,25 @@ import { TypeMetadata as TypeMetadataSchema } from "../schemas/SdJwtVcTypeMetada
 import { convertOpenid4vciToSdjwtvcClaims } from "../functions/convertOpenid4vciToSdjwtvcClaims";
 import { dataUriResolver } from "../resolvers/dataUriResolver";
 import { friendlyNameResolver } from "../resolvers/friendlyNameResolver";
+import { fromBase64Url } from "../utils";
 
 export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }): CredentialParser {
 	const encoder = new TextEncoder();
+
+	function canParseSdJwtVc(raw: unknown): raw is string {
+		const decoder = new TextDecoder();
+
+		if (typeof raw !== "string") return false;
+
+		if (raw.includes(".")) {
+			const { typ } = JSON.parse(decoder.decode(fromBase64Url(raw.split('.')[0])));
+
+			if (typ === VerifiableCredentialFormat.VC_SDJWT) return true;
+			if (typ === VerifiableCredentialFormat.DC_SDJWT) return true;
+
+		}
+		return false;
+	}
 
 	function extractValidityInfo(jwtPayload: { exp?: number, iat?: number, nbf?: number }): { validUntil?: Date, validFrom?: Date, signed?: Date } {
 		let obj = {};
@@ -58,10 +74,11 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 
 	return {
 		async parse({ rawCredential, credentialIssuer }) {
-			if (typeof rawCredential !== 'string') {
+
+			if (!canParseSdJwtVc(rawCredential)) {
 				return {
 					success: false,
-					error: CredentialParsingError.InvalidDatatype
+					error: CredentialParsingError.UnsupportedFormat,
 				};
 			}
 

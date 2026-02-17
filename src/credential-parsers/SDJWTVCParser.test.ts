@@ -88,7 +88,7 @@ describe("The SDJWTVCParser", () => {
 
 		const result = await parser.parse({ rawCredential: { some: "object" } as any }); // deliberately incorrect
 		assert(result.success === false);
-		assert(result.error === CredentialParsingError.InvalidDatatype);
+		assert(result.error === CredentialParsingError.UnsupportedFormat);
 	});
 
 	it("should fail if try to parse", async () => {
