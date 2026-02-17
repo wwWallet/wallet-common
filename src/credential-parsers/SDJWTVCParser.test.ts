@@ -88,7 +88,7 @@ describe("The SDJWTVCParser", () => {
 
 		const result = await parser.parse({ rawCredential: { some: "object" } as any }); // deliberately incorrect
 		assert(result.success === false);
-		assert(result.error === CredentialParsingError.InvalidDatatype);
+		assert(result.error === CredentialParsingError.UnsupportedFormat);
 	});
 
 	it("should fail if try to parse", async () => {
@@ -98,7 +98,7 @@ describe("The SDJWTVCParser", () => {
 		const result = await parser.parse({ rawCredential: "!!!not-a-jwt!!!" });
 
 		assert(result.success === false);
-		assert(result.error === CredentialParsingError.CouldNotParse);
+		assert(result.error === CredentialParsingError.UnsupportedFormat);
 	});
 
 	it("should fail if JWT typ is not supported", async () => {
@@ -107,7 +107,7 @@ describe("The SDJWTVCParser", () => {
 
 		const result = await parser.parse({ rawCredential: "eyJ0eXAiOiJzZCtqd3QiLCJhbGciOiJFUzI1NiJ9.eyJpZCI6IjEyMzQiLCJfc2QiOlsiM3Zrdmtvc0hnYkxLTFRmS2RkcjVRRkxEUkZQMXktcy03T2hVU1hRa0RPayIsIllxOVJCVWJVZEV2U0JRSG94VUt4ZUo3aUh6Uzh6dGdyQ3RoRUZabEF4ZDQiLCJ5VmFGT05pQ3VGX002S0hMaEhlZV9udmtpU09HWENoUkpPaHFZN0Y4RUY4Il0sIl9zZF9hbGciOiJTSEEtMjU2In0.onjWOmZ5biJFnpnWgbxge1qYlvQs-QT_piVI3mV5tw8kvbq3dCIxZP3dxhY3Rk95MxR_37AWYV3ObyM7Te8G0w~WyIyMDIyNzlhN2RjMzIwMzk2IiwiZmlyc3RuYW1lIiwiSm9obiJd~WyI5MjUxYmQzNDQwZTAxMGM3IiwibGFzdG5hbWUiLCJEb2UiXQ~WyIwN2ZhYzIyZWZkN2QzM2Q0Iiwic3NuIiwiMTIzLTQ1LTY3ODkiXQ~" });
 		assert(result.success === false);
-		assert(result.error === CredentialParsingError.NotSupportedCredentialType);
+		assert(result.error === CredentialParsingError.UnsupportedFormat);
 	});
 
 	it("should fail with iss", async () => {

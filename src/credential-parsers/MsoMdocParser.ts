@@ -17,6 +17,21 @@ type IssuerMetadata = z.infer<typeof OpenidCredentialIssuerMetadataSchema>;
 
 export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }): CredentialParser {
 
+	function canParseMsoMdoc(raw: unknown): raw is string {
+
+		if (typeof raw !== "string") return false;
+
+		const bytes = fromBase64Url(raw);
+		if (
+			(bytes[0] === 0xA2 && bytes[1] === 0x6A) ||
+			(bytes[0] === 0xB9 && bytes[1] === 0x00)
+		) {
+			return true;
+		}
+
+		return false;
+	}
+
 	function extractValidityInfo(issuerSigned: IssuerSigned): { validUntil?: Date, validFrom?: Date, signed?: Date } {
 		return issuerSigned.issuerAuth.decodedPayload.validityInfo;
 	}
@@ -165,13 +180,14 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 	}
 
 	return {
+
 		async parse({ rawCredential, credentialIssuer }) {
 
-			if (typeof rawCredential != 'string') {
+			if (!canParseMsoMdoc(rawCredential)) {
 				return {
 					success: false,
-					error: CredentialParsingError.InvalidDatatype,
-				}
+					error: CredentialParsingError.UnsupportedFormat,
+				};
 			}
 
 			const deviceResponseParsingResult = await deviceResponseParser(rawCredential, credentialIssuer ?? null);
