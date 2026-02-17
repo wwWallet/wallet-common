@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const OpenidAuthorizationServerMetadataSchema = z.object({
 	issuer: z.string(),
-	authorization_endpoint: z.string(),
+	authorization_endpoint: z.string().optional(),
 	token_endpoint: z.string(),
 	pushed_authorization_request_endpoint: z.string().optional(),
 	authorization_challenge_endpoint: z.string().optional(),
@@ -15,6 +15,7 @@ export const OpenidAuthorizationServerMetadataSchema = z.object({
 	scopes_supported: z.array(z.string()).optional(),
 	grant_types_supported: z.array(z.string()).optional(),
 	jwks_uri: z.string().optional(),
+	"pre-authorized_grant_anonymous_access_supported": z.boolean().optional()
 });
 
 export type OpenidAuthorizationServerMetadata = z.infer<typeof OpenidAuthorizationServerMetadataSchema>;
