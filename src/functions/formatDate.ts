@@ -1,6 +1,6 @@
 export function formatDate(value: any, format = 'datetime') {
-	// Regex for ISO 8601 format like '2024-10-08T07:28:49.117Z'
-	const iso8601Regex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/;
+	// Regex for ISO 8601 format like '2024-10-08T07:28:49.11Z' or '2024-10-08T07:28:49.117Z'
+	const iso8601Regex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{2,3}Z$/;
 	// Regex for simple YYYY-MM-DD format
 	const simpleDateRegex = /^\d{4}-\d{2}-\d{2}$/;
 	// Regex for long-form date strings like 'Wed Dec 11 2024 14:46:19 GMT+0200'
