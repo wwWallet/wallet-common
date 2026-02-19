@@ -3,6 +3,19 @@ import { formatDate } from "./formatDate";
 
 describe("The Date/Time parser", () => {
 
+	it("can match ISO 8601 format without decimals", () => {
+
+		const rawDate = '2026-02-01T07:28:49Z';
+
+		const formattedDate = formatDate(rawDate);
+
+		console.log(rawDate);
+		console.log(formattedDate);
+
+		assert(formattedDate != rawDate);
+
+	});
+
 	it("can match ISO 8601 format with two ms decimals", () => {
 
 		const rawDate = '2026-02-01T07:28:49.11Z';
