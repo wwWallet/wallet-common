@@ -95,6 +95,39 @@ describe("The Date/Time parser", () => {
 		assert(formattedDate != rawDate);
 	});
 
+	it("can match ISO 8601 format with six ms decimals", async () => {
+		const rawDate = '2026-10-08T07:28:49.117456Z';
+
+		const formattedDate = formatDate(rawDate);
+
+		console.log(rawDate);
+		console.log(formattedDate);
+
+		assert(formattedDate != rawDate);
+	});
+
+	it("can match ISO 8601 format with nine ms decimals", async () => {
+		const rawDate = '2026-10-08T07:28:49.117456789Z';
+
+		const formattedDate = formatDate(rawDate);
+
+		console.log(rawDate);
+		console.log(formattedDate);
+
+		assert(formattedDate != rawDate);
+	});
+
+	it("cannot match invalid, ISO 8601-like format with ten ms decimals", async () => {
+		const rawDate = '2026-10-08T07:28:49.1174567890Z';
+
+		const formattedDate = formatDate(rawDate);
+
+		console.log(rawDate);
+		console.log(formattedDate);
+
+		assert(formattedDate == rawDate);
+	});
+
 	it("can match a Date object", async () => {
 		const rawDate = new Date();
 
