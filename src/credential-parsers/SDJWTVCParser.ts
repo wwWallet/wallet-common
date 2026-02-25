@@ -13,7 +13,7 @@ import { TypeMetadata as TypeMetadataSchema } from "../schemas/SdJwtVcTypeMetada
 import { convertOpenid4vciToSdjwtvcClaims } from "../functions/convertOpenid4vciToSdjwtvcClaims";
 import { dataUriResolver } from "../resolvers/dataUriResolver";
 import { friendlyNameResolver } from "../resolvers/friendlyNameResolver";
-import { fromBase64Url } from "../utils";
+import { fromBase64, fromBase64Url } from "../utils";
 
 export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }): CredentialParser {
 	const encoder = new TextEncoder();
@@ -150,6 +150,13 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 
 				if (credentialMetadata?.claims) {
 					TypeMetadata = { claims: credentialMetadata.claims };
+				}
+			} else if ('vctm' in parsedHeaders && Array.isArray(parsedHeaders?.vctm)) {
+				const sdjwtvcMetadataDocument = parsedHeaders.vctm.map((encodedMetadataDocument: string) =>
+					JSON.parse(new TextDecoder().decode(fromBase64(encodedMetadataDocument)))
+				).filter(((metadataDocument) => metadataDocument.vct === validatedParsedClaims.vct))[0];
+				if (sdjwtvcMetadataDocument) {
+					credentialMetadata = sdjwtvcMetadataDocument;
 				}
 			}
 
