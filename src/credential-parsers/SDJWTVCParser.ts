@@ -145,12 +145,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 				: undefined;
 
 			if (getSdJwtMetadataResult.credentialMetadata) {
-
 				credentialMetadata = getSdJwtMetadataResult.credentialMetadata
-
-				if (credentialMetadata?.claims) {
-					TypeMetadata = { claims: credentialMetadata.claims };
-				}
 			} else if ('vctm' in parsedHeaders && Array.isArray(parsedHeaders?.vctm)) {
 				const sdjwtvcMetadataDocument = parsedHeaders.vctm.map((encodedMetadataDocument: string) =>
 					JSON.parse(new TextDecoder().decode(fromBase64(encodedMetadataDocument)))
@@ -158,6 +153,10 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 				if (sdjwtvcMetadataDocument) {
 					credentialMetadata = sdjwtvcMetadataDocument;
 				}
+			}
+
+			if (credentialMetadata?.claims) {
+				TypeMetadata = { claims: credentialMetadata.claims };
 			}
 
 			const friendlyName = friendlyNameResolver({
