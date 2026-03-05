@@ -3,8 +3,7 @@ import crypto from 'node:crypto';
 import { z } from "zod";
 import { fromBase64Url, toBase64Url } from "../../utils/util";
 import { TransactionDataResponseGenerator, TransactionDataResponseGeneratorParams } from './types';
-
-const sha256 = z.literal("sha-256");
+import { HashAlgorithm } from '../../types';
 
 export const TransactionDataRequestObject = z.discriminatedUnion("type", [
 	z.object({
@@ -16,7 +15,7 @@ export const TransactionDataRequestObject = z.discriminatedUnion("type", [
 		type: z.literal("qes_authorization"),
 		credential_ids: z.array(z.string()),
 		signatureQualifier: z.string(),
-		transaction_data_hashes_alg: sha256,
+		transaction_data_hashes_alg: z.array(z.literal(HashAlgorithm.sha_256)),
 		documentDigests: z.array(z.object({
 			hash: z.string().optional(),
 			label: z.string(),
@@ -30,7 +29,7 @@ export const TransactionDataRequestObject = z.discriminatedUnion("type", [
 		QC_terms_conditions_uri: z.string().optional(),
 		QC_hash: z.string().optional(),
 		QC_hashAlgorithmOID: z.string().optional(),
-		transaction_data_hashes_alg: sha256,
+		transaction_data_hashes_alg: z.array(z.literal(HashAlgorithm.sha_256)),
 	}).strict(),
 
 	z.object({
@@ -38,7 +37,7 @@ export const TransactionDataRequestObject = z.discriminatedUnion("type", [
 		credential_ids: z.array(z.string()),
 		numSignatures: z.number().optional(),
 		signatureQualifier: z.string(),
-		transaction_data_hashes_alg: sha256,
+		transaction_data_hashes_alg: z.array(z.literal(HashAlgorithm.sha_256)),
 		documentDigests: z.array(z.object({
 			hash: z.string().optional(),
 			label: z.string(),
@@ -53,7 +52,7 @@ export const TransactionDataRequestObject = z.discriminatedUnion("type", [
 		QC_terms_conditions_uri: z.string().optional(),
 		QC_hash: z.string().optional(),
 		QC_hashAlgorithmOID: z.string().optional(),
-		transaction_data_hashes_alg: sha256,
+		transaction_data_hashes_alg: z.array(z.literal(HashAlgorithm.sha_256)),
 	}).strict(),
 ]);
 
@@ -78,9 +77,8 @@ export function parseTransactionData(
 		}
 
 		const parsedTransactionData = transaction_data.map((td) => {
-			const parsed = TransactionDataRequestObject.parse(
-				JSON.parse(new TextDecoder().decode(fromBase64Url(td)))
-			);
+			const decoded = JSON.parse(new TextDecoder().decode(fromBase64Url(td)));
+			const parsed = TransactionDataRequestObject.parse(decoded);
 			return {
 				transaction_data_b64u: td,
 				parsed,
@@ -139,7 +137,7 @@ export const QESAuthorizationTransactionData = () => {
 			type: 'https://cloudsignatureconsortium.org/2025/qes',
 			credential_ids: [descriptorId],
 			signatureQualifier: "eu_eidas_qes",
-			transaction_data_hashes_alg: "sha-256",
+			transaction_data_hashes_alg: ["sha-256"],
 			numSignatures: 1,
 			processID: "random-process-id",
 			documentDigests: [
@@ -159,6 +157,7 @@ export const QESAuthorizationTransactionData = () => {
 			const expectedObjectB64U = await generateTransactionDataRequestObject(exprectedDescriptorId);
 			const expectedObjectDecoded = fromBase64Url(expectedObjectB64U);
 			for (const hashB64U of params.transaction_data_hashes) {
+				console.log(params.transaction_data_hashes_alg);
 				if (!params.transaction_data_hashes_alg || params.transaction_data_hashes_alg.includes('sha-256')) { // sha256 case
 					const calculatedHashOfExpectedObject = toBase64Url(await webcrypto.digest('SHA-256', expectedObjectDecoded));
 					console.log("calculatedHash = ", calculatedHashOfExpectedObject);
@@ -183,7 +182,7 @@ export const QCRequestTransactionData = () => {
 			QC_terms_conditions_uri: "https://qtsp.example.com/policies/terms_and_conditions.pdf",
 			QC_hash: "ohxKcClPp/J1dI1iv5x519BpjduGZC794x4ABFeb+Ds=",
 			QC_hashAlgorithmOID: "2.16.840.1.101.3.4.2.1",
-			transaction_data_hashes_alg: "sha-256"
+			transaction_data_hashes_alg: ["sha-256"]
 		}));
 	}
 
