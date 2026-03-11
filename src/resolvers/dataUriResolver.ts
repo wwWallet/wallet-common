@@ -59,7 +59,7 @@ export function dataUriResolver({
 			if (svgTemplateUri && sdJwtVcRenderer) {
 				let credentialImageSvgTemplate: string | undefined;
 
-				if (svgTemplateUri.startsWith('data:image/svg+xml')) {
+				if (svgTemplateUri.startsWith('data:')) {
 					const res = await fetch(svgTemplateUri);
 					const blob = await res.blob()
 					const text = await blob.text();
