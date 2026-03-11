@@ -4,6 +4,26 @@ import type { HttpClient } from "../interfaces";
 import { MetadataWarning } from "../types";
 import { CredentialParsingError } from "../error";
 
+export async function getIssuerMetadataUrl(
+	issuer: string,
+): Promise<string> {
+	if (!issuer) return `${issuer}/.well-known/openid-credential-issuer`;
+
+	const url = new URL(issuer);
+
+	const issuerPath = url.pathname.split("/").filter(Boolean);
+
+	const metadataPath = [
+		".well-known",
+		"openid-credential-issuer",
+		...issuerPath,
+	];
+
+	url.pathname = `/${metadataPath.join("/")}`;
+
+	return url.toString();
+}
+
 export async function getIssuerMetadata(
 	httpClient: HttpClient,
 	issuer: string,
@@ -14,7 +34,7 @@ export async function getIssuerMetadata(
 }> {
 	if (!issuer) return { metadata: null };
 
-	const url = `${issuer}/.well-known/openid-credential-issuer`;
+	const url = await getIssuerMetadataUrl(issuer);
 
 	let issuerResponse = null;
 

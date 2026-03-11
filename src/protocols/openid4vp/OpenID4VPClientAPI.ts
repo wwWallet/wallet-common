@@ -17,6 +17,7 @@ import { DcqlPresentationResult } from 'dcql';
 import { randomUUID } from "crypto";
 import { exportJWK, generateKeyPair, importPKCS8, SignJWT, compactDecrypt, CompactDecryptResult, importJWK } from "jose";
 import { serializeDcqlQuery } from "../../utils/serializeDcqlQuery";
+import { getIssuerMetadataUrl } from "../../utils/getIssuerMetadata";
 
 export const OpenID4VPClientErrors = {
 	MissingRPStateForKid: "missing_rpstate_for_kid",
@@ -61,7 +62,7 @@ export class OpenID4VPClientAPI {
 
 		if (this.options.credentialEngineOptions.trustedCredentialIssuerIdentifiers) {
 			const result = (await Promise.all(this.options.credentialEngineOptions.trustedCredentialIssuerIdentifiers.map(async (credentialIssuerIdentifier) =>
-				this.httpClient.get(`${credentialIssuerIdentifier}/openid/.well-known/openid-credential-issuer`)
+				this.httpClient.get(await getIssuerMetadataUrl(credentialIssuerIdentifier))
 					.then((res) => res.data as CredentialIssuerMetadata)
 					.catch((e) => { console.error(e); return null; })
 			))).filter((r): r is CredentialIssuerMetadata => r !== null);
