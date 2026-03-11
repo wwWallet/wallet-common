@@ -62,12 +62,16 @@ export function dataUriResolver({
 				if (svgTemplateUri.startsWith('data:')) {
 					const res = await fetch(svgTemplateUri);
 					const blob = await res.blob()
-					const text = await blob.text();
 
-					if (text && text !== '') {
-						credentialImageSvgTemplate = text;
+					if (blob.type === 'image/svg+xml') {
+						const text = await blob.text();
+
+						if (text && text !== '') {
+							credentialImageSvgTemplate = text;
+						}
+					} else {
+						console.error(`Unsupported SVG template data URI type: ${blob.type}`);
 					}
-
 				} else if (svgTemplateUri.startsWith('http')) {
 					const svgResponse = await httpClient
 						.get(svgTemplateUri, {}, { useCache: true })
