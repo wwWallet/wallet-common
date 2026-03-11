@@ -75,6 +75,14 @@ export type ParsedCredential = {
 			image: {
 				dataUri: ImageDataUriCallback,
 			},
+		} | {
+			format: VerifiableCredentialFormat.JWT_VC_JSON,
+			type: string[],
+			name: FriendlyNameCallback,
+			TypeMetadata: TypeMetadataResult,
+			image: {
+				dataUri: ImageDataUriCallback,
+			},
 		},
 		issuer: CredentialIssuer,
 	},

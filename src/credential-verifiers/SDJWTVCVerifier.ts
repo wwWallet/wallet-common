@@ -30,7 +30,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 	const parse = async (rawCredential: string) => {
 		try {
 			const credential = await SDJwt.fromEncode(rawCredential, hasherAndAlgorithm.hasher);
-			const parsedSdJwtWithPrettyClaims = await (await SDJwt.fromEncode(rawCredential, hasherAndAlgorithm.hasher)).getClaims(hasherAndAlgorithm.hasher);
+			const parsedSdJwtWithPrettyClaims = await (await SDJwt.fromEncode(rawCredential, hasherAndAlgorithm.hasher)).getClaims<Record<string, unknown>>(hasherAndAlgorithm.hasher);
 			return { credential, parsedSdJwtWithPrettyClaims };
 		}
 		catch (err) {
@@ -50,7 +50,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 				error: CredentialVerificationError.InvalidFormat,
 			}
 		}
-		const cnf = (parseResult.parsedSdJwtWithPrettyClaims as any).cnf as Record<string, unknown>;
+		const cnf = parseResult.parsedSdJwtWithPrettyClaims.cnf as Record<string, unknown>;
 
 		if (cnf.jwk && parseResult.credential.jwt && parseResult.credential.jwt.header && typeof parseResult.credential.jwt.header["alg"] === 'string') {
 			try {
