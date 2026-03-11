@@ -2,8 +2,10 @@ import { err, GenericStore, ok, Result } from "../../core";
 import { generateRandomIdentifier } from "../../utils/util";
 import { MsoMdocParser } from "../../credential-parsers/MsoMdocParser";
 import { SDJWTVCParser } from "../../credential-parsers/SDJWTVCParser";
+import { JWTVCJSONParser } from "../../credential-parsers/JWTVCJSONParser";
 import { MsoMdocVerifier } from "../../credential-verifiers/MsoMdocVerifier";
 import { SDJWTVCVerifier } from "../../credential-verifiers/SDJWTVCVerifier";
+import { JWTVCJSONVerifier } from "../../credential-verifiers/JWTVCJSONVerifier";
 import { CustomCredentialSvg } from "../../functions/CustomCredentialSvg";
 import { HttpClient } from "../../interfaces";
 import { ParsingEngine } from "../../ParsingEngine";
@@ -90,6 +92,8 @@ export class OpenID4VPClientAPI {
 		console.log("Registered SDJWTVCParser...");
 		credentialParsingEngine.register(MsoMdocParser({ context: ctx, httpClient: this.httpClient }));
 		console.log("Registered MsoMdocParser...");
+		credentialParsingEngine.register(JWTVCJSONParser({ context: ctx, httpClient: this.httpClient }));
+		console.log("Registered JWTVCJSONParser...");
 
 		const pkResolverEngine = PublicKeyResolverEngine();
 		const openid4vcRendering = CustomCredentialSvg({ httpClient: this.httpClient });
@@ -98,6 +102,7 @@ export class OpenID4VPClientAPI {
 			credentialParsingEngine,
 			msoMdocVerifier: MsoMdocVerifier({ context: ctx, pkResolverEngine: pkResolverEngine }),
 			sdJwtVerifier: SDJWTVCVerifier({ context: ctx, pkResolverEngine: pkResolverEngine, httpClient: this.httpClient }),
+			jwtVcJsonVerifier: JWTVCJSONVerifier({ context: ctx, pkResolverEngine: pkResolverEngine, httpClient: this.httpClient }),
 			openid4vcRendering,
 			credentialRendering,
 		};

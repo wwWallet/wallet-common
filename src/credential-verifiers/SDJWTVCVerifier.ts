@@ -7,6 +7,12 @@ import { exportJWK, importJWK, importX509, JWK, jwtVerify, KeyLike } from "jose"
 import { fromBase64Url, toBase64Url } from "../utils/util";
 import { verifyCertificate } from "../utils/verifyCertificate";
 
+type ParsedSdJwtVcWithPrettyClaims = Record<string, unknown> & {
+	cnf?: {
+		jwk?: JWK;
+	};
+};
+
 export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: PublicKeyResolverEngineI, httpClient: HttpClient }): CredentialVerifier {
 	let errors: { error: CredentialVerificationError, message: string }[] = [];
 	const logError = (error: CredentialVerificationError, message: string): void => {
@@ -30,7 +36,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 	const parse = async (rawCredential: string) => {
 		try {
 			const credential = await SDJwt.fromEncode(rawCredential, hasherAndAlgorithm.hasher);
-			const parsedSdJwtWithPrettyClaims = await (await SDJwt.fromEncode(rawCredential, hasherAndAlgorithm.hasher)).getClaims<Record<string, unknown>>(hasherAndAlgorithm.hasher);
+			const parsedSdJwtWithPrettyClaims = await (await SDJwt.fromEncode(rawCredential, hasherAndAlgorithm.hasher)).getClaims<ParsedSdJwtVcWithPrettyClaims>(hasherAndAlgorithm.hasher);
 			return { credential, parsedSdJwtWithPrettyClaims };
 		}
 		catch (err) {
@@ -50,11 +56,11 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 				error: CredentialVerificationError.InvalidFormat,
 			}
 		}
-		const cnf = parseResult.parsedSdJwtWithPrettyClaims.cnf as Record<string, unknown>;
+		const cnf = parseResult.parsedSdJwtWithPrettyClaims.cnf;
 
-		if (cnf.jwk && parseResult.credential.jwt && parseResult.credential.jwt.header && typeof parseResult.credential.jwt.header["alg"] === 'string') {
+		if (cnf?.jwk && parseResult.credential.jwt && parseResult.credential.jwt.header && typeof parseResult.credential.jwt.header["alg"] === 'string') {
 			try {
-				const holderPublicKey = await importJWK(cnf.jwk as JWK, parseResult.credential.jwt.header["alg"]);
+				const holderPublicKey = await importJWK(cnf.jwk, parseResult.credential.jwt.header["alg"]);
 				return {
 					success: true,
 					value: holderPublicKey,
