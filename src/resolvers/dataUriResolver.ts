@@ -70,7 +70,7 @@ export function dataUriResolver({
 							credentialImageSvgTemplate = text;
 						}
 					} else {
-						console.error(`Unsupported SVG template data URI type: ${blob.type}`);
+						console.warn(`Unsupported SVG template data URI type: ${blob.type}`);
 					}
 				} else if (svgTemplateUri.startsWith('http')) {
 					const svgResponse = await httpClient
