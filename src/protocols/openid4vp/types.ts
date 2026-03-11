@@ -81,12 +81,19 @@ export enum OpenID4VPResponseMode {
 	DC_API_JWT = "dc_api.jwt",
 }
 
+export type VPFormatAlgorithms = {
+	alg_values_supported?: string[];
+	"sd-jwt_alg_values"?: string[];
+	"kb-jwt_alg_values"?: string[];
+	alg?: string[];
+};
+
 export type OpenID4VPClientMetadata = {
 	jwks?: { keys: any[] };
 	jwks_uri?: string;
 	authorization_encrypted_response_alg?: string;
 	authorization_encrypted_response_enc?: string;
-	vp_formats: any;
+	vp_formats: Record<string, VPFormatAlgorithms>;
 };
 
 export type OpenID4VPRelyingPartyState = {
