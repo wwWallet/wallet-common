@@ -6,8 +6,8 @@ import { CredentialParsingError } from "../error";
 
 export async function getIssuerMetadataUrl(
 	issuer: string,
-): Promise<string> {
-	if (!issuer) return `${issuer}/.well-known/openid-credential-issuer`;
+): Promise<string | null> {
+	if (!issuer) return null;
 
 	const url = new URL(issuer);
 
@@ -32,9 +32,9 @@ export async function getIssuerMetadata(
 ): Promise<{
 	metadata: z.infer<typeof OpenidCredentialIssuerMetadataSchema> | null;
 }> {
-	if (!issuer) return { metadata: null };
-
 	const url = await getIssuerMetadataUrl(issuer);
+
+	if (!url) return { metadata: null };
 
 	let issuerResponse = null;
 

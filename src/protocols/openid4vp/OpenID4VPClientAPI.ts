@@ -12,12 +12,13 @@ import { CredentialRenderingService } from "../../rendering";
 import { VerifiableCredentialFormat } from "../../types";
 import { fromBase64Url, toBase64Url } from "../../utils/util";
 import { TransactionData } from "./transactionData";
-import { CredentialEngineOptions, CredentialIssuerMetadata, IacasResponse, OpenID4VPOptions, PresentationClaims, PresentationInfo, OpenID4VPResponseMode, RPState } from "./types";
+import { IacasResponse, OpenID4VPOptions, PresentationClaims, PresentationInfo, OpenID4VPResponseMode, RPState } from "./types";
 import { DcqlPresentationResult } from 'dcql';
 import { randomUUID } from "crypto";
 import { exportJWK, generateKeyPair, importPKCS8, SignJWT, compactDecrypt, CompactDecryptResult, importJWK } from "jose";
 import { serializeDcqlQuery } from "../../utils/serializeDcqlQuery";
-import { getIssuerMetadataUrl } from "../../utils/getIssuerMetadata";
+import { getIssuerMetadata } from "../../utils/getIssuerMetadata";
+import { OpenidCredentialIssuerMetadata } from "../..";
 
 export const OpenID4VPClientErrors = {
 	MissingRPStateForKid: "missing_rpstate_for_kid",
@@ -61,11 +62,19 @@ export class OpenID4VPClientAPI {
 		};
 
 		if (this.options.credentialEngineOptions.trustedCredentialIssuerIdentifiers) {
-			const result = (await Promise.all(this.options.credentialEngineOptions.trustedCredentialIssuerIdentifiers.map(async (credentialIssuerIdentifier) =>
-				this.httpClient.get(await getIssuerMetadataUrl(credentialIssuerIdentifier))
-					.then((res) => res.data as CredentialIssuerMetadata)
-					.catch((e) => { console.error(e); return null; })
-			))).filter((r): r is CredentialIssuerMetadata => r !== null);
+			const result = (
+				await Promise.all(
+					this.options.credentialEngineOptions.trustedCredentialIssuerIdentifiers.map(
+						async (credentialIssuerIdentifier) =>
+							getIssuerMetadata(this.httpClient, credentialIssuerIdentifier, [])
+								.then((res) => res.metadata)
+								.catch((e) => {
+									console.error(e);
+									return null;
+								})
+					)
+				)
+			).filter((r): r is OpenidCredentialIssuerMetadata => r !== null);
 
 			const iacasResponses = (await Promise.all(result.map(async (metadata) => {
 				if (metadata && metadata.mdoc_iacas_uri) {
