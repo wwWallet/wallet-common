@@ -1,5 +1,4 @@
-import { z } from "zod";
-import { OpenidCredentialIssuerMetadataSchema } from "../schemas";
+import { type OpenidCredentialIssuerMetadata, OpenidCredentialIssuerMetadataSchema } from "../schemas";
 import type { HttpClient } from "../interfaces";
 import { MetadataWarning } from "../types";
 import { CredentialParsingError } from "../error";
@@ -30,7 +29,7 @@ export async function getIssuerMetadata(
 	warnings: MetadataWarning[],
 	useCache: boolean = true
 ): Promise<{
-	metadata: z.infer<typeof OpenidCredentialIssuerMetadataSchema> | null;
+	metadata: OpenidCredentialIssuerMetadata | null;
 }> {
 	const url = await getIssuerMetadataUrl(issuer);
 
