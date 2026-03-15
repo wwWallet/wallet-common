@@ -58,8 +58,7 @@ describe("The MsoMdocParser", () => {
 
 	})
 
-	// Skip test until "Accept": "application/json" header is added in issuer metadata parsing
-	it.skip("should successfully parse a Base64-URL-encoded DeviceResponse in eudiw Pid mso_mdoc format", async () => {
+	it("should successfully parse a Base64-URL-encoded DeviceResponse in eudiw Pid mso_mdoc format", async () => {
 		const parser = MsoMdocParser({ httpClient, context });
 
 		const parsedDeviceResponse = await parser.parse({
@@ -86,8 +85,7 @@ describe("The MsoMdocParser", () => {
 
 	})
 
-	// Skip test until "Accept": "application/json" header is added in issuer metadata parsing
-	it.skip("should successfully parse a Base64-URL-encoded DeviceResponse in eudiw mdl mso_mdoc format", async () => {
+	it("should successfully parse a Base64-URL-encoded DeviceResponse in eudiw mdl mso_mdoc format", async () => {
 		const parser = MsoMdocParser({ httpClient, context });
 
 		const parsedDeviceResponse = await parser.parse({
