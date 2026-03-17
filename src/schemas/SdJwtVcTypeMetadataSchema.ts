@@ -129,3 +129,4 @@ export type TypeDisplayEntry = z.infer<typeof TypeDisplayEntry>;
 export type ClaimDisplayEntry = z.infer<typeof ClaimDisplayEntry>;
 export type ClaimPath = z.infer<typeof ClaimPath>;
 export type SvgTemplateEntry = z.infer<typeof SvgTemplateEntry>;
+export type SvgTemplateProperties = z.infer<typeof SvgTemplateProperties>;
