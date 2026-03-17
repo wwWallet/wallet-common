@@ -3,9 +3,9 @@ import type { HttpClient } from "../interfaces";
 import { MetadataWarning } from "../types";
 import { CredentialParsingError } from "../error";
 
-export async function getIssuerMetadataUrl(
+function getIssuerMetadataUrl(
 	issuer: string,
-): Promise<string | null> {
+): string | null {
 	if (!issuer) return null;
 
 	const url = new URL(issuer);
@@ -31,7 +31,7 @@ export async function getIssuerMetadata(
 ): Promise<{
 	metadata: OpenidCredentialIssuerMetadata | null;
 }> {
-	const url = await getIssuerMetadataUrl(issuer);
+	const url = getIssuerMetadataUrl(issuer);
 
 	if (!url) return { metadata: null };
 
