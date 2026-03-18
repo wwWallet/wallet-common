@@ -6,7 +6,7 @@
  * @param hash whether to preserve the hash fragment from the input URL in the output URL (default: false)
  * @returns a new URL string with the well-known name inserted, or null if the input URL is invalid or parameters are missing.
  * @example resolveWellKnownUrl("https://example.com/test", "oauth-authorization-server") => "https://example.com/.well-known/oauth-authorization-server/test"
- * @example resolveWellKnownUrl("https://example.com/", "openid-credential-issuer") => "https://example.com/.well-known/openid-credential-issuer/"
+ * @example resolveWellKnownUrl("https://example.com/", "openid-credential-issuer") => "https://example.com/.well-known/openid-credential-issuer"
  */
 export function resolveWellKnownUrl(
 	identifierUrl: string,
