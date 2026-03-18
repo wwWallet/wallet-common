@@ -19,7 +19,7 @@ export async function getIssuerMetadata(
 	let issuerResponse = null;
 
 	try {
-		issuerResponse = await httpClient.get(url, {}, { useCache });
+		issuerResponse = await httpClient.get(url, {"Accept": "application/json"}, { useCache });
 	} catch (err) {
 		warnings.push({
 			code: CredentialParsingError.FailFetchIssuerMetadata,
