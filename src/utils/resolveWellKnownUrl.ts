@@ -1,5 +1,5 @@
 /**
- * Insert a well-known string between the host component and the path component of a given URL, as per RFC 5785.
+ * Insert a well-known string between the host component and the path component of a given URL.
  * @param identifierUrl a URL identifier that may contain an existing path component
  * @param wellKnownName a well-known name to insert into the URL path after the .well-known path segment.
  * @param search whether to preserve the search parameters from the input URL in the output URL (default: false)
