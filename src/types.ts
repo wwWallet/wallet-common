@@ -1,5 +1,5 @@
 import { CredentialParsingError } from "./error";
-import { ClaimMetadataEntry } from "./schemas/SdJwtVcTypeMetadataSchema";
+import type { ClaimMetadataEntry, SvgTemplateProperties } from "./schemas/SdJwtVcTypeMetadataSchema";
 
 export enum VerifiableCredentialFormat {
 	VC_SDJWT = "vc+sd-jwt",
@@ -45,7 +45,8 @@ export type FriendlyNameCallback = (
 
 export type ImageDataUriCallback = (
 	filter?: Array<CredentialClaimPath>,
-	preferredLangs?: string[]
+	preferredLangs?: string[],
+	svgPreference?: SvgTemplateProperties
 ) => Promise<string | null>;
 
 

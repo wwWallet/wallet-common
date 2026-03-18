@@ -1,7 +1,8 @@
 import type { HttpClient, CredentialRendering, CustomCredentialSvgI } from "../interfaces";
 import type { CredentialClaimPath, ImageDataUriCallback } from "../types";
+import { pickBestSvgTemplate } from "../functions/pickBestSvgTemplate";
 import { matchDisplayByLocale } from "../utils/matchLocalizedDisplay";
-import type { TypeDisplayEntry,ClaimMetadataEntry } from "../schemas/SdJwtVcTypeMetadataSchema";
+import type { TypeDisplayEntry, ClaimMetadataEntry, SvgTemplateProperties } from "../schemas/SdJwtVcTypeMetadataSchema";
 import type { CredentialConfigurationSupported } from "../schemas/CredentialConfigurationSupportedSchema";
 
 type IssuerDisplayEntry =
@@ -36,7 +37,12 @@ export function dataUriResolver({
 }: DataUriResolverOptions): ImageDataUriCallback {
 	return async (
 		filter?: Array<CredentialClaimPath>,
-		preferredLangs: string[] = ["en-US"]
+		preferredLangs: string[] = ["en-US"],
+		preferredProperties: SvgTemplateProperties = {
+			orientation: "landscape",
+			color_scheme: "light",
+			contrast: "normal",
+		}
 	) => {
 		try {
 			// Localize display configs
@@ -49,9 +55,10 @@ export function dataUriResolver({
 				preferredLangs
 			);
 
-			const svgTemplateUri =
-				credentialDisplayLocalized?.rendering?.svg_templates?.[0]
-					?.uri || null;
+			const svgTemplates = credentialDisplayLocalized?.rendering?.svg_templates;
+			const selectedSvgTemplate = pickBestSvgTemplate(svgTemplates, preferredProperties);
+			const svgTemplateUri = selectedSvgTemplate?.uri ?? null;
+
 			const simpleDisplayConfig =
 				credentialDisplayLocalized?.rendering?.simple || null;
 
