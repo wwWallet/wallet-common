@@ -66,10 +66,6 @@ export type OpenID4VPOptions = {
 	redirectUri: string
 };
 
-export type CredentialIssuerMetadata = {
-	mdoc_iacas_uri?: string;
-};
-
 export type IacasResponse = {
 	iacas?: Array<{ certificate?: string }>;
 };
