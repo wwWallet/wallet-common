@@ -2,7 +2,7 @@ import { SDJwt } from "@sd-jwt/core";
 import type { HasherAndAlg } from "@sd-jwt/types";
 import { Context, CredentialVerifier, PublicKeyResolverEngineI, HttpClient } from "../interfaces";
 import { CredentialVerificationError } from "../error";
-import { CustomResult } from "../types";
+import { CustomResult, HashAlgorithm } from "../types";
 import { exportJWK, importJWK, importX509, JWK, jwtVerify, KeyLike } from "jose";
 import { fromBase64Url, toBase64Url } from "../utils/util";
 import { verifyCertificate } from "../utils/verifyCertificate";
@@ -24,7 +24,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 
 			return args.context.subtle.digest(alg, encoded).then((v) => new Uint8Array(v));
 		},
-		alg: 'sha-256',
+		alg: HashAlgorithm.sha_256,
 	};
 
 	const parse = async (rawCredential: string) => {

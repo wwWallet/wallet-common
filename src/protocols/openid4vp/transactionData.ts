@@ -119,7 +119,7 @@ export const TransactionDataResponse = ({ descriptor_id, dcql_query }: Transacti
 				if (td.parsed.credential_ids.includes(descriptor_id)) {
 					return [{
 						transaction_data_hashes: [await convertTransactionDataB65uToHash(td.transaction_data_b64u)],
-						transaction_data_hashes_alg: ["sha-256"],
+						transaction_data_hashes_alg: [HashAlgorithm.sha_256],
 					}, null]
 				}
 			}
@@ -137,7 +137,7 @@ export const QESAuthorizationTransactionData = () => {
 			type: 'https://cloudsignatureconsortium.org/2025/qes',
 			credential_ids: [descriptorId],
 			signatureQualifier: "eu_eidas_qes",
-			transaction_data_hashes_alg: ["sha-256"],
+			transaction_data_hashes_alg: [HashAlgorithm.sha_256],
 			numSignatures: 1,
 			processID: "random-process-id",
 			documentDigests: [
@@ -158,7 +158,7 @@ export const QESAuthorizationTransactionData = () => {
 			const expectedObjectDecoded = fromBase64Url(expectedObjectB64U);
 			for (const hashB64U of params.transaction_data_hashes) {
 				console.log(params.transaction_data_hashes_alg);
-				if (!params.transaction_data_hashes_alg || params.transaction_data_hashes_alg.includes('sha-256')) { // sha256 case
+				if (!params.transaction_data_hashes_alg || params.transaction_data_hashes_alg.includes(HashAlgorithm.sha_256)) { // sha256 case
 					const calculatedHashOfExpectedObject = toBase64Url(await webcrypto.digest('SHA-256', expectedObjectDecoded));
 					console.log("calculatedHash = ", calculatedHashOfExpectedObject);
 					console.log("hashB64U = ", hashB64U);
@@ -182,7 +182,7 @@ export const QCRequestTransactionData = () => {
 			QC_terms_conditions_uri: "https://qtsp.example.com/policies/terms_and_conditions.pdf",
 			QC_hash: "ohxKcClPp/J1dI1iv5x519BpjduGZC794x4ABFeb+Ds=",
 			QC_hashAlgorithmOID: "2.16.840.1.101.3.4.2.1",
-			transaction_data_hashes_alg: ["sha-256"]
+			transaction_data_hashes_alg: [HashAlgorithm.sha_256]
 		}));
 	}
 
@@ -193,7 +193,7 @@ export const QCRequestTransactionData = () => {
 			const expectedObjectB64U = await generateTransactionDataRequestObject(exprectedDescriptorId);
 			const expectedObjectDecoded = fromBase64Url(expectedObjectB64U);
 			for (const hashB64U of params.transaction_data_hashes) {
-				if (!params.transaction_data_hashes_alg || params.transaction_data_hashes_alg.includes('sha-256')) { // sha256 case
+				if (!params.transaction_data_hashes_alg || params.transaction_data_hashes_alg.includes(HashAlgorithm.sha_256)) { // sha256 case
 					const calculatedHashOfExpectedObject = toBase64Url(await webcrypto.digest('SHA-256', expectedObjectDecoded));
 					console.log("calculatedHash = ", calculatedHashOfExpectedObject);
 					console.log("hashB64U = ", hashB64U);
