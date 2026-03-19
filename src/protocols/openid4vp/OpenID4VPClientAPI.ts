@@ -17,6 +17,7 @@ import { DcqlPresentationResult } from 'dcql';
 import { randomUUID } from "crypto";
 import { exportJWK, generateKeyPair, importPKCS8, SignJWT, compactDecrypt, CompactDecryptResult, importJWK } from "jose";
 import { serializeDcqlQuery } from "../../utils/serializeDcqlQuery";
+import { resolveWellKnownUrl } from "../../utils";
 
 export const OpenID4VPClientErrors = {
 	MissingRPStateForKid: "missing_rpstate_for_kid",
@@ -60,11 +61,15 @@ export class OpenID4VPClientAPI {
 		};
 
 		if (this.options.credentialEngineOptions.trustedCredentialIssuerIdentifiers) {
-			const result = (await Promise.all(this.options.credentialEngineOptions.trustedCredentialIssuerIdentifiers.map(async (credentialIssuerIdentifier) =>
-				this.httpClient.get(`${credentialIssuerIdentifier}/openid/.well-known/openid-credential-issuer`)
+			const result = (await Promise.all(this.options.credentialEngineOptions.trustedCredentialIssuerIdentifiers.map(async (credentialIssuerIdentifier) => {
+				const url = resolveWellKnownUrl(credentialIssuerIdentifier, 'openid-credential-issuer');
+				if (!url) {
+					return null;
+				}
+				return this.httpClient.get(url)
 					.then((res) => res.data as CredentialIssuerMetadata)
 					.catch((e) => { console.error(e); return null; })
-			))).filter((r): r is CredentialIssuerMetadata => r !== null);
+			}))).filter((r): r is CredentialIssuerMetadata => r !== null);
 
 			const iacasResponses = (await Promise.all(result.map(async (metadata) => {
 				if (metadata && metadata.mdoc_iacas_uri) {

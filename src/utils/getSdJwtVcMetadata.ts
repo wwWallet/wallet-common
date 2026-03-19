@@ -4,6 +4,7 @@ import { MetadataError, MetadataWarning } from '../types';
 import { CredentialParsingError, isCredentialParsingWarnings } from '../error';
 import { TypeMetadata as TypeMetadataSchema } from "../schemas/SdJwtVcTypeMetadataSchema";
 import { VctDocumentProvider } from '../core';
+import { resolveWellKnownUrl } from './resolveWellKnownUrl';
 
 function validateTypeMetadataShape(
 	metadata: unknown,
@@ -183,9 +184,13 @@ async function fetchAndMergeMetadata(
 
 export async function resolveIssuerMetadata(httpClient: any, issuerUrl: string): Promise<{ code: CredentialParsingError } | undefined> {
 	try {
-		const issUrl = new URL(issuerUrl);
+		const issUrl = resolveWellKnownUrl(issuerUrl, 'jwt-vc-issuer');
 
-		const result = await httpClient.get(`${issUrl.origin}/.well-known/jwt-vc-issuer`, {}, { useCache: true }) as {
+		if (!issUrl) {
+			return { code: CredentialParsingError.FailResolveIssuerMetadataUrl };
+		}
+
+		const result = await httpClient.get(issUrl, {}, { useCache: true }) as {
 			data: { issuer: string };
 		};
 
@@ -196,7 +201,7 @@ export async function resolveIssuerMetadata(httpClient: any, issuerUrl: string):
 			typeof (result as any).data === 'object' &&
 			typeof (result as any).data.issuer === 'string'
 		) {
-			if (result.data.issuer !== issUrl.origin) {
+			if (result.data.issuer !== new URL(issUrl).origin) {
 				return { code: CredentialParsingError.JwtVcIssuerMismatch };
 			}
 		}

@@ -3,6 +3,7 @@ import { OpenidCredentialIssuerMetadataSchema } from "../schemas";
 import type { HttpClient } from "../interfaces";
 import { MetadataWarning } from "../types";
 import { CredentialParsingError } from "../error";
+import { resolveWellKnownUrl } from "./resolveWellKnownUrl";
 
 export async function getIssuerMetadata(
 	httpClient: HttpClient,
@@ -14,7 +15,14 @@ export async function getIssuerMetadata(
 }> {
 	if (!issuer) return { metadata: null };
 
-	const url = `${issuer}/.well-known/openid-credential-issuer`;
+	const url = resolveWellKnownUrl(issuer, 'openid-credential-issuer');
+
+	if (!url) {
+		warnings.push({
+			code: CredentialParsingError.FailResolveIssuerMetadataUrl,
+		});
+		return { metadata: null };
+	}
 
 	let issuerResponse = null;
 

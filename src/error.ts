@@ -14,6 +14,7 @@ export enum CredentialParsingError {
 	IntegrityFail = "IntegrityFail",
 	SchemaShapeFail = "SchemaShapeFail",
 	JwtVcIssuerFail = "JwtVcIssuerFail",
+	FailResolveIssuerMetadataUrl = "FailResolveIssuerMetadataUrl",
 	FailFetchIssuerMetadata = "FailFetchIssuerMetadata",
 	FailSchemaIssuerMetadata = "FailSchemaIssuerMetadata",
 }
