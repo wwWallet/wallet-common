@@ -5,6 +5,85 @@ import { fromBase64Url, toBase64Url } from "../../utils/util";
 import { TransactionDataResponseGenerator, TransactionDataResponseGeneratorParams } from './types';
 import { DigestHashAlgorithm, HashAlgorithm } from '../../types';
 
+const baseDocumentObjectSchema = z.object({
+	label: z.string().optional(),
+	circumstantialData: z.string().optional()
+});
+
+const accessControlMethodObjectSchema = z.discriminatedUnion("type", [
+	z.object({
+		type: z.literal("public")
+	}).strict(),
+	z.object({
+		type: z.literal("OTP"),
+		oneTimePassword: z.string().min(1)
+	}).strict()
+]);
+
+const documentDataObjectSchema = baseDocumentObjectSchema.extend({
+	document: z.string(),
+	documentType: z.enum(["sod", "sfd"]).default("sod"),
+}).strict();
+
+const documentReferenceObjectSchema = baseDocumentObjectSchema.extend({
+	access: accessControlMethodObjectSchema.optional(),
+	href: z.string().url(),
+	checksum: z.object({
+		value: z.string(),
+		algorithmOID: z.string()
+	}).optional(),
+}).strict();
+
+const signatureFormatEnum = z.enum(["C", "X", "P", "J"]);
+
+const conformanceLevelEnum = z.enum([
+	"AdES-B-B",
+	"AdES-B-T",
+	"AdES-B-LT",
+	"AdES-B-LTA",
+	"AdES-B",
+	"AdES-T",
+	"AdES-LT",
+	"AdES-LTA",
+]);
+
+const signedEnvelopePropertyEnum = z.enum([
+	// CAdES / JAdES
+	"Detached",
+	"Attached",
+	"Parallel",
+	// PAdES
+	"Certification",
+	"Revision",
+	// XAdES
+	"Enveloped",
+	"Enveloping",
+]);
+
+const attributeObjectSchema = z.object({
+	attribute_name: z.string().min(1),
+	attribute_value: z.string().optional()
+});
+
+const adesParametersObjectSchema = z.object({
+	signature_format: signatureFormatEnum.optional(),
+	conformance_level: conformanceLevelEnum.optional(),
+	signed_envelope_property: signedEnvelopePropertyEnum.optional(),
+	signed_props: z.array(attributeObjectSchema).optional(),
+	referenceUri: z.string().url().optional()
+});
+
+const signatureRequestBaseSchema = z.object({
+	responseURI: z.string().url().optional(),
+	signatureQualifier: z.string().min(1).optional(),
+}).merge(adesParametersObjectSchema);
+
+
+const signatureRequestObjectSchema = z.union([
+	signatureRequestBaseSchema.merge(documentDataObjectSchema),
+	signatureRequestBaseSchema.merge(documentReferenceObjectSchema),
+]);
+
 export const TransactionDataRequestObject = z.discriminatedUnion("type", [
 	z.object({
 		type: z.literal("urn:wwwallet:example_transaction_data_type"),
@@ -35,15 +114,8 @@ export const TransactionDataRequestObject = z.discriminatedUnion("type", [
 	z.object({
 		type: z.literal("https://cloudsignatureconsortium.org/2025/qes"),
 		credential_ids: z.array(z.string()),
-		numSignatures: z.number().optional(),
-		signatureQualifier: z.string(),
-		transaction_data_hashes_alg: z.array(z.literal(HashAlgorithm.sha_256)),
-		documentDigests: z.array(z.object({
-			hash: z.string().optional(),
-			label: z.string(),
-			hashType: z.string(),
-		})),
-		processID: z.string().optional(),
+		signatureQualifier: z.string().min(1),
+		signatureRequests: z.array(signatureRequestObjectSchema)
 	}).strict(),
 
 	z.object({
@@ -137,14 +209,11 @@ export const QESAuthorizationTransactionData = () => {
 			type: 'https://cloudsignatureconsortium.org/2025/qes',
 			credential_ids: [descriptorId],
 			signatureQualifier: "eu_eidas_qes",
-			transaction_data_hashes_alg: [HashAlgorithm.sha_256],
-			numSignatures: 1,
-			processID: "random-process-id",
-			documentDigests: [
+			signatureRequests: [
 				{
-					hash: "some-hash-of-the-document",
+					document: "some-hash-of-the-document",
 					label: "Personal Loan Agreement",
-					hashType: "sodr"
+					documentType: "sod"
 				}
 			],
 		}));
