@@ -8,6 +8,14 @@ export enum VerifiableCredentialFormat {
 	JWT_VC_JSON = "jwt_vc_json"
 }
 
+export enum HashAlgorithm {
+	sha_256 = "sha-256"
+}
+
+export enum DigestHashAlgorithm {
+	SHA_256 = "SHA-256"
+}
+
 export type CredentialIssuer = {
 	id: string; // must have the value of "iss" attribute of an SD-JWT VC credential
 	name: string;

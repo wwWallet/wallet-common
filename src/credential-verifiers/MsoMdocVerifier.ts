@@ -6,6 +6,7 @@ import { DataItem, DeviceSignedDocument, IssuerSignedDocument, MDoc, parse, Veri
 import { IssuerSigned } from "@auth0/mdl/lib/mdoc/model/types";
 import { cborDecode, cborEncode } from "@auth0/mdl/lib/cbor/";
 import { COSEKeyToJWK } from "cose-kit";
+import { DigestHashAlgorithm } from "../types";
 
 
 export function MsoMdocVerifier(args: { context: Context, pkResolverEngine: PublicKeyResolverEngineI }): CredentialVerifier {
@@ -26,11 +27,11 @@ export function MsoMdocVerifier(args: { context: Context, pkResolverEngine: Publ
 				null,
 				[
 					await args.context.subtle.digest(
-						'SHA-256',
+						DigestHashAlgorithm.SHA_256,
 						cborEncode([clId, mdocNonce]),
 					),
 					await args.context.subtle.digest(
-						'SHA-256',
+						DigestHashAlgorithm.SHA_256,
 						cborEncode([respUri, mdocNonce]),
 					),
 					nonce
