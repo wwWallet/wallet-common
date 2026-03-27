@@ -117,6 +117,10 @@ export type OpenID4VPServerLastUsedNonceStore = {
 	set(nonce: string): void;
 };
 
+/**
+ * @deprecated All trust evaluation is now delegated to AuthZEN backend via evaluateTrust.
+ * This type is kept for backwards compatibility but is no longer used.
+ */
 export type OpenID4VPServerRequestVerifier = (params: {
 	request_uri: string;
 	response_uri: string;
@@ -136,3 +140,91 @@ export type TransactionDataResponseGeneratorParams = {
 	descriptor_id: string;
 	dcql_query: Record<string, unknown>;
 };
+
+/**
+ * Parsed client_id scheme information.
+ */
+export type ClientIdScheme = {
+	/**
+	 * The scheme type (e.g., 'x509_san_dns', 'did', 'https', 'pre-registered').
+	 */
+	scheme: 'x509_san_dns' | 'did' | 'https' | 'pre-registered';
+
+	/**
+	 * The full client_id value.
+	 */
+	clientId: string;
+
+	/**
+	 * For DID schemes, the full DID (e.g., 'did:web:example.com').
+	 * For x509_san_dns, the domain (e.g., 'example.com').
+	 * For https, the full URL.
+	 */
+	identifier: string;
+};
+
+/**
+ * Key material extracted from the request JWT for trust evaluation.
+ */
+export type OpenID4VPKeyMaterial = {
+	/**
+	 * Key type: 'jwk' for JWK in header, 'x5c' for certificate chain.
+	 */
+	type: 'jwk' | 'x5c';
+
+	/**
+	 * The key data. JWK object or array of base64-encoded certificates.
+	 */
+	key: unknown | unknown[];
+};
+
+/**
+ * Trust evaluation result.
+ */
+export type TrustEvaluationResult = {
+	/**
+	 * Whether the verifier is trusted.
+	 */
+	trusted: boolean;
+
+	/**
+	 * Display name of the verifier (if resolved).
+	 */
+	name?: string;
+
+	/**
+	 * Logo URL of the verifier (if available).
+	 */
+	logo?: string;
+
+	/**
+	 * Additional metadata from trust evaluation.
+	 */
+	metadata?: Record<string, unknown>;
+};
+
+/**
+ * Trust evaluator function signature.
+ * Returns trust evaluation result or throws on error.
+ */
+export type OpenID4VPTrustEvaluator = (params: {
+	/**
+	 * Parsed client_id scheme information.
+	 */
+	clientIdScheme: ClientIdScheme;
+
+	/**
+	 * Key material from the request JWT header.
+	 */
+	keyMaterial: OpenID4VPKeyMaterial;
+
+	/**
+	 * Request URI (for hostname validation).
+	 */
+	requestUri?: string;
+
+	/**
+	 * Response URI (for hostname validation).
+	 */
+	responseUri?: string;
+}) => Promise<TrustEvaluationResult>;

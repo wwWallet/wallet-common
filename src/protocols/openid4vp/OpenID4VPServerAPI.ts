@@ -8,12 +8,15 @@ import {
 	OpenID4VPClientMetadata,
 	OpenID4VPRelyingPartyState,
 	OpenID4VPServerLastUsedNonceStore,
-	OpenID4VPServerRequestVerifier,
 	OpenID4VPServerMessages,
 	OpenID4VPResponseMode,
 	TransactionDataResponseGenerator,
 	TransactionDataResponseGeneratorParams,
-	TransactionDataResponseParams
+	TransactionDataResponseParams,
+	OpenID4VPTrustEvaluator,
+	ClientIdScheme,
+	OpenID4VPKeyMaterial,
+	TrustEvaluationResult,
 } from "./types";
 import { VerifiableCredentialFormat } from "../../types";
 export const HandleAuthorizationRequestErrors = {
@@ -60,7 +63,12 @@ type OpenID4VPServerDeps<CredentialT extends OpenID4VPServerCredential, ParsedTr
 	lastUsedNonceStore?: OpenID4VPServerLastUsedNonceStore;
 	parseTransactionData?: (transaction_data: string[], dcql_query: Record<string, unknown>) => ParsedTransactionDataT[] | null;
 	transactionDataResponseGenerator?: (params: TransactionDataResponseGeneratorParams) => TransactionDataResponseGenerator;
-	verifyRequestUriAndCerts?: OpenID4VPServerRequestVerifier;
+	/**
+	 * Trust evaluator for verifier authentication.
+	 * Required - all trust evaluation is delegated to the AuthZEN backend.
+	 * Supports all client_id schemes (did:web, https, x509_san_dns, etc.).
+	 */
+	evaluateTrust: OpenID4VPTrustEvaluator;
 	subtle?: SubtleCrypto;
 	randomUUID?: () => string;
 };
@@ -92,6 +100,72 @@ function getRandomUUID(randomUUID?: () => string): string {
 	if (randomUUID) return randomUUID();
 	if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
 	return generateRandomIdentifier(16);
+}
+
+/**
+ * Parse client_id to determine the scheme.
+ * Supported schemes:
+ * - x509_san_dns:domain.com
+ * - did:web:domain.com (or did:jwk:...)
+ * - https://domain.com
+ * - pre-registered client_id (no scheme prefix)
+ */
+function parseClientIdScheme(clientId: string): ClientIdScheme {
+	if (clientId.startsWith('x509_san_dns:')) {
+		return {
+			scheme: 'x509_san_dns',
+			clientId,
+			identifier: clientId.substring('x509_san_dns:'.length),
+		};
+	}
+
+	if (clientId.startsWith('did:')) {
+		return {
+			scheme: 'did',
+			clientId,
+			identifier: clientId,
+		};
+	}
+
+	if (clientId.startsWith('https://') || clientId.startsWith('http://')) {
+		return {
+			scheme: 'https',
+			clientId,
+			identifier: clientId,
+		};
+	}
+
+	// Pre-registered or unknown scheme
+	return {
+		scheme: 'pre-registered',
+		clientId,
+		identifier: clientId,
+	};
+}
+
+/**
+ * Extract key material from parsed JWT header.
+ */
+function extractKeyMaterial(parsedHeader: Record<string, unknown>): OpenID4VPKeyMaterial {
+	if (parsedHeader.x5c && Array.isArray(parsedHeader.x5c)) {
+		return {
+			type: 'x5c',
+			key: parsedHeader.x5c,
+		};
+	}
+
+	if (parsedHeader.jwk) {
+		return {
+			type: 'jwk',
+			key: parsedHeader.jwk,
+		};
+	}
+
+	// No key material found, return empty x5c
+	return {
+		type: 'x5c',
+		key: [],
+	};
 }
 
 const retrieveKeys = async (S: OpenID4VPRelyingPartyState, httpClient: { get: (url: string, options?: Record<string, unknown>) => Promise<{ data: unknown }> }) => {
@@ -571,6 +645,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 				verifierDomainName: string;
 				verifierPurpose: string;
 				parsedTransactionData: ParsedTransactionDataT[] | null;
+				trustInfo?: TrustEvaluationResult;
 			}
 		| { error: HandleAuthorizationRequestError }
 	> {
@@ -590,12 +665,12 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 			return { error: HandleAuthorizationRequestErrors.COULD_NOT_RESOLVE_REQUEST };
 		}
 
-		const client_id_scheme = client_id.split(":")[0];
-		if (client_id_scheme !== "x509_san_dns") {
-			return { error: HandleAuthorizationRequestErrors.NON_SUPPORTED_CLIENT_ID_SCHEME };
-		}
+		// Parse the client_id scheme
+		let clientIdScheme = parseClientIdScheme(client_id);
 
 		let parsedTransactionData: ParsedTransactionDataT[] | null = null;
+		let trustInfo: TrustEvaluationResult | undefined;
+
 		if (request_uri) {
 			try {
 				const result = await this.handleRequestUri(request_uri);
@@ -604,6 +679,9 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 				}
 				const { payload, parsedHeader } = result;
 				client_id = payload.client_id as string;
+
+				// Re-parse scheme after getting client_id from JWT payload
+				clientIdScheme = parseClientIdScheme(client_id);
 
 				dcql_query = payload.dcql_query ?? dcql_query;
 				response_uri = (payload.response_uri ?? payload.redirect_uri) as string;
@@ -624,8 +702,19 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 				state = payload.state as string;
 				nonce = payload.nonce as string;
 
-				if (this.deps.verifyRequestUriAndCerts) {
-					await this.deps.verifyRequestUriAndCerts({ request_uri, response_uri, parsedHeader });
+				// Trust evaluation - all schemes delegated to AuthZEN backend
+				const keyMaterial = extractKeyMaterial(parsedHeader);
+
+				trustInfo = await this.deps.evaluateTrust({
+					clientIdScheme,
+					keyMaterial,
+					requestUri: request_uri,
+					responseUri: response_uri,
+				});
+
+				if (!trustInfo.trusted) {
+					console.error("Trust evaluation failed for verifier", client_id);
+					return { error: HandleAuthorizationRequestErrors.NONTRUSTED_VERIFIER };
 				}
 			} catch (e) {
 				console.error("Failed to handle request_uri", e);
@@ -671,9 +760,26 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 			mapping: Map<string, any>;
 			descriptorPurpose: string;
 		};
-		const verifierDomainName = client_id.includes("http")
-			? new URL(client_id).hostname
-			: client_id;
+
+		// Use trust info name if available, otherwise derive from client_id
+		let verifierDomainName: string;
+		if (trustInfo?.name) {
+			verifierDomainName = trustInfo.name;
+		} else if (client_id.includes("http")) {
+			verifierDomainName = new URL(client_id).hostname;
+		} else if (clientIdScheme.scheme === 'did') {
+			// For DID, extract domain from did:web: or use the full DID
+			const didParts = client_id.split(':');
+			if (didParts[1] === 'web' && didParts.length >= 3) {
+				verifierDomainName = didParts[2].replace(/%3A/g, ':');
+			} else {
+				verifierDomainName = client_id;
+			}
+		} else if (clientIdScheme.scheme === 'x509_san_dns') {
+			verifierDomainName = clientIdScheme.identifier;
+		} else {
+			verifierDomainName = client_id;
+		}
 
 		if (mapping.size === 0) {
 			throw new Error("Credentials don't satisfy any descriptor");
@@ -684,6 +790,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 			verifierDomainName,
 			verifierPurpose: descriptorPurpose,
 			parsedTransactionData,
+			trustInfo,
 		};
 	}
 

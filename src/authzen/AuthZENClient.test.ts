@@ -5,7 +5,15 @@ import {
 	TrustStatus,
 	AuthZENEvaluationResponse,
 } from './types';
-import { HttpClient, HttpResponse } from '../interfaces';
+import { HttpClient } from '../interfaces';
+
+/**
+ * HTTP response type for testing.
+ */
+interface HttpResponse {
+	status: number;
+	data: unknown;
+}
 
 /**
  * Mock HTTP client for testing.

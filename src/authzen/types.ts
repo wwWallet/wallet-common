@@ -104,6 +104,11 @@ export interface AuthZENEvaluationResponseContext {
 	id?: string;
 
 	/**
+	 * Whether the subject was successfully resolved (metadata fetched).
+	 */
+	resolved?: boolean;
+
+	/**
 	 * Reason for the decision. Includes policy information for debugging.
 	 */
 	reason?: Record<string, unknown>;
@@ -114,7 +119,7 @@ export interface AuthZENEvaluationResponseContext {
 	 * - An OIDF Entity Configuration (for https:// subjects)
 	 * - Certificate chain information (for x5c resources)
 	 */
-	trust_metadata?: unknown;
+	trust_metadata?: Record<string, unknown>;
 }
 
 /**
