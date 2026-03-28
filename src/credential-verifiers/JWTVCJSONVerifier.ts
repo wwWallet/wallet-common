@@ -88,14 +88,21 @@ export function JWTVCJSONVerifier(args: { context: Context, pkResolverEngine: Pu
 		const getIssuerPublicKey = async (): Promise<CustomResult<Uint8Array | KeyLike, CredentialVerificationError>> => {
 			const x5c = header.x5c as string[] | undefined;
 			if (x5c && x5c instanceof Array && x5c.length > 0 && typeof alg === "string") {
-				const lastCertificate: string = x5c[x5c.length - 1];
-				const lastCertificatePem = `-----BEGIN CERTIFICATE-----\n${lastCertificate}\n-----END CERTIFICATE-----`;
-				const certificateValidationResult = await verifyCertificate(lastCertificatePem, args.context.trustedCertificates);
-				const lastCertificateIsRootCa = args.context.trustedCertificates.map((c) => c.trim()).includes(lastCertificatePem);
-				const rootCertIsTrusted = certificateValidationResult === true || lastCertificateIsRootCa;
-				if (!rootCertIsTrusted) {
-					logError(CredentialVerificationError.NotTrustedIssuer, "Issuer is not trusted");
-					return { success: false, error: CredentialVerificationError.NotTrustedIssuer };
+				// Only validate certificate chain if not skipping trust validation
+				// Trust evaluation is now delegated to AuthZEN at the protocol level
+				const skipTrustValidation = args.context.skipTrustValidation ?? false;
+				const trustedCertificates = args.context.trustedCertificates ?? [];
+
+				if (!skipTrustValidation && trustedCertificates.length > 0) {
+					const lastCertificate: string = x5c[x5c.length - 1];
+					const lastCertificatePem = `-----BEGIN CERTIFICATE-----\n${lastCertificate}\n-----END CERTIFICATE-----`;
+					const certificateValidationResult = await verifyCertificate(lastCertificatePem, trustedCertificates);
+					const lastCertificateIsRootCa = trustedCertificates.map((c) => c.trim()).includes(lastCertificatePem);
+					const rootCertIsTrusted = certificateValidationResult === true || lastCertificateIsRootCa;
+					if (!rootCertIsTrusted) {
+						logError(CredentialVerificationError.NotTrustedIssuer, "Issuer is not trusted");
+						return { success: false, error: CredentialVerificationError.NotTrustedIssuer };
+					}
 				}
 
 				try {

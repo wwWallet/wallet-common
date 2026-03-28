@@ -75,8 +75,29 @@ export interface Context {
 	lang: string;
 	subtle: SubtleCrypto;
 	/**
-	 * each string is Base64-encoded DER representation without line breaks or headers like -----BEGIN CERTIFICATE----- and -----END CERTIFICATE-----
+	 * Trust anchor certificates for local certificate chain validation.
+	 *
+	 * Each string is a Base64-encoded DER representation without line breaks
+	 * or headers like -----BEGIN CERTIFICATE----- and -----END CERTIFICATE-----.
+	 *
+	 * @deprecated Trust evaluation is now delegated to the AuthZEN backend.
+	 * This field is only used for backwards compatibility. New code should set
+	 * `skipTrustValidation: true` and rely on protocol-level trust evaluation
+	 * via AuthZEN (see evaluateTrust in OpenID4VP and OID4VCI flows).
 	 */
-	trustedCertificates: string[];
+	trustedCertificates?: string[];
+
+	/**
+	 * Skip local certificate chain validation during credential verification.
+	 *
+	 * When true, verifiers will only check cryptographic signatures without
+	 * validating certificate chains against `trustedCertificates`. This is the
+	 * recommended mode when trust evaluation is delegated to AuthZEN at the
+	 * protocol level (before credentials are issued/presented).
+	 *
+	 * @default false (for backwards compatibility)
+	 */
+	skipTrustValidation?: boolean;
+
 	vctResolutionEngine?: VctDocumentProvider;
 }
