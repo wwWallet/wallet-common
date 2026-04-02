@@ -4,25 +4,32 @@ import { z } from "zod";
 import { fromBase64Url, toBase64Url } from "../../utils/util";
 import { TransactionDataResponseGenerator, TransactionDataResponseGeneratorParams } from './types';
 
-const sha256 = z.literal("sha-256");
+// Accept both string "sha-256" and array ["sha-256"] for interoperability
+// Some implementations send array per newer spec drafts, others send string
+const sha256Flexible = z.union([
+	z.literal("sha-256"),
+	z.array(z.literal("sha-256")).min(1),
+]);
 
+// Using default Zod behavior (no .strict()) to accept but strip unknown keys
+// This allows interoperability without propagating untrusted fields
 export const TransactionDataRequestObject = z.discriminatedUnion("type", [
 	z.object({
 		type: z.literal("urn:wwwallet:example_transaction_data_type"),
 		credential_ids: z.array(z.string()),
-	}).strict(),
+	}),
 
 	z.object({
 		type: z.literal("qes_authorization"),
 		credential_ids: z.array(z.string()),
-		signatureQualifier: z.string(),
-		transaction_data_hashes_alg: sha256,
+		signatureQualifier: z.string().optional(),
+		transaction_data_hashes_alg: sha256Flexible,
 		documentDigests: z.array(z.object({
 			hash: z.string().optional(),
 			label: z.string(),
-			hashAlgorithmOID: z.string(),
+			hashAlgorithmOID: z.string().optional(),
 		})),
-	}).strict(),
+	}),
 
 	z.object({
 		type: z.literal("qcert_creation_acceptance"),
@@ -30,22 +37,22 @@ export const TransactionDataRequestObject = z.discriminatedUnion("type", [
 		QC_terms_conditions_uri: z.string().optional(),
 		QC_hash: z.string().optional(),
 		QC_hashAlgorithmOID: z.string().optional(),
-		transaction_data_hashes_alg: sha256,
-	}).strict(),
+		transaction_data_hashes_alg: sha256Flexible,
+	}),
 
 	z.object({
 		type: z.literal("https://cloudsignatureconsortium.org/2025/qes"),
 		credential_ids: z.array(z.string()),
 		numSignatures: z.number().optional(),
-		signatureQualifier: z.string(),
-		transaction_data_hashes_alg: sha256,
+		signatureQualifier: z.string().optional(),
+		transaction_data_hashes_alg: sha256Flexible,
 		documentDigests: z.array(z.object({
 			hash: z.string().optional(),
 			label: z.string(),
-			hashType: z.string(),
+			hashType: z.string().optional(),
 		})),
 		processID: z.string().optional(),
-	}).strict(),
+	}),
 
 	z.object({
 		type: z.literal("https://cloudsignatureconsortium.org/2025/qc-request"),
@@ -53,8 +60,8 @@ export const TransactionDataRequestObject = z.discriminatedUnion("type", [
 		QC_terms_conditions_uri: z.string().optional(),
 		QC_hash: z.string().optional(),
 		QC_hashAlgorithmOID: z.string().optional(),
-		transaction_data_hashes_alg: sha256,
-	}).strict(),
+		transaction_data_hashes_alg: sha256Flexible,
+	}),
 ]);
 
 export type TransactionDataRequest = z.infer<typeof TransactionDataRequestObject>;
