@@ -11,11 +11,13 @@ const sha256Flexible = z.union([
 	z.array(z.literal("sha-256")).min(1),
 ]);
 
+// Using default Zod behavior (no .strict()) to accept but strip unknown keys
+// This allows interoperability without propagating untrusted fields
 export const TransactionDataRequestObject = z.discriminatedUnion("type", [
 	z.object({
 		type: z.literal("urn:wwwallet:example_transaction_data_type"),
 		credential_ids: z.array(z.string()),
-	}).passthrough(),
+	}),
 
 	z.object({
 		type: z.literal("qes_authorization"),
@@ -26,8 +28,8 @@ export const TransactionDataRequestObject = z.discriminatedUnion("type", [
 			hash: z.string().optional(),
 			label: z.string(),
 			hashAlgorithmOID: z.string().optional(),
-		}).passthrough()),
-	}).passthrough(),
+		})),
+	}),
 
 	z.object({
 		type: z.literal("qcert_creation_acceptance"),
@@ -36,7 +38,7 @@ export const TransactionDataRequestObject = z.discriminatedUnion("type", [
 		QC_hash: z.string().optional(),
 		QC_hashAlgorithmOID: z.string().optional(),
 		transaction_data_hashes_alg: sha256Flexible,
-	}).passthrough(),
+	}),
 
 	z.object({
 		type: z.literal("https://cloudsignatureconsortium.org/2025/qes"),
@@ -48,9 +50,9 @@ export const TransactionDataRequestObject = z.discriminatedUnion("type", [
 			hash: z.string().optional(),
 			label: z.string(),
 			hashType: z.string().optional(),
-		}).passthrough()),
+		})),
 		processID: z.string().optional(),
-	}).passthrough(),
+	}),
 
 	z.object({
 		type: z.literal("https://cloudsignatureconsortium.org/2025/qc-request"),
@@ -59,7 +61,7 @@ export const TransactionDataRequestObject = z.discriminatedUnion("type", [
 		QC_hash: z.string().optional(),
 		QC_hashAlgorithmOID: z.string().optional(),
 		transaction_data_hashes_alg: sha256Flexible,
-	}).passthrough(),
+	}),
 ]);
 
 export type TransactionDataRequest = z.infer<typeof TransactionDataRequestObject>;
