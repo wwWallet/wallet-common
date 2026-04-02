@@ -37,12 +37,18 @@ export function CustomCredentialSvg(args: { httpClient: HttpClient }): CustomCre
 		if (!url) return null;
 
 		try {
+			const response = await args.httpClient.get(url, {}, { responseType: 'arraybuffer', useCache: true });
+			const mimeType = String(response.headers["content-type"] || "application/octet-stream");
 			const isBrowser = typeof window !== "undefined";
 
 			if (isBrowser) {
-				// Frontend: Use FileReader with Fetch API
-				const response = await fetch(url);
-				const blob = await response.blob();
+				if (typeof response.data === "string" && response.data.startsWith("data:")) {
+					return response.data;
+				}
+
+				const blob = typeof response.data === "string"
+					? await fetch(response.data).then((res) => res.blob())
+					: new Blob([response.data as BlobPart], { type: mimeType });
 
 				return new Promise<string | null>((resolve, reject) => {
 					const reader = new FileReader();
@@ -51,11 +57,8 @@ export function CustomCredentialSvg(args: { httpClient: HttpClient }): CustomCre
 					reader.readAsDataURL(blob);
 				});
 			} else {
-				// Backend (Node.js): Use Axios or Fetch with Buffer
-				const response = await args.httpClient.get(url, {}, { responseType: 'arraybuffer', useCache: true })
 				const blob = response.data as any;
 				const base64 = Buffer.from(blob, "binary").toString("base64");
-				const mimeType = response.headers["content-type"]; // Get MIME type
 				return `data:${mimeType};base64,${base64}`;
 			}
 		} catch (error) {
