@@ -1,7 +1,7 @@
 import { SDJwt } from "@sd-jwt/core";
 import { cborDecode, cborEncode } from "@auth0/mdl/lib/cbor";
 import { parse } from "@auth0/mdl";
-import { base64url, EncryptJWT, importJWK, importX509, jwtVerify } from "jose";
+import { base64url, EncryptJWT, importJWK, importX509, jwtVerify, KeyLike, JWK } from "jose";
 import { DcqlPresentationResult, DcqlQuery } from "dcql";
 import { generateRandomIdentifier } from "../../utils";
 import {
@@ -17,6 +17,9 @@ import {
 	ClientIdScheme,
 	OpenID4VPKeyMaterial,
 	TrustEvaluationResult,
+	DIDResolver,
+	DIDDocument,
+	DIDVerificationMethod,
 } from "./types";
 import { VerifiableCredentialFormat } from "../../types";
 export const HandleAuthorizationRequestErrors = {
@@ -69,6 +72,12 @@ type OpenID4VPServerDeps<CredentialT extends OpenID4VPServerCredential, ParsedTr
 	 * Supports all client_id schemes (did:web, https, x509_san_dns, etc.).
 	 */
 	evaluateTrust: OpenID4VPTrustEvaluator;
+	/**
+	 * DID resolver for verifying JWTs signed with DID-referenced keys.
+	 * Required for DID client_id schemes (did:web, did:jwk, etc.).
+	 * If not provided, DID-based verification will fail.
+	 */
+	resolveDid?: DIDResolver;
 	subtle?: SubtleCrypto;
 	randomUUID?: () => string;
 };
@@ -222,6 +231,125 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		};
 	}
 
+	/**
+	 * Resolve a public key for JWT verification based on the header.
+	 *
+	 * Supports:
+	 * - x5c: Certificate chain (extracts public key from first cert)
+	 * - jwk: Embedded JWK in header
+	 * - kid with DID reference: Resolves DID document and finds matching key
+	 */
+	private async resolveVerificationKey(
+		parsedHeader: Record<string, unknown>,
+		clientId: string | undefined
+	): Promise<{ key: KeyLike } | { error: HandleAuthorizationRequestError }> {
+		const alg = parsedHeader.alg as string;
+
+		// Case 1: x5c certificate chain
+		if (parsedHeader.x5c && Array.isArray(parsedHeader.x5c) && parsedHeader.x5c.length > 0) {
+			try {
+				const publicKey = await importX509(certFromB64(parsedHeader.x5c[0]), alg);
+				return { key: publicKey };
+			} catch (e) {
+				console.error("Failed to import x5c certificate:", e);
+				return { error: HandleAuthorizationRequestErrors.NONTRUSTED_VERIFIER };
+			}
+		}
+
+		// Case 2: Embedded JWK in header
+		if (parsedHeader.jwk && typeof parsedHeader.jwk === "object") {
+			try {
+				const publicKey = await importJWK(parsedHeader.jwk as JWK, alg);
+				return { key: publicKey as KeyLike };
+			} catch (e) {
+				console.error("Failed to import embedded JWK:", e);
+				return { error: HandleAuthorizationRequestErrors.NONTRUSTED_VERIFIER };
+			}
+		}
+
+		// Case 3: kid reference (possibly to a DID document)
+		const kid = parsedHeader.kid as string | undefined;
+		if (kid) {
+			// Check if client_id is a DID or if kid starts with did:
+			const didToResolve = kid.startsWith("did:") ? kid.split("#")[0] :
+				(clientId?.startsWith("did:") ? clientId : null);
+
+			if (didToResolve) {
+				// Need DID resolution
+				if (!this.deps.resolveDid) {
+					console.error("DID resolution required but resolveDid dependency not provided");
+					return { error: HandleAuthorizationRequestErrors.NONTRUSTED_VERIFIER };
+				}
+
+				try {
+					const resolution = await this.deps.resolveDid(didToResolve);
+					if (!resolution.resolved || !resolution.didDocument) {
+						console.error("Failed to resolve DID:", didToResolve);
+						return { error: HandleAuthorizationRequestErrors.NONTRUSTED_VERIFIER };
+					}
+
+					const jwk = this.findKeyInDIDDocument(resolution.didDocument, kid);
+					if (!jwk) {
+						console.error("Key not found in DID document for kid:", kid);
+						return { error: HandleAuthorizationRequestErrors.NONTRUSTED_VERIFIER };
+					}
+
+					const publicKey = await importJWK(jwk as JWK, alg);
+					return { key: publicKey as KeyLike };
+				} catch (e) {
+					console.error("DID resolution or key import failed:", e);
+					return { error: HandleAuthorizationRequestErrors.NONTRUSTED_VERIFIER };
+				}
+			}
+		}
+
+		// No valid key material found
+		console.error("No valid key material in JWT header (need x5c, jwk, or kid with DID)");
+		return { error: HandleAuthorizationRequestErrors.NONTRUSTED_VERIFIER };
+	}
+
+	/**
+	 * Find a verification key in a DID document by kid.
+	 * Searches verificationMethod, authentication, and assertionMethod.
+	 */
+	private findKeyInDIDDocument(doc: DIDDocument, kid: string): JsonWebKey | null {
+		// Normalize kid - could be full DID#fragment or just fragment
+		const kidFragment = kid.includes("#") ? kid.split("#")[1] : kid;
+		const fullKid = kid.includes("#") ? kid : `${doc.id}#${kid}`;
+
+		// Search in verificationMethod array
+		if (doc.verificationMethod) {
+			for (const vm of doc.verificationMethod) {
+				const vmId = vm.id;
+				const vmFragment = vmId.includes("#") ? vmId.split("#")[1] : vmId;
+
+				if (vmId === fullKid || vmId === kid || vmFragment === kidFragment) {
+					if (vm.publicKeyJwk) {
+						return vm.publicKeyJwk;
+					}
+				}
+			}
+		}
+
+		// Search in authentication (may contain inline methods or references)
+		if (doc.authentication) {
+			for (const auth of doc.authentication) {
+				if (typeof auth === "object" && "publicKeyJwk" in auth) {
+					const authId = auth.id;
+					const authFragment = authId.includes("#") ? authId.split("#")[1] : authId;
+
+					if (authId === fullKid || authId === kid || authFragment === kidFragment) {
+						if (auth.publicKeyJwk) {
+							return auth.publicKeyJwk;
+						}
+					}
+				}
+			}
+		}
+
+		return null;
+	}
+
 	private async handleRequestUri(request_uri: string): Promise<
 		{ payload: Record<string, unknown>; parsedHeader: Record<string, unknown> } |
 		{ error: HandleAuthorizationRequestError }
@@ -237,13 +365,21 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		if (parsedHeader.typ !== "oauth-authz-req+jwt") {
 			return { error: HandleAuthorizationRequestErrors.INVALID_TYP };
 		}
-		const x5c = parsedHeader.x5c as string[];
-		const publicKey = await importX509(certFromB64(x5c[0]), parsedHeader.alg);
-		const verificationResult = await jwtVerify(jwt, publicKey).catch(() => null);
+
+		// Decode payload to get client_id for DID resolution
+		const decodedPayload = JSON.parse(decoder.decode(base64url.decode(payload)));
+		const clientId = decodedPayload.client_id as string | undefined;
+
+		// Resolve the verification key (supports x5c, jwk, and DID-based kid)
+		const keyResult = await this.resolveVerificationKey(parsedHeader, clientId);
+		if ("error" in keyResult) {
+			return keyResult;
+		}
+
+		const verificationResult = await jwtVerify(jwt, keyResult.key).catch(() => null);
 		if (verificationResult == null) {
 			return { error: HandleAuthorizationRequestErrors.NONTRUSTED_VERIFIER };
 		}
-		const decodedPayload = JSON.parse(decoder.decode(base64url.decode(payload)));
 		return { payload: decodedPayload, parsedHeader };
 	}
 

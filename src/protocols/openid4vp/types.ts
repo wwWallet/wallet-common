@@ -228,3 +228,92 @@ export type OpenID4VPTrustEvaluator = (params: {
 	 */
 	responseUri?: string;
 }) => Promise<TrustEvaluationResult>;
+
+/**
+ * Verification method from a DID document.
+ * Contains public key material for JWT verification.
+ */
+export type DIDVerificationMethod = {
+	/**
+	 * The verification method ID (e.g., "did:web:example.com#key-1").
+	 */
+	id: string;
+
+	/**
+	 * The type of verification method (e.g., "JsonWebKey2020").
+	 */
+	type: string;
+
+	/**
+	 * The controller of this verification method.
+	 */
+	controller: string;
+
+	/**
+	 * Public key in JWK format (for JsonWebKey2020 and similar types).
+	 */
+	publicKeyJwk?: JsonWebKey;
+
+	/**
+	 * Public key as multibase-encoded string (for Ed25519VerificationKey2020 etc).
+	 */
+	publicKeyMultibase?: string;
+};
+
+/**
+ * Minimal DID Document structure for JWT verification.
+ * @see https://www.w3.org/TR/did-core/
+ */
+export type DIDDocument = {
+	/**
+	 * The DID that identifies this document.
+	 */
+	id: string;
+
+	/**
+	 * Verification methods containing public keys.
+	 */
+	verificationMethod?: DIDVerificationMethod[];
+
+	/**
+	 * Methods valid for authentication purposes.
+	 * Can be strings (references) or inline verification methods.
+	 */
+	authentication?: (string | DIDVerificationMethod)[];
+
+	/**
+	 * Methods valid for assertion / credential issuance.
+	 */
+	assertionMethod?: (string | DIDVerificationMethod)[];
+};
+
+/**
+ * Result of DID resolution.
+ */
+export type DIDResolutionResult = {
+	/**
+	 * Whether resolution was successful.
+	 */
+	resolved: boolean;
+
+	/**
+	 * The resolved DID document (if successful).
+	 */
+	didDocument?: DIDDocument;
+
+	/**
+	 * Error message (if resolution failed).
+	 */
+	error?: string;
+
+	/**
+	 * Additional metadata from resolution.
+	 */
+	metadata?: Record<string, unknown>;
+};
+
+/**
+ * DID resolver function signature.
+ * Resolves a DID to its document containing public keys.
+ */
+export type DIDResolver = (did: string) => Promise<DIDResolutionResult>;
