@@ -188,6 +188,12 @@ export type TrustEvaluationResult = {
 	trusted: boolean;
 
 	/**
+	 * Detailed trust status from AuthZEN evaluation.
+	 * Provides more granular information than the boolean `trusted` field.
+	 */
+	status?: 'trusted' | 'untrusted' | 'unknown';
+
+	/**
 	 * Display name of the verifier (if resolved).
 	 */
 	name?: string;
