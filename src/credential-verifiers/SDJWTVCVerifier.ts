@@ -107,12 +107,12 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 			const x5c = (parsedSdJwt?.header?.x5c as string[]) ?? "";
 			const alg = (parsedSdJwt?.header?.alg as string) ?? "";
 			if (x5c && x5c instanceof Array && x5c.length > 0 && typeof alg === 'string') { // extract public key from certificate
-				// Only validate certificate chain if not skipping trust validation
+				// Only validate certificate chain if not delegating to backend
 				// Trust evaluation is now delegated to AuthZEN at the protocol level
-				const skipTrustValidation = args.context.skipTrustValidation ?? false;
+				const delegateTrustToBackend = args.context.delegateTrustToBackend ?? true;
 				const trustedCertificates = args.context.trustedCertificates ?? [];
 
-				if (!skipTrustValidation && trustedCertificates.length > 0) {
+				if (!delegateTrustToBackend && trustedCertificates.length > 0) {
 					const lastCertificate: string = x5c[x5c.length - 1];
 					const lastCertificatePem = `-----BEGIN CERTIFICATE-----\n${lastCertificate}\n-----END CERTIFICATE-----`;
 					const certificateValidationResult = await verifyCertificate(lastCertificatePem, trustedCertificates);

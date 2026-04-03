@@ -82,22 +82,25 @@ export interface Context {
 	 *
 	 * @deprecated Trust evaluation is now delegated to the AuthZEN backend.
 	 * This field is only used for backwards compatibility. New code should set
-	 * `skipTrustValidation: true` and rely on protocol-level trust evaluation
+	 * `delegateTrustToBackend: true` and rely on protocol-level trust evaluation
 	 * via AuthZEN (see evaluateTrust in OpenID4VP and OID4VCI flows).
 	 */
 	trustedCertificates?: string[];
 
 	/**
-	 * Skip local certificate chain validation during credential verification.
+	 * Delegate trust evaluation to the backend's AuthZEN proxy.
 	 *
-	 * When true, verifiers will only check cryptographic signatures without
-	 * validating certificate chains against `trustedCertificates`. This is the
-	 * recommended mode when trust evaluation is delegated to AuthZEN at the
-	 * protocol level (before credentials are issued/presented).
+	 * When true (recommended), verifiers only check cryptographic signatures;
+	 * trust evaluation is handled by the backend's AuthZEN proxy before
+	 * credentials are issued or presented.
 	 *
-	 * @default false (for backwards compatibility)
+	 * When false (legacy), verifiers perform local certificate chain validation
+	 * against `trustedCertificates` — this is a security concern as it bypasses
+	 * the authoritative trust evaluation service.
+	 *
+	 * @default true
 	 */
-	skipTrustValidation?: boolean;
+	delegateTrustToBackend?: boolean;
 
 	vctResolutionEngine?: VctDocumentProvider;
 }

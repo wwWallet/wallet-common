@@ -39,7 +39,7 @@ function parseCertificate(pem: any) {
  *
  * @deprecated Trust evaluation is now delegated to the AuthZEN backend at the
  * protocol level. This function is only used for backwards compatibility.
- * New code should set `skipTrustValidation: true` in the Context and rely on
+ * New code should set `delegateTrustToBackend: true` in the Context and rely on
  * protocol-level trust evaluation via AuthZEN before credentials are
  * issued/presented.
  */
