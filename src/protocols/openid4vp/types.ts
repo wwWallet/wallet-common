@@ -1,4 +1,5 @@
 import type { JWK } from "jose";
+import type { TrustStatus } from "../../authzen/types";
 
 export type ClaimRecord = {
 	key: string;
@@ -191,7 +192,7 @@ export type TrustEvaluationResult = {
 	 * Detailed trust status from AuthZEN evaluation.
 	 * Provides more granular information than the boolean `trusted` field.
 	 */
-	status?: 'trusted' | 'untrusted' | 'unknown';
+	status?: TrustStatus;
 
 	/**
 	 * Display name of the verifier (if resolved).
