@@ -786,9 +786,8 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 			}
 		}
 
-		// Always use DCQL query ID (selectionKey) as the key
 		const vpTokenObject = Object.fromEntries(
-			Array.from(selectionMap.keys()).map((key, idx) => [key, generatedVPs[idx]])
+			Array.from(selectionMap.keys()).map((key, idx) => [key, [generatedVPs[idx]]])
 		);
 
 		const presentationSubmission = {
