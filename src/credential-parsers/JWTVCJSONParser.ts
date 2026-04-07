@@ -30,6 +30,14 @@ export function JWTVCJSONParser(args: { context: Context, httpClient: HttpClient
 			) {
 				return false;
 			}
+
+			// JWT VC JSON must have a vc claim with non-empty type array
+			// This prevents matching generic JWTs (ID tokens, access tokens, etc.)
+			const payload = JSON.parse(decoder.decode(fromBase64Url(parts[1])));
+			if (!payload.vc || !Array.isArray(payload.vc.type) || payload.vc.type.length === 0) {
+				return false;
+			}
+
 			return true;
 		} catch {
 			return false;
@@ -90,7 +98,7 @@ export function JWTVCJSONParser(args: { context: Context, httpClient: HttpClient
 			if (!payloadResult.success) {
 				return {
 					success: false,
-					error: CredentialParsingError.InvalidSdJwtVcPayload,
+					error: CredentialParsingError.InvalidJwtVcJsonPayload,
 				};
 			}
 

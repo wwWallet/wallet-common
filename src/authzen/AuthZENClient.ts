@@ -75,11 +75,12 @@ export interface KeyMaterial {
 	/**
 	 * Type of key material.
 	 */
-	type: 'jwk' | 'x5c' | 'x509_san_dns';
+	type: 'jwk' | 'x5c' | 'x509_san_dns' | 'kid';
 
 	/**
 	 * Key data. For JWK, this is the JWK object.
 	 * For x5c, this is an array of base64-encoded certificates.
+	 * For kid, this is the key ID string (requires resolution).
 	 */
 	key: unknown | unknown[];
 }
@@ -127,7 +128,7 @@ export interface EvaluateIssuerOptions {
 /**
  * AuthZEN client interface.
  */
-export interface AuthZENClientI {
+export interface IAuthZENClient {
 	/**
 	 * Send a raw AuthZEN evaluation request.
 	 */
@@ -152,7 +153,7 @@ export interface AuthZENClientI {
 /**
  * Creates an AuthZEN client for trust evaluation.
  */
-export function AuthZENClient(config: AuthZENClientConfig): AuthZENClientI {
+export function AuthZENClient(config: AuthZENClientConfig): IAuthZENClient {
 	const { httpClient, baseUrl, getAuthToken, tenantId, timeout = 30000 } = config;
 
 	// Normalize base URL (remove trailing slash)

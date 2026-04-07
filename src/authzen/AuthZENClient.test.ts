@@ -12,6 +12,7 @@ import { HttpClient } from '../interfaces';
  */
 interface HttpResponse {
 	status: number;
+	headers: Record<string, unknown>;
 	data: unknown;
 }
 
@@ -23,12 +24,12 @@ function createMockHttpClient(responses: Map<string, HttpResponse>): HttpClient 
 		get: vi.fn().mockImplementation(async (url: string) => {
 			const response = responses.get(url);
 			if (response) return response;
-			return { status: 404, data: { error: 'not_found' } };
+			return { status: 404, headers: {}, data: { error: 'not_found' } };
 		}),
 		post: vi.fn().mockImplementation(async (url: string) => {
 			const response = responses.get(url);
 			if (response) return response;
-			return { status: 404, data: { error: 'not_found' } };
+			return { status: 404, headers: {}, data: { error: 'not_found' } };
 		}),
 	};
 }
@@ -61,7 +62,7 @@ describe('AuthZENClient', () => {
 			};
 
 			const responses = new Map<string, HttpResponse>([
-				[`${baseUrl}/v1/evaluate`, { status: 200, data: expectedResponse }],
+				[`${baseUrl}/v1/evaluate`, { status: 200, headers: {}, data: expectedResponse }],
 			]);
 
 			const client = createClient(createMockHttpClient(responses));
@@ -81,7 +82,7 @@ describe('AuthZENClient', () => {
 
 		it('should handle unauthorized response', async () => {
 			const responses = new Map<string, HttpResponse>([
-				[`${baseUrl}/v1/evaluate`, { status: 401, data: { error: 'unauthorized' } }],
+				[`${baseUrl}/v1/evaluate`, { status: 401, headers: {}, data: { error: 'unauthorized' } }],
 			]);
 
 			const client = createClient(createMockHttpClient(responses));
@@ -134,7 +135,7 @@ describe('AuthZENClient', () => {
 			};
 
 			const responses = new Map<string, HttpResponse>([
-				[`${baseUrl}/v1/resolve`, { status: 200, data: expectedResponse }],
+				[`${baseUrl}/v1/resolve`, { status: 200, headers: {}, data: expectedResponse }],
 			]);
 
 			const client = createClient(createMockHttpClient(responses));
@@ -166,7 +167,7 @@ describe('AuthZENClient', () => {
 			};
 
 			const responses = new Map<string, HttpResponse>([
-				[`${baseUrl}/v1/evaluate`, { status: 200, data: expectedResponse }],
+				[`${baseUrl}/v1/evaluate`, { status: 200, headers: {}, data: expectedResponse }],
 			]);
 
 			const client = createClient(createMockHttpClient(responses));
@@ -198,7 +199,7 @@ describe('AuthZENClient', () => {
 			};
 
 			const responses = new Map<string, HttpResponse>([
-				[`${baseUrl}/v1/evaluate`, { status: 200, data: expectedResponse }],
+				[`${baseUrl}/v1/evaluate`, { status: 200, headers: {}, data: expectedResponse }],
 			]);
 
 			const client = createClient(createMockHttpClient(responses));
@@ -232,7 +233,7 @@ describe('AuthZENClient', () => {
 			};
 
 			const responses = new Map<string, HttpResponse>([
-				[`${baseUrl}/v1/evaluate`, { status: 200, data: expectedResponse }],
+				[`${baseUrl}/v1/evaluate`, { status: 200, headers: {}, data: expectedResponse }],
 			]);
 
 			const client = createClient(createMockHttpClient(responses));
@@ -256,7 +257,7 @@ describe('AuthZENClient', () => {
 	describe('configuration', () => {
 		it('should normalize base URL with trailing slash', async () => {
 			const responses = new Map<string, HttpResponse>([
-				['https://example.com/v1/evaluate', { status: 200, data: { decision: true } }],
+				['https://example.com/v1/evaluate', { status: 200, headers: {}, data: { decision: true } }],
 			]);
 
 			const mockHttpClient = createMockHttpClient(responses);
@@ -289,7 +290,7 @@ describe('AuthZENClient', () => {
 
 		it('should support async getAuthToken', async () => {
 			const responses = new Map<string, HttpResponse>([
-				[`${baseUrl}/v1/evaluate`, { status: 200, data: { decision: true } }],
+				[`${baseUrl}/v1/evaluate`, { status: 200, headers: {}, data: { decision: true } }],
 			]);
 
 			const mockHttpClient = createMockHttpClient(responses);

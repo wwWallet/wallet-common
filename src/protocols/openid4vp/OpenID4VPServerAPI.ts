@@ -154,6 +154,7 @@ function parseClientIdScheme(clientId: string): ClientIdScheme {
 
 /**
  * Extract key material from parsed JWT header.
+ * Returns x5c/jwk if embedded in header, or kid for DID-based resolution.
  */
 function extractKeyMaterial(parsedHeader: Record<string, unknown>): OpenID4VPKeyMaterial {
 	if (parsedHeader.x5c && Array.isArray(parsedHeader.x5c)) {
@@ -167,6 +168,14 @@ function extractKeyMaterial(parsedHeader: Record<string, unknown>): OpenID4VPKey
 		return {
 			type: 'jwk',
 			key: parsedHeader.jwk,
+		};
+	}
+
+	// Return kid if present (key obtained via DID resolution)
+	if (parsedHeader.kid && typeof parsedHeader.kid === 'string') {
+		return {
+			type: 'kid',
+			key: parsedHeader.kid,
 		};
 	}
 
@@ -317,6 +326,19 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		const kidFragment = kid.includes("#") ? kid.split("#")[1] : kid;
 		const fullKid = kid.includes("#") ? kid : `${doc.id}#${kid}`;
 
+		// Helper to find a method in verificationMethod by reference ID
+		const findInVerificationMethod = (refId: string): JsonWebKey | null => {
+			if (!doc.verificationMethod) return null;
+			for (const vm of doc.verificationMethod) {
+				if (vm.id === refId || vm.id === `${doc.id}#${refId}` || vm.id.split("#")[1] === refId) {
+					if (vm.publicKeyJwk) {
+						return vm.publicKeyJwk;
+					}
+				}
+			}
+			return null;
+		};
+
 		// Search in verificationMethod array
 		if (doc.verificationMethod) {
 			for (const vm of doc.verificationMethod) {
@@ -331,9 +353,18 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 			}
 		}
 
-		// Search in authentication (may contain inline methods or references)
+		// Search in authentication (may contain inline methods or string references)
 		if (doc.authentication) {
 			for (const auth of doc.authentication) {
+				// Handle string references to verificationMethod
+				if (typeof auth === "string") {
+					const authFragment = auth.includes("#") ? auth.split("#")[1] : auth;
+					if (auth === fullKid || auth === kid || authFragment === kidFragment) {
+						const resolved = findInVerificationMethod(auth);
+						if (resolved) return resolved;
+					}
+				}
+				// Handle inline objects
 				if (typeof auth === "object" && "publicKeyJwk" in auth) {
 					const authId = auth.id;
 					const authFragment = authId.includes("#") ? authId.split("#")[1] : authId;
@@ -341,6 +372,31 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 					if (authId === fullKid || authId === kid || authFragment === kidFragment) {
 						if (auth.publicKeyJwk) {
 							return auth.publicKeyJwk;
+						}
+					}
+				}
+			}
+		}
+
+		// Search in assertionMethod (may contain inline methods or string references)
+		if (doc.assertionMethod) {
+			for (const am of doc.assertionMethod) {
+				// Handle string references to verificationMethod
+				if (typeof am === "string") {
+					const amFragment = am.includes("#") ? am.split("#")[1] : am;
+					if (am === fullKid || am === kid || amFragment === kidFragment) {
+						const resolved = findInVerificationMethod(am);
+						if (resolved) return resolved;
+					}
+				}
+				// Handle inline objects
+				if (typeof am === "object" && "publicKeyJwk" in am) {
+					const amId = am.id;
+					const amFragment = amId.includes("#") ? amId.split("#")[1] : amId;
+
+					if (amId === fullKid || amId === kid || amFragment === kidFragment) {
+						if (am.publicKeyJwk) {
+							return am.publicKeyJwk;
 						}
 					}
 				}

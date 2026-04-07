@@ -45,7 +45,7 @@ export {
 export {
 	// Client
 	AuthZENClient,
-	AuthZENClientI,
+	IAuthZENClient,
 	AuthZENClientConfig,
 	KeyMaterial,
 	EvaluateVerifierOptions,

@@ -169,12 +169,12 @@ export type ClientIdScheme = {
  */
 export type OpenID4VPKeyMaterial = {
 	/**
-	 * Key type: 'jwk' for JWK in header, 'x5c' for certificate chain.
+	 * Key type: 'jwk' for JWK in header, 'x5c' for certificate chain, 'kid' for key ID reference (requires DID resolution).
 	 */
-	type: 'jwk' | 'x5c';
+	type: 'jwk' | 'x5c' | 'kid';
 
 	/**
-	 * The key data. JWK object or array of base64-encoded certificates.
+	 * The key data. JWK object, array of base64-encoded certificates, or key ID string.
 	 */
 	key: unknown | unknown[];
 };
