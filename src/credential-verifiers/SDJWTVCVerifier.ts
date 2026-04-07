@@ -7,6 +7,12 @@ import { exportJWK, importJWK, importX509, JWK, jwtVerify, KeyLike } from "jose"
 import { fromBase64Url, toBase64Url } from "../utils/util";
 import { verifyCertificate } from "../utils/verifyCertificate";
 
+type ParsedSdJwtVcWithPrettyClaims = Record<string, unknown> & {
+	cnf?: {
+		jwk?: JWK;
+	};
+};
+
 export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: PublicKeyResolverEngineI, httpClient: HttpClient }): CredentialVerifier {
 	let errors: { error: CredentialVerificationError, message: string }[] = [];
 	const logError = (error: CredentialVerificationError, message: string): void => {
@@ -30,7 +36,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 	const parse = async (rawCredential: string) => {
 		try {
 			const credential = await SDJwt.fromEncode(rawCredential, hasherAndAlgorithm.hasher);
-			const parsedSdJwtWithPrettyClaims = await (await SDJwt.fromEncode(rawCredential, hasherAndAlgorithm.hasher)).getClaims(hasherAndAlgorithm.hasher);
+			const parsedSdJwtWithPrettyClaims = await (await SDJwt.fromEncode(rawCredential, hasherAndAlgorithm.hasher)).getClaims<ParsedSdJwtVcWithPrettyClaims>(hasherAndAlgorithm.hasher);
 			return { credential, parsedSdJwtWithPrettyClaims };
 		}
 		catch (err) {
@@ -50,11 +56,11 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 				error: CredentialVerificationError.InvalidFormat,
 			}
 		}
-		const cnf = (parseResult.parsedSdJwtWithPrettyClaims as any).cnf as Record<string, unknown>;
+		const cnf = parseResult.parsedSdJwtWithPrettyClaims.cnf;
 
-		if (cnf.jwk && parseResult.credential.jwt && parseResult.credential.jwt.header && typeof parseResult.credential.jwt.header["alg"] === 'string') {
+		if (cnf?.jwk && parseResult.credential.jwt && parseResult.credential.jwt.header && typeof parseResult.credential.jwt.header["alg"] === 'string') {
 			try {
-				const holderPublicKey = await importJWK(cnf.jwk as JWK, parseResult.credential.jwt.header["alg"]);
+				const holderPublicKey = await importJWK(cnf.jwk, parseResult.credential.jwt.header["alg"]);
 				return {
 					success: true,
 					value: holderPublicKey,
@@ -101,17 +107,24 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 			const x5c = (parsedSdJwt?.header?.x5c as string[]) ?? "";
 			const alg = (parsedSdJwt?.header?.alg as string) ?? "";
 			if (x5c && x5c instanceof Array && x5c.length > 0 && typeof alg === 'string') { // extract public key from certificate
-				const lastCertificate: string = x5c[x5c.length - 1];
-				const lastCertificatePem = `-----BEGIN CERTIFICATE-----\n${lastCertificate}\n-----END CERTIFICATE-----`;
-				const certificateValidationResult = await verifyCertificate(lastCertificatePem, args.context.trustedCertificates);
-				const lastCertificateIsRootCa = args.context.trustedCertificates.map((c) => c.trim()).includes(lastCertificatePem);
-				const rootCertIsTrusted = certificateValidationResult === true || lastCertificateIsRootCa;
-				if (!rootCertIsTrusted) {
-					logError(CredentialVerificationError.NotTrustedIssuer, "Error on getIssuerPublicKey(): Issuer is not trusted");
-					return {
-						success: false,
-						error: CredentialVerificationError.NotTrustedIssuer,
-					};
+				// Only validate certificate chain if not delegating to backend
+				// Trust evaluation is now delegated to AuthZEN at the protocol level
+				const delegateTrustToBackend = args.context.delegateTrustToBackend ?? true;
+				const trustedCertificates = args.context.trustedCertificates ?? [];
+
+				if (!delegateTrustToBackend && trustedCertificates.length > 0) {
+					const lastCertificate: string = x5c[x5c.length - 1];
+					const lastCertificatePem = `-----BEGIN CERTIFICATE-----\n${lastCertificate}\n-----END CERTIFICATE-----`;
+					const certificateValidationResult = await verifyCertificate(lastCertificatePem, trustedCertificates);
+					const lastCertificateIsRootCa = trustedCertificates.map((c) => c.trim()).includes(lastCertificatePem);
+					const rootCertIsTrusted = certificateValidationResult === true || lastCertificateIsRootCa;
+					if (!rootCertIsTrusted) {
+						logError(CredentialVerificationError.NotTrustedIssuer, "Error on getIssuerPublicKey(): Issuer is not trusted");
+						return {
+							success: false,
+							error: CredentialVerificationError.NotTrustedIssuer,
+						};
+					}
 				}
 
 				try {

@@ -2,8 +2,10 @@ import { err, GenericStore, ok, Result } from "../../core";
 import { generateRandomIdentifier } from "../../utils/util";
 import { MsoMdocParser } from "../../credential-parsers/MsoMdocParser";
 import { SDJWTVCParser } from "../../credential-parsers/SDJWTVCParser";
+import { JWTVCJSONParser } from "../../credential-parsers/JWTVCJSONParser";
 import { MsoMdocVerifier } from "../../credential-verifiers/MsoMdocVerifier";
 import { SDJWTVCVerifier } from "../../credential-verifiers/SDJWTVCVerifier";
+import { JWTVCJSONVerifier } from "../../credential-verifiers/JWTVCJSONVerifier";
 import { CustomCredentialSvg } from "../../functions/CustomCredentialSvg";
 import { HttpClient } from "../../interfaces";
 import { ParsingEngine } from "../../ParsingEngine";
@@ -90,6 +92,8 @@ export class OpenID4VPClientAPI {
 		console.log("Registered SDJWTVCParser...");
 		credentialParsingEngine.register(MsoMdocParser({ context: ctx, httpClient: this.httpClient }));
 		console.log("Registered MsoMdocParser...");
+		credentialParsingEngine.register(JWTVCJSONParser({ context: ctx, httpClient: this.httpClient }));
+		console.log("Registered JWTVCJSONParser...");
 
 		const pkResolverEngine = PublicKeyResolverEngine();
 		const openid4vcRendering = CustomCredentialSvg({ httpClient: this.httpClient });
@@ -98,6 +102,7 @@ export class OpenID4VPClientAPI {
 			credentialParsingEngine,
 			msoMdocVerifier: MsoMdocVerifier({ context: ctx, pkResolverEngine: pkResolverEngine }),
 			sdJwtVerifier: SDJWTVCVerifier({ context: ctx, pkResolverEngine: pkResolverEngine, httpClient: this.httpClient }),
+			jwtVcJsonVerifier: JWTVCJSONVerifier({ context: ctx, pkResolverEngine: pkResolverEngine, httpClient: this.httpClient }),
 			openid4vcRendering,
 			credentialRendering,
 		};
@@ -178,6 +183,9 @@ export class OpenID4VPClientAPI {
 					},
 					"mso_mdoc": {
 						"alg": ["ES256"]
+					},
+					"jwt_vc_json": {
+						"alg_values_supported": ["ES256"]
 					}
 				}
 			},
@@ -272,7 +280,7 @@ export class OpenID4VPClientAPI {
 			}
 
 			try {
-				// detect if SD-JWT (has ~) or mdoc (CBOR-encoded)
+				// detect format: SD-JWT (has ~), JWT_VC_JSON (3-part JWT, no ~), or mdoc (CBOR-encoded)
 				if (typeof vp === 'string' && vp.includes('~')) {
 					// ========== SD-JWT ==========
 					try {
@@ -285,15 +293,13 @@ export class OpenID4VPClientAPI {
 								return { error: new Error("specific transaction_data not supported error") };
 							}
 							const { status, message } = await txData.validateTransactionDataResponse(descriptor.id, {
-								transaction_data_hashes: (kbjwtPayload as any).transaction_data_hashes as string[],
-								transaction_data_hashes_alg: (kbjwtPayload as any).transaction_data_hashes_alg as string[] | undefined
-							});
-							console.log("Message: ", message)
-							messages[descriptor.id] = [ message ];
-							if (!status) {
-								return { error: new Error("transaction_data validation error") };
-							}
-							console.log("VALIDATED TRANSACTION DATA");
+									transaction_data_hashes: kbjwtPayload.transaction_data_hashes as string[],
+									transaction_data_hashes_alg: kbjwtPayload.transaction_data_hashes_alg as string[] | undefined
+								});
+								messages[descriptor.id] = [ message ];
+								if (!status) {
+									return { error: new Error("transaction_data validation error") };
+								}
 						}
 						else if (descriptor._transaction_data_type !== undefined) {
 							return { error: new Error("transaction_data_hashes is missing from transaction data response") };
@@ -319,9 +325,12 @@ export class OpenID4VPClientAPI {
 					}
 
 					const signedClaims = parseResult.value.signedClaims;
+					const parsedFormat = parseResult.value.metadata.credential.format;
 					const shaped = {
 						vct: signedClaims.vct,
-						credential_format: VerifiableCredentialFormat.DC_SDJWT,
+						credential_format: parsedFormat === VerifiableCredentialFormat.VC_SDJWT
+							? VerifiableCredentialFormat.VC_SDJWT
+							: VerifiableCredentialFormat.DC_SDJWT,
 						claims: signedClaims,
 						cryptographic_holder_binding: true
 					};
@@ -362,6 +371,60 @@ export class OpenID4VPClientAPI {
 						}));
 					} else {
 						return { error: new Error(`Unexpected credential_format for descriptor ${descriptor.id}`) };
+					}
+				} else if (typeof vp === 'string' && vp.split('.').length === 3) {
+					// ========== JWT_VC_JSON (3-part JWT without ~) ==========
+					const verificationResult = await ce.jwtVcJsonVerifier.verify({
+						rawCredential: vp,
+						opts: {
+							expectedAudience: rpState.audience,
+							expectedNonce: rpState.nonce,
+						},
+					});
+					if (!verificationResult.success) {
+						return { error: new Error(`JWT_VC_JSON verification failed for ${descriptor.id}: ${verificationResult.error}`) };
+					}
+
+					const parseResult = await ce.credentialParsingEngine.parse({ rawCredential: vp });
+					if (!parseResult.success) {
+						return { error: new Error(`Parsing JWT_VC_JSON failed for ${descriptor.id}: ${parseResult.error}`) };
+					}
+
+					const signedClaims = parseResult.value.signedClaims as Record<string, unknown>;
+					const vcType = 'type' in parseResult.value.metadata.credential
+						? (parseResult.value.metadata.credential as { type: string[] }).type
+						: [];
+					const shaped = {
+						credential_format: VerifiableCredentialFormat.JWT_VC_JSON,
+						type: vcType,
+						claims: signedClaims,
+						cryptographic_holder_binding: true
+					};
+
+					const dcqlResult = DcqlPresentationResult.fromDcqlPresentation(
+						/* @ts-ignore */
+						{ [descriptor.id]: [shaped] },
+						{ dcqlQuery: dcql_query }
+					);
+					if (!dcqlResult.credential_matches[descriptor.id]?.success) {
+						return { error: new Error(`DCQL validation failed for JWT_VC_JSON descriptor ${descriptor.id}`) };
+					}
+
+					const output = (dcqlResult.credential_matches[descriptor.id].valid_credentials?.[0].meta as { output: Record<string, unknown> }).output;
+					if (output.credential_format === VerifiableCredentialFormat.JWT_VC_JSON) {
+						const requestedAll = descriptor?.claims == null;
+						const vcClaims = (signedClaims.vc as Record<string, unknown>)?.credentialSubject as Record<string, unknown> | undefined;
+						const source: Record<string, unknown> = requestedAll
+							? (vcClaims ?? signedClaims)
+							: (vcClaims ?? signedClaims);
+
+						presentationClaims[descriptor.id] = Object.entries(source).map(([key, value]) => ({
+							key,
+							name: key,
+							value: typeof value === 'object' ? JSON.stringify(value) : String(value),
+						}));
+					} else {
+						return { error: new Error(`Unexpected credential_format for JWT_VC_JSON descriptor ${descriptor.id}`) };
 					}
 				} else {
 					// ========== mdoc ==========

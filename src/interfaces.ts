@@ -75,8 +75,32 @@ export interface Context {
 	lang: string;
 	subtle: SubtleCrypto;
 	/**
-	 * each string is Base64-encoded DER representation without line breaks or headers like -----BEGIN CERTIFICATE----- and -----END CERTIFICATE-----
+	 * Trust anchor certificates for local certificate chain validation.
+	 *
+	 * Each string is a Base64-encoded DER representation without line breaks
+	 * or headers like -----BEGIN CERTIFICATE----- and -----END CERTIFICATE-----.
+	 *
+	 * @deprecated Trust evaluation is now delegated to the AuthZEN backend.
+	 * This field is only used for backwards compatibility. New code should set
+	 * `delegateTrustToBackend: true` and rely on protocol-level trust evaluation
+	 * via AuthZEN (see evaluateTrust in OpenID4VP and OID4VCI flows).
 	 */
-	trustedCertificates: string[];
+	trustedCertificates?: string[];
+
+	/**
+	 * Delegate trust evaluation to the backend's AuthZEN proxy.
+	 *
+	 * When true (recommended), verifiers only check cryptographic signatures;
+	 * trust evaluation is handled by the backend's AuthZEN proxy before
+	 * credentials are issued or presented.
+	 *
+	 * When false (legacy), verifiers perform local certificate chain validation
+	 * against `trustedCertificates` — this is a security concern as it bypasses
+	 * the authoritative trust evaluation service.
+	 *
+	 * @default true
+	 */
+	delegateTrustToBackend?: boolean;
+
 	vctResolutionEngine?: VctDocumentProvider;
 }

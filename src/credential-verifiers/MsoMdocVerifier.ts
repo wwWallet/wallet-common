@@ -14,7 +14,9 @@ export function MsoMdocVerifier(args: { context: Context, pkResolverEngine: Publ
 		errors.push({ error, message });
 	}
 
-	const verifier = new Verifier(args.context.trustedCertificates.map((crt) =>
+	// Note: The verifier is only used when delegateTrustToBackend is false (legacy mode)
+	// Trust evaluation is now delegated to AuthZEN at the protocol level
+	const verifier = new Verifier((args.context.trustedCertificates ?? []).map((crt) =>
 		`-----BEGIN CERTIFICATE-----\n${crt}\n-----END CERTIFICATE-----`
 	));
 
@@ -82,8 +84,13 @@ export function MsoMdocVerifier(args: { context: Context, pkResolverEngine: Publ
 				return { holderPublicKeyJwk: null };
 			}
 
-			if (parsedDocument.issuerSigned.issuerAuth.x5chain && args.context.trustedCertificates.length > 0) {
-				const { publicKey } = await parsedDocument.issuerSigned.issuerAuth.verifyX509Chain(args.context.trustedCertificates);
+			// Only validate certificate chain if not delegating to backend
+			// Trust evaluation is now delegated to AuthZEN at the protocol level
+			const delegateTrustToBackend = args.context.delegateTrustToBackend ?? true;
+			const trustedCertificates = args.context.trustedCertificates ?? [];
+
+			if (parsedDocument.issuerSigned.issuerAuth.x5chain && !delegateTrustToBackend && trustedCertificates.length > 0) {
+				const { publicKey } = await parsedDocument.issuerSigned.issuerAuth.verifyX509Chain(trustedCertificates);
 				if (!publicKey) {
 					logError(CredentialVerificationError.NotTrustedIssuer, "Issuer is not trusted");
 					return { holderPublicKeyJwk: null };
@@ -127,8 +134,13 @@ export function MsoMdocVerifier(args: { context: Context, pkResolverEngine: Publ
 				return { holderPublicKeyJwk: null };
 			}
 
-			if (args.context.trustedCertificates.length > 0) {
-				const res = await parsedDocument.issuerSigned.issuerAuth.verifyX509(args.context.trustedCertificates);
+			// Only validate certificate chain if not delegating to backend
+			// Trust evaluation is now delegated to AuthZEN at the protocol level
+			const delegateTrustToBackend = args.context.delegateTrustToBackend ?? true;
+			const trustedCertificates = args.context.trustedCertificates ?? [];
+
+			if (!delegateTrustToBackend && trustedCertificates.length > 0) {
+				const res = await parsedDocument.issuerSigned.issuerAuth.verifyX509(trustedCertificates);
 				if (!res) {
 					logError(CredentialVerificationError.NotTrustedIssuer, "Issuer is not trusted");
 					return { holderPublicKeyJwk: null };

@@ -5,10 +5,12 @@ export * from './defaultHttpClient';
 export * from './ParsingEngine';
 export * from './credential-parsers/SDJWTVCParser';
 export * from './credential-parsers/MsoMdocParser';
+export * from './credential-parsers/JWTVCJSONParser';
 
 export * from './VerifyingEngine';
 export * from './credential-verifiers/SDJWTVCVerifier';
 export * from './credential-verifiers/MsoMdocVerifier';
+export * from './credential-verifiers/JWTVCJSONVerifier';
 
 export * from './PublicKeyResolverEngine';
 
@@ -29,3 +31,5 @@ export * from './protocols';
 export * from './types';
 
 export * from './error';
+
+export * from './authzen';
