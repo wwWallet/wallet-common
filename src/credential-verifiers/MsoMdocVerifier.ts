@@ -29,11 +29,11 @@ export function MsoMdocVerifier(args: { context: Context, pkResolverEngine: Publ
 				[
 					await args.context.subtle.digest(
 						'SHA-256',
-						cborEncode([clId, mdocNonce]),
+						new Uint8Array(cborEncode([clId, mdocNonce])),
 					),
 					await args.context.subtle.digest(
 						'SHA-256',
-						cborEncode([respUri, mdocNonce]),
+						new Uint8Array(cborEncode([respUri, mdocNonce])),
 					),
 					nonce
 				]
