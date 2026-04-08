@@ -120,7 +120,7 @@ describe("OpenID4VPServerAPI.handleAuthorizationRequest", () => {
 		const result = await helper.handleAuthorizationRequest(url.toString(), vcEntityList);
 		assert(!("error" in result));
 		assert(result.parsedTransactionData === null);
-		assert(result.verifierDomainName === "x509_san_dns:verifier.example.com");
+		assert(result.verifierDomainName === "verifier.example.com");
 		const entry = result.conformantCredentialsMap.get("testCredential");
 		assert(entry?.credentials?.includes(7));
 		assert(entry?.requestedFields?.some((f: { path?: string[] }) => f.path?.join(".") === "given_name"));
