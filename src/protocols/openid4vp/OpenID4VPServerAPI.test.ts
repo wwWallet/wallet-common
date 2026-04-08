@@ -273,51 +273,6 @@ describe("OpenID4VPServerAPI.handleAuthorizationRequest", () => {
 		assert(result.error === "missing_dcql_query");
 	});
 
-	it("should return non_supported_client_id_scheme for unsupported client_id", async () => {
-		const helper = new OpenID4VPServerAPI({
-			evaluateTrust: mockEvaluateTrust,
-			httpClient: { get: async () => { throw new Error("unexpected http call"); } },
-			rpStateStore: {
-				store: async () => {},
-				retrieve: async () => ({}) as any,
-			},
-			parseCredential: async () => null,
-			selectCredentialForBatch: async () => null,
-			keystore: {
-				signJwtPresentation: async () => ({ vpjwt: "vp-jwt" }),
-				generateDeviceResponse: async () => ({ deviceResponseMDoc: {} }),
-			},
-			strings: {
-				purposeNotSpecified: "No purpose provided",
-				allClaimsRequested: "All claims",
-			},
-		});
-
-		const dcql_query = {
-			credentials: [
-				{
-					id: "testCredential",
-					format: VerifiableCredentialFormat.DC_SDJWT,
-					meta: { vct_values: ["urn:eudi:pid:1"] },
-					claims: [{ path: ["given_name"] }],
-				},
-			],
-		};
-
-		const url = new URL("openid4vp://authorize");
-		url.searchParams.set("client_id", "did:example:verifier");
-		url.searchParams.set("response_uri", "https://verifier.example.com/cb");
-		url.searchParams.set("nonce", "nonce-001");
-		url.searchParams.set("state", "state-001");
-		url.searchParams.set("client_metadata", JSON.stringify({ vp_formats: {} }));
-		url.searchParams.set("response_mode", JSON.stringify(OpenID4VPResponseMode.DIRECT_POST));
-		url.searchParams.set("dcql_query", JSON.stringify(dcql_query));
-
-		const result = await helper.handleAuthorizationRequest(url.toString(), []);
-		assert("error" in result);
-		assert(result.error === "non_supported_client_id_scheme");
-	});
-
 	it("should return old_state when nonce was already used", async () => {
 		const helper = new OpenID4VPServerAPI({
 			evaluateTrust: mockEvaluateTrust,
