@@ -43,6 +43,7 @@ const context: Context = {
 	lang: 'en-US',
 	subtle: crypto.subtle,
 	trustedCertificates: [rootCert],
+	delegateTrustToBackend: false, // need to set this to false to test the client-side verification logic
 };
 
 describe("The MsoMdocVerifier", () => {
