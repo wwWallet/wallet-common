@@ -1,8 +1,27 @@
-import { z } from "zod";
-import { OpenidCredentialIssuerMetadataSchema } from "../schemas";
+import { type OpenidCredentialIssuerMetadata, OpenidCredentialIssuerMetadataSchema } from "../schemas";
 import type { HttpClient } from "../interfaces";
 import { MetadataWarning } from "../types";
 import { CredentialParsingError } from "../error";
+
+function getIssuerMetadataUrl(
+	issuer: string,
+): string | null {
+	if (!issuer) return null;
+
+	const url = new URL(issuer);
+
+	const issuerPath = url.pathname.split("/").filter(Boolean);
+
+	const metadataPath = [
+		".well-known",
+		"openid-credential-issuer",
+		...issuerPath,
+	];
+
+	url.pathname = `/${metadataPath.join("/")}`;
+
+	return url.toString();
+}
 
 export async function getIssuerMetadata(
 	httpClient: HttpClient,
@@ -10,11 +29,11 @@ export async function getIssuerMetadata(
 	warnings: MetadataWarning[],
 	useCache: boolean = true
 ): Promise<{
-	metadata: z.infer<typeof OpenidCredentialIssuerMetadataSchema> | null;
+	metadata: OpenidCredentialIssuerMetadata | null;
 }> {
-	if (!issuer) return { metadata: null };
+	const url = getIssuerMetadataUrl(issuer);
 
-	const url = `${issuer}/.well-known/openid-credential-issuer`;
+	if (!url) return { metadata: null };
 
 	let issuerResponse = null;
 

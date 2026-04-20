@@ -8,12 +8,9 @@ import { IssuerSigned } from "@auth0/mdl/lib/mdoc/model/types";
 import { CustomCredentialSvg } from "../functions/CustomCredentialSvg";
 import { getIssuerMetadata } from "../utils/getIssuerMetadata";
 import { convertOpenid4vciToSdjwtvcClaims } from "../functions/convertOpenid4vciToSdjwtvcClaims";
-import type { z } from "zod";
-import { OpenidCredentialIssuerMetadataSchema, } from "../schemas";
+import { OpenidCredentialIssuerMetadata } from "../schemas";
 import { dataUriResolver } from "../resolvers/dataUriResolver";
 import { friendlyNameResolver } from "../resolvers/friendlyNameResolver";
-
-type IssuerMetadata = z.infer<typeof OpenidCredentialIssuerMetadataSchema>;
 
 export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }): CredentialParser {
 
@@ -45,8 +42,8 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 
 	async function fetchIssuerMetadataAndDocs(
 		credentialIssuer?: CredentialIssuerInfo | null
-	): Promise<{ issuerMetadata: IssuerMetadata | null; TypeMetadata: TypeMetadataResult }> {
-		let issuerMetadata: IssuerMetadata | null = null;
+	): Promise<{ issuerMetadata: OpenidCredentialIssuerMetadata | null; TypeMetadata: TypeMetadataResult }> {
+		let issuerMetadata: OpenidCredentialIssuerMetadata | null = null;
 		let TypeMetadata: TypeMetadataResult = {};
 
 		try {
