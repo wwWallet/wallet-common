@@ -2,7 +2,7 @@ import { SDJwt } from "@sd-jwt/core";
 import type { HasherAndAlg } from "@sd-jwt/types";
 import { CredentialParsingError } from "../error";
 import { Context, CredentialParser, HttpClient } from "../interfaces";
-import { MetadataWarning, VerifiableCredentialFormat } from "../types";
+import { HashAlgorithm, MetadataWarning, VerifiableCredentialFormat } from "../types";
 import { SdJwtVcPayloadSchema } from "../schemas";
 import { CredentialRenderingService } from "../rendering";
 import { getSdJwtVcMetadata } from "../utils/getSdJwtVcMetadata";
@@ -65,7 +65,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 
 			return args.context.subtle.digest(alg, encoded).then((v) => new Uint8Array(v));
 		},
-		alg: 'sha-256',
+		alg: HashAlgorithm.sha_256,
 	};
 
 	const cr = CredentialRenderingService();

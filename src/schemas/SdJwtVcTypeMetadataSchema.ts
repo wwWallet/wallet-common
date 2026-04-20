@@ -92,7 +92,7 @@ export const ClaimMetadataEntry = z.object({
 
 /** ---------- §6.2 Type Metadata Document ---------- */
 export const TypeMetadata = z.object({
-	vct: z.string(),
+	vct: z.string().nonempty("VCT URN cannot be empty"),
 	name: z.string().optional(),
 	description: z.string().optional(),
 
@@ -129,3 +129,4 @@ export type TypeDisplayEntry = z.infer<typeof TypeDisplayEntry>;
 export type ClaimDisplayEntry = z.infer<typeof ClaimDisplayEntry>;
 export type ClaimPath = z.infer<typeof ClaimPath>;
 export type SvgTemplateEntry = z.infer<typeof SvgTemplateEntry>;
+export type SvgTemplateProperties = z.infer<typeof SvgTemplateProperties>;

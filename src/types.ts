@@ -1,11 +1,19 @@
 import { CredentialParsingError } from "./error";
-import { ClaimMetadataEntry } from "./schemas/SdJwtVcTypeMetadataSchema";
+import type { ClaimMetadataEntry, SvgTemplateProperties } from "./schemas/SdJwtVcTypeMetadataSchema";
 
 export enum VerifiableCredentialFormat {
 	VC_SDJWT = "vc+sd-jwt",
 	DC_SDJWT = "dc+sd-jwt",
 	MSO_MDOC = "mso_mdoc",
 	JWT_VC_JSON = "jwt_vc_json"
+}
+
+export enum HashAlgorithm {
+	sha_256 = "sha-256"
+}
+
+export enum DigestHashAlgorithm {
+	SHA_256 = "SHA-256"
 }
 
 export type CredentialIssuer = {
@@ -45,7 +53,8 @@ export type FriendlyNameCallback = (
 
 export type ImageDataUriCallback = (
 	filter?: Array<CredentialClaimPath>,
-	preferredLangs?: string[]
+	preferredLangs?: string[],
+	svgPreference?: SvgTemplateProperties
 ) => Promise<string | null>;
 
 

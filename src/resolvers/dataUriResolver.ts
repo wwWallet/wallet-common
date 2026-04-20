@@ -1,7 +1,8 @@
 import type { HttpClient, CredentialRendering, CustomCredentialSvgI } from "../interfaces";
 import type { CredentialClaimPath, ImageDataUriCallback } from "../types";
+import { pickBestSvgTemplate } from "../functions/pickBestSvgTemplate";
 import { matchDisplayByLocale } from "../utils/matchLocalizedDisplay";
-import type { TypeDisplayEntry,ClaimMetadataEntry } from "../schemas/SdJwtVcTypeMetadataSchema";
+import type { TypeDisplayEntry, ClaimMetadataEntry, SvgTemplateProperties } from "../schemas/SdJwtVcTypeMetadataSchema";
 import type { CredentialConfigurationSupported } from "../schemas/CredentialConfigurationSupportedSchema";
 
 type IssuerDisplayEntry =
@@ -36,7 +37,12 @@ export function dataUriResolver({
 }: DataUriResolverOptions): ImageDataUriCallback {
 	return async (
 		filter?: Array<CredentialClaimPath>,
-		preferredLangs: string[] = ["en-US"]
+		preferredLangs: string[] = ["en-US"],
+		preferredProperties: SvgTemplateProperties = {
+			orientation: "landscape",
+			color_scheme: "light",
+			contrast: "normal",
+		}
 	) => {
 		try {
 			// Localize display configs
@@ -49,25 +55,45 @@ export function dataUriResolver({
 				preferredLangs
 			);
 
-			const svgTemplateUri =
-				credentialDisplayLocalized?.rendering?.svg_templates?.[0]
-					?.uri || null;
+			const svgTemplates = credentialDisplayLocalized?.rendering?.svg_templates;
+			const selectedSvgTemplate = pickBestSvgTemplate(svgTemplates, preferredProperties);
+			const svgTemplateUri = selectedSvgTemplate?.uri ?? null;
+
 			const simpleDisplayConfig =
 				credentialDisplayLocalized?.rendering?.simple || null;
 
 			// 1. Try SVG template rendering (SD-JWT VC)
 			if (svgTemplateUri && sdJwtVcRenderer) {
-				const svgResponse = await httpClient
-					.get(svgTemplateUri, {}, { useCache: true })
-					.catch(() => null);
+				let credentialImageSvgTemplate: string | undefined;
 
-				if (svgResponse) {
-					const svgData = svgResponse.data as string;
+				if (svgTemplateUri.startsWith('data:')) {
+					const res = await fetch(svgTemplateUri);
+					const blob = await res.blob()
 
+					if (blob.type === 'image/svg+xml') {
+						const text = await blob.text();
+
+						if (text && text !== '') {
+							credentialImageSvgTemplate = text;
+						}
+					} else {
+						console.warn(`Unsupported SVG template data URI type: ${blob.type}`);
+					}
+				} else if (svgTemplateUri.startsWith('http')) {
+					const svgResponse = await httpClient
+						.get(svgTemplateUri, {}, { useCache: true })
+						.catch(() => null);
+
+					if (svgResponse) {
+						credentialImageSvgTemplate = svgResponse.data as string;
+					}
+				}
+
+				if (credentialImageSvgTemplate) {
 					const rendered = await sdJwtVcRenderer
 						.renderSvgTemplate({
 							json: signedClaims,
-							credentialImageSvgTemplate: svgData,
+							credentialImageSvgTemplate,
 							sdJwtVcMetadataClaims,
 							filter,
 						})

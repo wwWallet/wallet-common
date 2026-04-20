@@ -276,7 +276,8 @@ export class OpenID4VPClientAPI {
 		const messages: PresentationInfo = {};
 
 		for (const descriptor of dcql_query.credentials) {
-			const vp = vp_token_list[descriptor.id];
+			const vpEntry = vp_token_list[descriptor.id];
+			const vp = Array.isArray(vpEntry) ? vpEntry[0] : null;
 			if (!vp) {
 				return { error: new Error(`Missing VP for descriptor ${descriptor.id}`) };
 			}
@@ -454,7 +455,7 @@ export class OpenID4VPClientAPI {
 			return { status: false, error };
 		}
 
-		const vp_token = JSON.parse(decoder.decode(fromBase64Url(rpState.vp_token))) as string[] | string | Record<string, string>;
+		const vp_token = JSON.parse(decoder.decode(fromBase64Url(rpState.vp_token))) as Record<string, string[]>;
 
 		let presentationClaims;
 		let presentationInfo: PresentationInfo = {};
@@ -490,7 +491,7 @@ export class OpenID4VPClientAPI {
 				status: true,
 				rpState: rpState,
 				presentationInfo,
-				presentations: Array.isArray(vp_token) ? vp_token : typeof vp_token === 'object' ? Object.values(vp_token) : [vp_token]
+				presentations: Object.values(vp_token).flatMap((v) => v)
 			};
 		}
 		const unkownErr = new Error("Uknown error");
@@ -599,7 +600,7 @@ export class OpenID4VPClientAPI {
 
 	public async handleResponseDirectPost(
 		state: string | undefined,
-		vp_token: string | string[] | Record<string, string> | undefined,
+		vp_token: Record<string, string[]> | undefined,
 		presentation_submission: any
 	): Promise<Result<RPState, OpenID4VPClientError>> {
 		if (!state) {
