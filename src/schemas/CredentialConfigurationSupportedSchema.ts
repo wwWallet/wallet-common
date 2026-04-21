@@ -10,7 +10,7 @@ const proofTypesSupportedSchema = z.object({
 		key_attestations_required: z.object({
 			key_storage: z.array(z.enum(["iso_18045_high", "iso_18045_moderate", "iso_18045_enhanced-basic", "iso_18045_basic"])).optional(),
 			user_authentication: z.array(z.enum(["iso_18045_high", "iso_18045_moderate", "iso_18045_enhanced-basic", "iso_18045_basic"])).optional(),
-		})
+		}).optional(),
 	}).optional(),
 });
 
@@ -48,12 +48,12 @@ const commonSchema = z.object({
 	}).optional(),
 	scope: z.string(),
 	cryptographic_binding_methods_supported: z.array(z.string()).optional(),
-	credential_signing_alg_values_supported: z.array(z.string()).optional(),
 	proof_types_supported: proofTypesSupportedSchema.optional(),
 });
 
 const sdJwtSchema = commonSchema.extend({
 	format: z.literal(VerifiableCredentialFormat.VC_SDJWT).or(z.literal(VerifiableCredentialFormat.DC_SDJWT)),
+	credential_signing_alg_values_supported: z.array(z.string()).optional(),
 	vct: z.string()
 });
 
@@ -67,6 +67,7 @@ const msoDocSchema = commonSchema.extend({
 
 const jwtVcJsonSchema = commonSchema.extend({
 	format: z.literal(VerifiableCredentialFormat.JWT_VC_JSON),
+	credential_signing_alg_values_supported: z.array(z.string()).optional(),
 });
 
 
