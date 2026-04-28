@@ -353,4 +353,52 @@ describe("OpenID4VPServerAPI.handleAuthorizationRequest", () => {
 		assert("error" in result);
 		assert(result.error === "old_state");
 	});
+
+	it("should accept x509_hash as supported client_id scheme", async () => {
+		const signedClaimsPid = { vct: "urn:eudi:pid:1", given_name: "Alice" };
+		const sdJwtPid = await buildSdJwt(signedClaimsPid);
+
+		const helper = new OpenID4VPServerAPI({
+			httpClient: { get: async () => { throw new Error("unexpected http call"); } },
+			rpStateStore: {
+				store: async () => {},
+				retrieve: async () => ({}) as any,
+			},
+			parseCredential: async () => ({ signedClaims: signedClaimsPid }),
+			selectCredentialForBatch: async () => null,
+			keystore: {
+				signJwtPresentation: async () => ({ vpjwt: "vp-jwt" }),
+				generateDeviceResponse: async () => ({ deviceResponseMDoc: {} }),
+			},
+			strings: {
+				purposeNotSpecified: "No purpose provided",
+				allClaimsRequested: "All claims",
+			},
+		});
+
+		const dcql_query = {
+			credentials: [
+				{
+					id: "testCredential",
+					format: VerifiableCredentialFormat.DC_SDJWT,
+					meta: { vct_values: ["urn:eudi:pid:1"] },
+					claims: [{ path: ["given_name"] }],
+				},
+			],
+		};
+
+		const url = new URL("openid4vp://authorize");
+		url.searchParams.set("client_id", "x509_hash:dummyhashvalue");
+		url.searchParams.set("response_uri", "https://verifier.example.com/cb");
+		url.searchParams.set("nonce", "nonce-hash");
+		url.searchParams.set("state", "state-hash");
+		url.searchParams.set("client_metadata", JSON.stringify({ vp_formats: {} }));
+		url.searchParams.set("response_mode", JSON.stringify(OpenID4VPResponseMode.DIRECT_POST));
+		url.searchParams.set("dcql_query", JSON.stringify(dcql_query));
+
+		const result = await helper.handleAuthorizationRequest(url.toString(), [
+			{ format: VerifiableCredentialFormat.DC_SDJWT, data: sdJwtPid, batchId: 7, instanceId: 0 },
+		]);
+		assert(!("error" in result));
+	});
 });
