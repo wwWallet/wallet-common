@@ -1,6 +1,5 @@
 import { SDJwt } from "@sd-jwt/core";
-import { cborDecode, cborEncode } from "@auth0/mdl/lib/cbor";
-import { parse } from "@auth0/mdl";
+import { IssuerSigned } from "@owf/mdoc";
 import { base64url, EncryptJWT, importJWK, importX509, jwtVerify } from "jose";
 import { DcqlPresentationResult, DcqlQuery } from "dcql";
 import { generateRandomIdentifier } from "../../utils";
@@ -77,6 +76,43 @@ const decoder = new TextDecoder();
 const encoder = new TextEncoder();
 const certFromB64 = (certBase64: string) =>
 	`-----BEGIN CERTIFICATE-----\n${certBase64.match(/.{1,64}/g)?.join("\n")}\n-----END CERTIFICATE-----`;
+
+function decodeIssuerSignedCredential(credentialDataB64u: string): {
+	issuerSigned: IssuerSigned;
+	docType: string;
+	namespaceName: string | null;
+	namespaceClaims: Record<string, unknown>;
+} {
+	const credentialBytes = base64url.decode(credentialDataB64u);
+	const issuerSigned = IssuerSigned.decode(credentialBytes);
+	const docType = issuerSigned.issuerAuth.mobileSecurityObject.docType;
+	const issuerNamespaces = issuerSigned.issuerNamespaces?.issuerNamespaces ?? new Map();
+	const firstNamespaceEntry = issuerNamespaces.entries().next().value as
+		| [string, Array<{ elementIdentifier: string; elementValue: unknown }>]
+		| undefined;
+
+	if (!firstNamespaceEntry) {
+		return {
+			issuerSigned,
+			docType,
+			namespaceName: null,
+			namespaceClaims: {},
+		};
+	}
+
+	const [namespaceName, items] = firstNamespaceEntry;
+	const namespaceClaims = items.reduce<Record<string, unknown>>((acc, item) => {
+		acc[item.elementIdentifier] = item.elementValue;
+		return acc;
+	}, {});
+
+	return {
+		issuerSigned,
+		docType,
+		namespaceName,
+		namespaceClaims,
+	};
+}
 
 function isOpenID4VPResponseMode(value: unknown): value is OpenID4VPResponseMode {
 	return typeof value === "string" && Object.values(OpenID4VPResponseMode).includes(value as OpenID4VPResponseMode);
@@ -185,34 +221,12 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 			let shaped: any = { credential_format: vc.format };
 			try {
 				if (vc.format === VerifiableCredentialFormat.MSO_MDOC) {
-					const credentialBytes = base64url.decode(vc.data);
-					const issuerSigned = cborDecode(credentialBytes);
-					const issuerAuth = issuerSigned.get("issuerAuth") as Array<Uint8Array>;
-					const payload = issuerAuth?.[2];
-					const decodedIssuerAuthPayload = cborDecode(payload);
-					const docType = decodedIssuerAuthPayload.data.get("docType");
-					const envelope = {
-						version: "1.0",
-						documents: [
-							new Map([
-								["docType", docType],
-								["issuerSigned", issuerSigned],
-							]),
-						],
-						status: 0,
-					};
-					const mdoc = parse(cborEncode(envelope));
-					const [document] = mdoc.documents;
-
-					const nsName = document.issuerSignedNameSpaces[0];
-					const nsObject = document.getIssuerNameSpace(nsName);
+					const { docType, namespaceName, namespaceClaims } = decodeIssuerSignedCredential(vc.data);
 
 					shaped = {
 						credential_format: vc.format,
 						doctype: docType,
-						namespaces: {
-							[nsName]: nsObject,
-						},
+						namespaces: namespaceName ? { [namespaceName]: namespaceClaims } : {},
 						batchId: vc.batchId,
 						cryptographic_holder_binding: true,
 					};
@@ -299,6 +313,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		const pdId = getRandomUUID(this.deps.randomUUID);
 		const input_descriptors = dcql_query.credentials.map((cred: any) => {
 			const descriptorId = cred.meta?.doctype_value;
+			const doctype = descriptorId ?? cred.claims?.[0]?.path?.[0];
 
 			const format: Record<string, any> = {};
 			if (cred.format === "mso_mdoc") {
@@ -306,7 +321,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 			}
 
 			const fields = cred.claims.map((claim: any) => ({
-				path: [`$['${cred.meta?.doctype_value}']${claim.path.slice(1).map((p: string) => `['${p}']`).join("")}`],
+				path: [`$['${doctype}']${claim.path.slice(1).map((p: string) => `['${p}']`).join("")}`],
 				intent_to_retain: claim.intent_to_retain ?? false,
 			}));
 
@@ -461,48 +476,39 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 
 				generatedVPs.push(vpjwt);
 				originalVCs.push(credential);
-			} else if (credential.format === VerifiableCredentialFormat.MSO_MDOC) {
-				const descriptor = (dcql_query as any).credentials.find((c: any) => c.id === selectionKey);
-				if (!descriptor) {
-					throw new Error(`No DCQL descriptor for id ${selectionKey}`);
-				}
-				const descriptorId = descriptor.meta?.doctype_value;
-				const credentialBytes = base64url.decode(credential.data);
-				const issuerSignedPayload = cborDecode(credentialBytes);
-
-				const mdocStructure = {
-					version: "1.0",
-					documentErrors: [],
-					documents: [
-						new Map([
-							["docType", descriptorId],
-							["issuerSigned", issuerSignedPayload],
-						]),
-					],
-					status: 0,
-				};
-				const encoded = cborEncode(mdocStructure);
-				const mdoc = parse(encoded);
-				const mdocGeneratedNonce = generateRandomIdentifier(8);
-				apu = mdocGeneratedNonce;
-				apv = nonce;
-
-				let dcqlQueryWithClaims: any;
-				if (!descriptor.claims || descriptor.claims.length === 0) {
-					dcqlQueryWithClaims = JSON.parse(JSON.stringify(dcql_query));
-					const nsName = mdoc.documents[0].issuerSignedNameSpaces[0];
-					const ns = mdoc.documents[0].getIssuerNameSpace(nsName);
-
-					const descriptorIndex = dcqlQueryWithClaims.credentials.findIndex((c: any) => c.id === selectionKey);
-					if (descriptorIndex !== -1) {
-						dcqlQueryWithClaims.credentials[descriptorIndex].claims = Object.keys(ns).map((key) => ({
-							id: key,
-							path: [descriptorId, key],
-						}));
+				} else if (credential.format === VerifiableCredentialFormat.MSO_MDOC) {
+					const descriptor = (dcql_query as any).credentials.find((c: any) => c.id === selectionKey);
+					if (!descriptor) {
+						throw new Error(`No DCQL descriptor for id ${selectionKey}`);
 					}
-				} else {
-					dcqlQueryWithClaims = dcql_query;
-				}
+					const descriptorId = descriptor.meta?.doctype_value;
+					const { issuerSigned, docType, namespaceClaims } = decodeIssuerSignedCredential(credential.data);
+					const effectiveDocType = descriptorId ?? docType;
+					const mdoc = {
+						documents: [
+							{
+								docType: effectiveDocType,
+								issuerSigned,
+							},
+						],
+					};
+					const mdocGeneratedNonce = generateRandomIdentifier(8);
+					apu = mdocGeneratedNonce;
+					apv = nonce;
+
+					let dcqlQueryWithClaims: any;
+					if (!descriptor.claims || descriptor.claims.length === 0) {
+						dcqlQueryWithClaims = JSON.parse(JSON.stringify(dcql_query));
+						const descriptorIndex = dcqlQueryWithClaims.credentials.findIndex((c: any) => c.id === selectionKey);
+						if (descriptorIndex !== -1) {
+							dcqlQueryWithClaims.credentials[descriptorIndex].claims = Object.keys(namespaceClaims).map((key) => ({
+								id: key,
+								path: [effectiveDocType, key],
+							}));
+						}
+					} else {
+						dcqlQueryWithClaims = dcql_query;
+					}
 
 				const presentationDefinition = this.convertDcqlToPresentationDefinition(dcqlQueryWithClaims);
 				const { deviceResponseMDoc } = await this.deps.keystore.generateDeviceResponse(
