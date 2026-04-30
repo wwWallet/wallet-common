@@ -86,8 +86,7 @@ export type OpenID4VPClientIdScheme = "x509_san_dns" | "x509_hash";
 export type OpenID4VPClientMetadata = {
 	jwks?: { keys: any[] };
 	jwks_uri?: string;
-	authorization_encrypted_response_alg?: string;
-	authorization_encrypted_response_enc?: string;
+	encrypted_response_enc_values_supported?: string[];
 	vp_formats: any;
 };
 

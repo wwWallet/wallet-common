@@ -1,7 +1,7 @@
 import { assert, describe, it } from "vitest";
 import Crypto from "node:crypto";
 import { Jwt, SDJwt } from "@sd-jwt/core";
-import { OpenID4VPServerAPI } from "./OpenID4VPServerAPI";
+import { OpenID4VPServerAPI, retrieveKeys } from "./OpenID4VPServerAPI";
 import { OpenID4VPResponseMode } from "./types";
 import { VerifiableCredentialFormat } from "../../types";
 import { SignJWT, importPKCS8 } from "jose";
@@ -471,5 +471,190 @@ describe("OpenID4VPServerAPI.handleAuthorizationRequest", () => {
 		]);
 		assert(!("error" in result));
 		assert(result.verifierDomainName === expectedClientId);
+	});
+});
+
+
+describe("OpenID4VPServerAPI.retrieveKeys", () => {
+	it("should return the key and its alg when jwks is provided directly", async () => {
+		const testKey = {
+			kty: "EC",
+			crv: "P-256",
+			use: "enc",
+			alg: "ECDH-ES+HKDF-256+A128KW",
+			x: "WKn-ZIGevcwGIyyrzFoZNBdaq9_TsqzGl96oc0CWuis",
+			y: "y77t-RvAHRKTsSGdIYUfweuOvwrvDD-Q3Hv5J0fSKbE",
+		};
+
+		const state = {
+			client_metadata: {
+				jwks: {
+					keys: [testKey],
+				},
+			},
+		} as any;
+
+		const result = await retrieveKeys(state, {});
+		assert(result.rp_eph_pub_jwk === testKey);
+		assert(result.alg === "ECDH-ES+HKDF-256+A128KW");
+	});
+
+	it("should fetch keys from jwks_uri and return the key with its alg", async () => {
+		const testKey = {
+			kty: "EC",
+			crv: "P-256",
+			use: "enc",
+			alg: "ECDH-ES+HKDF-256+A128KW",
+			x: "WKn-ZIGevcwGIyyrzFoZNBdaq9_TsqzGl96oc0CWuis",
+			y: "y77t-RvAHRKTsSGdIYUfweuOvwrvDD-Q3Hv5J0fSKbE",
+		};
+
+		const state = {
+			client_metadata: {
+				jwks_uri: "https://example.com/.well-known/jwks.json",
+			},
+		} as any;
+
+		const httpClient = {
+			get: async (url: string) => {
+				if (url === "https://example.com/.well-known/jwks.json") {
+					return { data: { keys: [testKey] } };
+				}
+				throw new Error(`unexpected http call: ${url}`);
+			},
+		};
+
+		const result = await retrieveKeys(state, httpClient);
+		assert(result.rp_eph_pub_jwk === testKey);
+		assert(result.alg === "ECDH-ES+HKDF-256+A128KW");
+	});
+
+	it("should throw error when selected jwks key is missing alg", async () => {
+		const testKey = {
+			kty: "EC",
+			crv: "P-256",
+			use: "enc",
+			x: "WKn-ZIGevcwGIyyrzFoZNBdaq9_TsqzGl96oc0CWuis",
+			y: "y77t-RvAHRKTsSGdIYUfweuOvwrvDD-Q3Hv5J0fSKbE",
+		};
+
+		const state = {
+			client_metadata: {
+				jwks: {
+					keys: [testKey],
+				},
+			},
+		} as any;
+
+		try {
+			await retrieveKeys(state, {});
+			assert(false, "Should have thrown an error");
+		} catch (error) {
+			assert((error as Error).message === "alg is required in verifier's JWK");
+		}
+	});
+
+	it("should throw error when fetched jwks key is missing alg", async () => {
+		const testKey = {
+			kty: "EC",
+			crv: "P-256",
+			use: "enc",
+			x: "WKn-ZIGevcwGIyyrzFoZNBdaq9_TsqzGl96oc0CWuis",
+			y: "y77t-RvAHRKTsSGdIYUfweuOvwrvDD-Q3Hv5J0fSKbE",
+		};
+
+		const state = {
+			client_metadata: {
+				jwks_uri: "https://example.com/.well-known/jwks.json",
+			},
+		} as any;
+
+		const httpClient = {
+			get: async (url: string) => {
+				if (url === "https://example.com/.well-known/jwks.json") {
+					return { data: { keys: [testKey] } };
+				}
+				throw new Error(`unexpected http call: ${url}`);
+			},
+		};
+
+		try {
+			await retrieveKeys(state, httpClient);
+			assert(false, "Should have thrown an error");
+		} catch (error) {
+			assert((error as Error).message === "alg is required in verifier's JWK");
+		}
+	});
+
+	it("should throw error when no encryption keys in jwks", async () => {
+		const nonEncryptionKey = {
+			kty: "EC",
+			crv: "P-256",
+			use: "sig", // Not for encryption
+			alg: "ES256",
+			x: "WKn-ZIGevcwGIyyrzFoZNBdaq9_TsqzGl96oc0CWuis",
+			y: "y77t-RvAHRKTsSGdIYUfweuOvwrvDD-Q3Hv5J0fSKbE",
+		};
+
+		const state = {
+			client_metadata: {
+				jwks: {
+					keys: [nonEncryptionKey],
+				},
+			},
+		} as any;
+
+		try {
+			await retrieveKeys(state, {});
+			assert(false, "Should have thrown an error");
+		} catch (error) {
+			assert((error as Error).message === "Could not find Relying Party public key for encryption");
+		}
+	});
+
+	it("should throw error when no encryption keys in fetched jwks_uri", async () => {
+		const nonEncryptionKey = {
+			kty: "EC",
+			crv: "P-256",
+			use: "sig", // Not for encryption
+			alg: "ES256",
+			x: "WKn-ZIGevcwGIyyrzFoZNBdaq9_TsqzGl96oc0CWuis",
+			y: "y77t-RvAHRKTsSGdIYUfweuOvwrvDD-Q3Hv5J0fSKbE",
+		};
+
+		const state = {
+			client_metadata: {
+				jwks_uri: "https://example.com/.well-known/jwks.json",
+			},
+		} as any;
+
+		const httpClient = {
+			get: async (url: string) => {
+				if (url === "https://example.com/.well-known/jwks.json") {
+					return { data: { keys: [nonEncryptionKey] } };
+				}
+				throw new Error(`unexpected http call: ${url}`);
+			},
+		};
+
+		try {
+			await retrieveKeys(state, httpClient);
+			assert(false, "Should have thrown an error");
+		} catch (error) {
+			assert((error as Error).message === "Could not find Relying Party public key for encryption");
+		}
+	});
+
+	it("should throw error when neither jwks nor jwks_uri provided", async () => {
+		const state = {
+			client_metadata: {},
+		} as any;
+
+		try {
+			await retrieveKeys(state, {});
+			assert(false, "Should have thrown an error");
+		} catch (error) {
+			assert((error as Error).message === "Could not find Relying Party public key for encryption");
+		}
 	});
 });
