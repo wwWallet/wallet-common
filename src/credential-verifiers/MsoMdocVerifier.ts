@@ -5,7 +5,8 @@ import { Context, CredentialVerifier, PublicKeyResolverEngineI } from "../interf
 import { fromBase64Url } from "../utils/util";
 import { DataItem, DeviceResponse, IssuerSigned, Verifier, cborEncode, type MdocContext, CoseKey } from "@owf/mdoc";
 import { DigestHashAlgorithm } from "../types";
-import { p256 } from '@noble/curves/nist.js';
+import { p256, p384 } from '@noble/curves/nist.js';
+import { ed25519 } from '@noble/curves/ed25519.js';
 
 export function MsoMdocVerifier(args: { context: Context, pkResolverEngine: PublicKeyResolverEngineI }): CredentialVerifier {
 	let errors: { error: CredentialVerificationError, message: string }[] = [];
@@ -52,8 +53,10 @@ export function MsoMdocVerifier(args: { context: Context, pkResolverEngine: Publ
 	const mdocContext: Pick<MdocContext, "crypto" | "cose" | "x509"> = {
 		crypto: {
 			digest: async ({ digestAlgorithm, bytes }) =>
-				new Uint8Array(await crypto.subtle.digest(digestAlgorithm, bytes as Uint8Array<ArrayBuffer>)),
-			random: (length: number) => crypto.getRandomValues(new Uint8Array(length)),
+				new Uint8Array(await args.context.subtle.digest(digestAlgorithm, bytes as Uint8Array<ArrayBuffer>)),
+			random: () => {
+				throw new Error("random is not used in verifier flow");
+			},
 			calculateEphemeralMacKey: async () => {
 				throw new Error("calculateEphemeralMacKey is not used in verifier flow");
 			},
@@ -71,8 +74,18 @@ export function MsoMdocVerifier(args: { context: Context, pkResolverEngine: Publ
 				sign: async () => {
 					throw new Error("sign1.sign is not used in verifier flow");
 				},
-				verify: async ({ sign1, key }) =>
-					p256.verify(sign1.signature, sign1.toBeSigned, key.publicKey, { lowS: false }),
+				verify: async ({ sign1, key }) => {
+					switch (sign1.signatureAlgorithmName) {
+						case "ES256":
+							return p256.verify(sign1.signature, sign1.toBeSigned, key.publicKey, { lowS: false });
+						case "ES384":
+							return p384.verify(sign1.signature, sign1.toBeSigned, key.publicKey, { lowS: false });
+						case "EdDSA":
+							return ed25519.verify(sign1.signature, sign1.toBeSigned, key.publicKey);
+						default:
+							throw new Error(`Unsupported COSE signature algorithm: ${sign1.signatureAlgorithmName}`);
+					}
+				},
 
 			},
 		},
@@ -103,7 +116,7 @@ export function MsoMdocVerifier(args: { context: Context, pkResolverEngine: Publ
 
 			getCertificateData: async ({ certificate }) => {
 				const cert = new x509.X509Certificate(certificate);
-				const thumbprint = await cert.getThumbprint(crypto);
+				const thumbprint = new Uint8Array(await args.context.subtle.digest("SHA-1", cert.rawData));
 				return {
 					issuerName: cert.issuerName.toString(),
 					subjectName: cert.subjectName.toString(),
