@@ -81,6 +81,8 @@ export enum OpenID4VPResponseMode {
 	DC_API_JWT = "dc_api.jwt",
 }
 
+export type OpenID4VPClientIdScheme = "x509_san_dns" | "x509_hash";
+
 export type OpenID4VPClientMetadata = {
 	jwks?: { keys: any[] };
 	jwks_uri?: string;

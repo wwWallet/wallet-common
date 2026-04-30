@@ -98,6 +98,56 @@ describe("OpenID4VPClientAPI.generateAuthorizationRequestURL", () => {
 		assert(!("transaction_data" in payload));
 		assert(payload.client_metadata?.jwks?.keys?.length === 1);
 	});
+
+	it("should build a valid URL using x509_hash client identifier", async () => {
+		const kv = new MemoryStore<string, any>();
+		const httpClient: HttpClient = {
+			get: async () => {
+				throw new Error("unexpected http call");
+			}
+		};
+
+		const { privateKey } = await generateKeyPair("ES256");
+		const privateKeyPem = await exportPKCS8(privateKey);
+
+		const helper = new OpenID4VPClientAPI(
+			kv,
+			{
+				credentialEngineOptions: {
+					clockTolerance: 0,
+					subtle: crypto.subtle,
+					lang: "en",
+					trustedCertificates: [],
+					trustedCredentialIssuerIdentifiers: undefined
+				},
+				redirectUri: "openid4vp://cb"
+			},
+			httpClient
+		);
+
+		const certBytes = Uint8Array.from(Buffer.from(x5c[0], "base64"));
+		const certHash = await crypto.subtle.digest("SHA-256", certBytes);
+		const certHashB64Url = toBase64Url(new Uint8Array(certHash));
+		const expectedClientId = `x509_hash:${certHashB64Url}`;
+
+		const result = await helper.generateAuthorizationRequestURL(
+			presentationRequest,
+			"session-hash",
+			"https://verifier.example.com/cb",
+			"https://verifier.example.com",
+			privateKeyPem,
+			x5c,
+			OpenID4VPResponseMode.DIRECT_POST,
+			"https://verifier.example.com/callback",
+			"x509_hash"
+		);
+
+		assert(result.url.searchParams.get("client_id") === expectedClientId);
+		assert(result.rpState.audience === expectedClientId);
+		const [, encodedPayload] = result.rpState.signed_request.split(".");
+		const payload = JSON.parse(new TextDecoder().decode(fromBase64Url(encodedPayload)));
+		assert(payload.client_id === expectedClientId);
+	});
 });
 
 describe("OpenID4VPClientAPI small get/set helpers", () => {

@@ -1,3 +1,5 @@
+import "reflect-metadata";
+
 export * from './rendering';
 
 export * from './defaultHttpClient';
