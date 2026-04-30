@@ -42,7 +42,8 @@ type OpenID4VPServerKeystore = {
 		apu: string | undefined,
 		apv: string | undefined,
 		clientId: string,
-		responseUri: string
+		responseUri: string,
+		verifierEncryptionJwk?: JsonWebKey | Record<string, unknown>
 	): Promise<{ deviceResponseMDoc: any }>;
 };
 
@@ -399,6 +400,11 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		const { dcql_query, client_id, nonce, response_uri, transaction_data } = S;
 		let apu = undefined;
 		let apv = undefined;
+		let verifierEncryptionJwk: JsonWebKey | Record<string, unknown> | undefined;
+		if ([OpenID4VPResponseMode.DIRECT_POST_JWT, OpenID4VPResponseMode.DC_API_JWT].includes(S.response_mode)) {
+			const { rp_eph_pub_jwk } = await retrieveKeys(S, this.deps.httpClient);
+			verifierEncryptionJwk = rp_eph_pub_jwk as JsonWebKey | Record<string, unknown>;
+		}
 		const generatedVPs: string[] = [];
 		const originalVCs: CredentialT[] = [];
 
@@ -547,7 +553,8 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 					apu,
 					apv,
 					client_id,
-					response_uri
+					response_uri,
+					verifierEncryptionJwk
 				);
 				const encodedDeviceResponse = base64url.encode(deviceResponseMDoc.encode());
 
@@ -654,9 +661,6 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 
 				dcql_query = payload.dcql_query ?? dcql_query;
 				response_uri = (payload.response_uri ?? payload.redirect_uri) as string;
-				if (response_uri && !response_uri.startsWith("http")) {
-					response_uri = `https://${response_uri}`;
-				}
 				client_metadata = payload.client_metadata as OpenID4VPClientMetadata;
 				response_mode = payload.response_mode ?? response_mode;
 				if (payload.transaction_data) {
