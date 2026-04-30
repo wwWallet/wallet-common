@@ -161,6 +161,7 @@ export class OpenID4VPClientAPI {
 		exportedEphPub.kid = generateRandomIdentifier(8);
 		exportedEphPriv.kid = exportedEphPub.kid;
 		exportedEphPub.use = 'enc';
+		exportedEphPub.alg = 'ECDH-ES';
 		let transactionDataObject: any[] = [];
 		if (presentationRequest?.dcql_query?.credentials) {
 			transactionDataObject = await Promise.all(presentationRequest?.dcql_query?.credentials
@@ -195,8 +196,7 @@ export class OpenID4VPClientAPI {
 						exportedEphPub
 					]
 				},
-				"authorization_encrypted_response_alg": "ECDH-ES",
-				"authorization_encrypted_response_enc": "A256GCM",
+				"encrypted_response_enc_values_supported": ["A256GCM"],
 				"vp_formats": {
 					"vc+sd-jwt": {
 						"sd-jwt_alg_values": [
