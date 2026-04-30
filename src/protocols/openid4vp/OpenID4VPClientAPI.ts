@@ -12,7 +12,7 @@ import { CredentialRenderingService } from "../../rendering";
 import { VerifiableCredentialFormat } from "../../types";
 import { fromBase64Url, toBase64Url } from "../../utils/util";
 import { TransactionData } from "./transactionData";
-import { CredentialEngineOptions, CredentialIssuerMetadata, IacasResponse, OpenID4VPOptions, PresentationClaims, PresentationInfo, OpenID4VPResponseMode, RPState } from "./types";
+import { CredentialEngineOptions, CredentialIssuerMetadata, IacasResponse, OpenID4VPClientIdScheme, OpenID4VPOptions, PresentationClaims, PresentationInfo, OpenID4VPResponseMode, RPState } from "./types";
 import { DcqlPresentationResult } from 'dcql';
 import { randomUUID } from "crypto";
 import { exportJWK, generateKeyPair, importPKCS8, SignJWT, compactDecrypt, CompactDecryptResult, importJWK } from "jose";
@@ -47,6 +47,25 @@ export class OpenID4VPClientAPI {
 		this.rpStateKV = kvStore;
 		this.options = options;
 		this.httpClient = httpClient;
+	}
+
+	private getBase64UrlSha256(data: Uint8Array): Promise<string> {
+		return this.options.credentialEngineOptions.subtle.digest("SHA-256", data).then((digest) => {
+			return toBase64Url(new Uint8Array(digest));
+		});
+	}
+
+	private decodeBase64Certificate(base64Certificate: string): Uint8Array {
+		if (typeof Buffer !== "undefined") {
+			return Uint8Array.from(Buffer.from(base64Certificate, "base64"));
+		}
+
+		const binary = atob(base64Certificate);
+		const bytes = new Uint8Array(binary.length);
+		for (let i = 0; i < binary.length; i++) {
+			bytes[i] = binary.charCodeAt(i);
+		}
+		return bytes;
 	}
 
 	private async initializeCredentialEngine() {
@@ -102,14 +121,33 @@ export class OpenID4VPClientAPI {
 			credentialRendering,
 		};
 }
-	async generateAuthorizationRequestURL(presentationRequest: any, sessionId: string, responseUri: string, baseUri: string, privateKeyPem: string, x5c: string[], responseMode: OpenID4VPResponseMode, callbackEndpoint?: string): Promise<{ url: URL; stateId: string; rpState: RPState }> {
+	async generateAuthorizationRequestURL(
+		presentationRequest: any,
+		sessionId: string,
+		responseUri: string,
+		baseUri: string,
+		privateKeyPem: string,
+		x5c: string[],
+		responseMode: OpenID4VPResponseMode,
+		callbackEndpoint?: string,
+		clientIdScheme: OpenID4VPClientIdScheme = "x509_san_dns",
+	): Promise<{ url: URL; stateId: string; rpState: RPState }> {
 
 		console.log("Presentation Request: Session id used for authz req ", sessionId);
 
 		const nonce = randomUUID();
 		const state = sessionId;
 
-		const client_id = new URL(responseUri).hostname
+		let clientIdWithoutPrefix;
+		switch (clientIdScheme) {
+			case "x509_hash":
+				const leafCertificate = x5c[0];
+				clientIdWithoutPrefix = await this.getBase64UrlSha256(this.decodeBase64Certificate(leafCertificate));
+				break;
+			case "x509_san_dns":
+				clientIdWithoutPrefix = new URL(responseUri).hostname;
+		}
+		const fullClientId = `${clientIdScheme}:${clientIdWithoutPrefix}`;
 
 		const [rsaImportedPrivateKey, rpEphemeralKeypair] = await Promise.all([
 			importPKCS8(privateKeyPem, 'ES256'),
@@ -145,7 +183,7 @@ export class OpenID4VPClientAPI {
 			response_uri: responseUri,
 			aud: "https://self-issued.me/v2",
 			iss: new URL(responseUri).hostname,
-			client_id: "x509_san_dns:" + client_id,
+			client_id: fullClientId,
 			response_type: "vp_token",
 			response_mode: responseMode,
 			state: state,
@@ -201,7 +239,7 @@ export class OpenID4VPClientAPI {
 
 			callback_endpoint: callbackEndpoint ?? null,
 
-			audience: `x509_san_dns:${client_id}`,
+			audience: fullClientId,
 			presentation_request_id:
 				presentationRequest.id ??
 				(presentationRequest.dcql_query as any)?.credentials?.[0]?.id,
@@ -237,7 +275,7 @@ export class OpenID4VPClientAPI {
 		const requestUri = baseUri + "/verification/request-object?id=" + state;
 
 		const redirectParameters = {
-			client_id: "x509_san_dns:" + client_id,
+			client_id: fullClientId,
 			request_uri: requestUri
 		};
 
