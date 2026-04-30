@@ -97,6 +97,8 @@ describe("OpenID4VPClientAPI.generateAuthorizationRequestURL", () => {
 		assert(payload.dcql_query?.credentials?.[0]?.id === "pidMsoMdoc");
 		assert(!("transaction_data" in payload));
 		assert(payload.client_metadata?.jwks?.keys?.length === 1);
+		assert(payload.client_metadata?.jwks?.keys?.[0]?.alg === "ECDH-ES");
+		assert(result.rpState.rp_eph_pub.alg === "ECDH-ES");
 	});
 
 	it("should build a valid URL using x509_hash client identifier", async () => {
@@ -144,9 +146,11 @@ describe("OpenID4VPClientAPI.generateAuthorizationRequestURL", () => {
 
 		assert(result.url.searchParams.get("client_id") === expectedClientId);
 		assert(result.rpState.audience === expectedClientId);
+		assert(result.rpState.rp_eph_pub.alg === "ECDH-ES");
 		const [, encodedPayload] = result.rpState.signed_request.split(".");
 		const payload = JSON.parse(new TextDecoder().decode(fromBase64Url(encodedPayload)));
 		assert(payload.client_id === expectedClientId);
+		assert(payload.client_metadata?.jwks?.keys?.[0]?.alg === "ECDH-ES");
 	});
 });
 
