@@ -4,6 +4,7 @@ import { Jwt, SDJwt } from "@sd-jwt/core";
 import { OpenID4VPServerAPI } from "./OpenID4VPServerAPI";
 import { OpenID4VPResponseMode } from "./types";
 import { VerifiableCredentialFormat } from "../../types";
+import { SignJWT, importPKCS8 } from "jose";
 
 const issuerSignedB64U = `omppc3N1ZXJBdXRohEOhASahGCGCWQJ4MIICdDCCAhugAwIBAgIBAjAKBggqhkjOPQQDAjCBiDELMAkGA1UEBhMCREUxDzANBgNVBAcMBkJlcmxpbjEdMBsGA1UECgwUQnVuZGVzZHJ1Y2tlcmVpIEdtYkgxETAPBgNVBAsMCFQgQ1MgSURFMTYwNAYDVQQDDC1TUFJJTkQgRnVua2UgRVVESSBXYWxsZXQgUHJvdG90eXBlIElzc3VpbmcgQ0EwHhcNMjQwNTMxMDgxMzE3WhcNMjUwNzA1MDgxMzE3WjBsMQswCQYDVQQGEwJERTEdMBsGA1UECgwUQnVuZGVzZHJ1Y2tlcmVpIEdtYkgxCjAIBgNVBAsMAUkxMjAwBgNVBAMMKVNQUklORCBGdW5rZSBFVURJIFdhbGxldCBQcm90b3R5cGUgSXNzdWVyMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEOFBq4YMKg4w5fTifsytwBuJf_7E7VhRPXiNm52S3q1ETIgBdXyDK3kVxGxgeHPivLP3uuMvS6iDEc7qMxmvduKOBkDCBjTAdBgNVHQ4EFgQUiPhCkLErDXPLW2_J0WVeghyw-mIwDAYDVR0TAQH_BAIwADAOBgNVHQ8BAf8EBAMCB4AwLQYDVR0RBCYwJIIiZGVtby5waWQtaXNzdWVyLmJ1bmRlc2RydWNrZXJlaS5kZTAfBgNVHSMEGDAWgBTUVhjAiTjoDliEGMl2Yr-ru8WQvjAKBggqhkjOPQQDAgNHADBEAiAbf5TzkcQzhfWoIoyi1VN7d8I9BsFKm1MWluRph2byGQIgKYkdrNf2xXPjVSbjW_U_5S5vAEC5XxcOanusOBroBbVZAn0wggJ5MIICIKADAgECAhQHkT1BVm2ZRhwO0KMoH8fdVC_vaDAKBggqhkjOPQQDAjCBiDELMAkGA1UEBhMCREUxDzANBgNVBAcMBkJlcmxpbjEdMBsGA1UECgwUQnVuZGVzZHJ1Y2tlcmVpIEdtYkgxETAPBgNVBAsMCFQgQ1MgSURFMTYwNAYDVQQDDC1TUFJJTkQgRnVua2UgRVVESSBXYWxsZXQgUHJvdG90eXBlIElzc3VpbmcgQ0EwHhcNMjQwNTMxMDY0ODA5WhcNMzQwNTI5MDY0ODA5WjCBiDELMAkGA1UEBhMCREUxDzANBgNVBAcMBkJlcmxpbjEdMBsGA1UECgwUQnVuZGVzZHJ1Y2tlcmVpIEdtYkgxETAPBgNVBAsMCFQgQ1MgSURFMTYwNAYDVQQDDC1TUFJJTkQgRnVua2UgRVVESSBXYWxsZXQgUHJvdG90eXBlIElzc3VpbmcgQ0EwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARgbN3AUOdzv4qfmJsC8I4zyR7vtVDGp8xzBkvwhogD5YJE5wJ-Zj-CIf3aoyu7mn-TI6K8TREL8ht0w428OhTJo2YwZDAdBgNVHQ4EFgQU1FYYwIk46A5YhBjJdmK_q7vFkL4wHwYDVR0jBBgwFoAU1FYYwIk46A5YhBjJdmK_q7vFkL4wEgYDVR0TAQH_BAgwBgEB_wIBADAOBgNVHQ8BAf8EBAMCAYYwCgYIKoZIzj0EAwIDRwAwRAIgYSbvCRkoe39q1vgx0WddbrKufAxRPa7XfqB22XXRjqECIG5MWq9Vi2HWtvHMI_TFZkeZAr2RXLGfwY99fbsQjPOzWQS62BhZBLWnZnN0YXR1c6Frc3RhdHVzX2xpc3SiY2lkeBhsY3VyaXhWaHR0cHM6Ly9kZW1vLnBpZC1pc3N1ZXIuYnVuZGVzZHJ1Y2tlcmVpLmRlL3N0YXR1cy84ODc5M2MwMy0xNmFkLTQ0NjgtYmVmNy1jMDgzZDM4YWUyMTlnZG9jVHlwZXdldS5ldXJvcGEuZWMuZXVkaS5waWQuMWd2ZXJzaW9uYzEuMGx2YWxpZGl0eUluZm-jZnNpZ25lZMB0MjAyNS0wMi0xOFQxNDoxMjowNFppdmFsaWRGcm9twHQyMDI1LTAyLTE4VDE0OjEyOjA0Wmp2YWxpZFVudGlswHQyMDI1LTAzLTA0VDE0OjEyOjA0Wmx2YWx1ZURpZ2VzdHOhd2V1LmV1cm9wYS5lYy5ldWRpLnBpZC4xtgBYIKuGxnFMGhNio5-VUJKePlkmw33mloMA9fgqUR0ynOoJAVggWxNyUrVxTPW2riSGxx_U_irluD-vcJIOGGrafGo6JpwCWCDKOCdlxlbeX7mztFkzrM7MsZHs3gEyrmC79X3N2VpxkgNYICmI6iaQPBePM7fzBXqPyX5Gr-wNnWNCNb7wDUz4VDIRBFggfCuu8bFboi9BiRPsM447Ncg9A7K7A28iTEjVy9fmjBIFWCC6z1AlQM8ttJfuIQtPYlurlamh3MvAbSaQoUzAn-9L9gZYIKD1mVbZ5zb-_sp_E6vZCQ_U2QAQVNtbWAznR4xUm6LoB1ggWAn0OSPMM-m8NbgBZ-D6qLV0BEVeSnR4DIsUPUOZDbsIWCDyTDBH9XjK_JIq_W7d19UpmMq1pd1CjrmhfIHsctg3gwlYIK7ejRc3g-pfNGM0WHv4Oh1jfshl03Jvm3cxKHFnIIXmClggjPVDgZmiJEpnM6Zo_mzUQAbW5M6QZuRH43L6BqVeT7wLWCCSVNDu2CjnRkbC7_6m6-G6h8dTDWvlmGz0WD-MUCGERwxYIDpAXdFHgnACMgICXQpJi9nzBDRjsJ8bY1htM9GtgZlKDVggvhyWJk8WGQgokFghnd9DyZKyo8b6VrfAX8WTB0vH1QkOWCBLJFY_nbKL1x-5fbJCqS1IgEn_uMm9NJm2vqorCWwwPg9YIJIg7rTS_E3HAYjcjdV6WSpgZuXa8IKo7f5aC9ibPXQzEFggc_BlS8FdmjVtSqXrA2Xh58naoO0XdTbwclGo9itNTIERWCDzIo5muAIWaawEG69bUPG4mI4pEB5dUhadaUeMUEuwIhJYIEALsAqnwl3T1nC7YtOeDj-7OEHlmcwhCZjY2Qgsr2vCE1ggwG6In0GuGqO1isPXfh2EA7-mi18JAhfumCyQUA5FpYYUWCAL6kBisfFYUIU06t2d0UeqElM-c49VrVqfgYYSIx2JpRVYICYx93c95xCPFdhE03ZlReMnLGSjT_SJgEBMeErv0VlXbWRldmljZUtleUluZm-haWRldmljZUtleaQBAiABIVgganiJYJ0goJBbFzWZ52BDtTvTP1Fqb6k80C4UBl6JrFwiWCCWf2o4RIOTRI_UGubc0rCyIDo-o_LYRzYRnWzos3gcSm9kaWdlc3RBbGdvcml0aG1nU0hBLTI1NlhAcBP9-i1suGc_TnH7z4Mp8jFAz2Q__4w7Ju7dDG93XWfCE15E15WYaXUnkYY80tStLInk7nEi6IqEPHJPUyWiyGpuYW1lU3BhY2VzoXdldS5ldXJvcGEuZWMuZXVkaS5waWQuMZbYGFhRpGZyYW5kb21Q6lwO6tOJcjKhPDMrRPrRFGhkaWdlc3RJRABsZWxlbWVudFZhbHVlGDxxZWxlbWVudElkZW50aWZpZXJsYWdlX2luX3llYXJz2BhYT6RmcmFuZG9tUBwuvU0MGGbT2h94xazpeqloZGlnZXN0SUQBbGVsZW1lbnRWYWx1ZfVxZWxlbWVudElkZW50aWZpZXJrYWdlX292ZXJfMTLYGFhdpGZyYW5kb21Qo6kOsHqedb_9xHVlfCXHf2hkaWdlc3RJRAJsZWxlbWVudFZhbHVlZTUxMTQ3cWVsZW1lbnRJZGVudGlmaWVydHJlc2lkZW50X3Bvc3RhbF9jb2Rl2BhYVaRmcmFuZG9tUP6aK3BnaJ4ssYCnhgPSaZpoZGlnZXN0SUQDbGVsZW1lbnRWYWx1ZWZCRVJMSU5xZWxlbWVudElkZW50aWZpZXJrYmlydGhfcGxhY2XYGFhPpGZyYW5kb21QGR_ZD_ylLFjp_gFyoXxR0WhkaWdlc3RJRARsZWxlbWVudFZhbHVl9XFlbGVtZW50SWRlbnRpZmllcmthZ2Vfb3Zlcl8xNNgYWFWkZnJhbmRvbVByTlMf_mCOUvaECM5veox_aGRpZ2VzdElEBWxlbGVtZW50VmFsdWViREVxZWxlbWVudElkZW50aWZpZXJvaXNzdWluZ19jb3VudHJ52BhYY6RmcmFuZG9tUED3uH1EYolIFfAdQr8v6pVoZGlnZXN0SUQGbGVsZW1lbnRWYWx1ZcB0MTk2NC0wOC0xMlQwMDowMDowMFpxZWxlbWVudElkZW50aWZpZXJqYmlydGhfZGF0ZdgYWE-kZnJhbmRvbVBucDIRMDGt1bMXZVQopw3OaGRpZ2VzdElEB2xlbGVtZW50VmFsdWX0cWVsZW1lbnRJZGVudGlmaWVya2FnZV9vdmVyXzY12BhYVqRmcmFuZG9tUEQqTillqXQcpIwC8F2YOMloZGlnZXN0SUQIbGVsZW1lbnRWYWx1ZWJERXFlbGVtZW50SWRlbnRpZmllcnByZXNpZGVudF9jb3VudHJ52BhYT6RmcmFuZG9tUMoKXZZ4ZDwVRRL4IQ7oDEFoZGlnZXN0SUQJbGVsZW1lbnRWYWx1ZfVxZWxlbWVudElkZW50aWZpZXJrYWdlX292ZXJfMTbYGFhXpGZyYW5kb21QdJ-5Oz_55VjO0LOBbnoLs2hkaWdlc3RJRApsZWxlbWVudFZhbHVlYkRFcWVsZW1lbnRJZGVudGlmaWVycWlzc3VpbmdfYXV0aG9yaXR52BhYa6RmcmFuZG9tUMexUIlyfvCgcIUu67OBH6doZGlnZXN0SUQLbGVsZW1lbnRWYWx1ZcB4GDIwMjUtMDItMThUMTQ6MTI6MDQuMzc1WnFlbGVtZW50SWRlbnRpZmllcm1pc3N1YW5jZV9kYXRl2BhYVKRmcmFuZG9tUJ_7jstnoovdbm84Cmh2etFoZGlnZXN0SUQMbGVsZW1lbnRWYWx1ZRkHrHFlbGVtZW50SWRlbnRpZmllcm5hZ2VfYmlydGhfeWVhctgYWFmkZnJhbmRvbVAnc4IFpUS4gxjqo-1DsQNvaGRpZ2VzdElEDWxlbGVtZW50VmFsdWVqTVVTVEVSTUFOTnFlbGVtZW50SWRlbnRpZmllcmtmYW1pbHlfbmFtZdgYWE-kZnJhbmRvbVD0dq9e6pNoaa0e_tVlZ-hZaGRpZ2VzdElEDmxlbGVtZW50VmFsdWX1cWVsZW1lbnRJZGVudGlmaWVya2FnZV9vdmVyXzE42BhYU6RmcmFuZG9tUIurbtyPoiia4qsc62iQHIBoZGlnZXN0SUQPbGVsZW1lbnRWYWx1ZWVFUklLQXFlbGVtZW50SWRlbnRpZmllcmpnaXZlbl9uYW1l2BhYY6RmcmFuZG9tUKgfL0gkbSOApy2APkdkNatoZGlnZXN0SUQQbGVsZW1lbnRWYWx1ZXBIRUlERVNUUkHhup5FIDE3cWVsZW1lbnRJZGVudGlmaWVyb3Jlc2lkZW50X3N0cmVldNgYWFGkZnJhbmRvbVA3gWJEwZz8jgsLsfRJvjMQaGRpZ2VzdElEEWxlbGVtZW50VmFsdWViREVxZWxlbWVudElkZW50aWZpZXJrbmF0aW9uYWxpdHnYGFhPpGZyYW5kb21QHSMBCaBxBPPy92dCcmoZvWhkaWdlc3RJRBJsZWxlbWVudFZhbHVl9XFlbGVtZW50SWRlbnRpZmllcmthZ2Vfb3Zlcl8yMdgYWFakZnJhbmRvbVB4Df01yH0SBmag1gS4xKL9aGRpZ2VzdElEE2xlbGVtZW50VmFsdWVlS8OWTE5xZWxlbWVudElkZW50aWZpZXJtcmVzaWRlbnRfY2l0edgYWFukZnJhbmRvbVDxOTqapogRuHVS1cLoK7z6aGRpZ2VzdElEFGxlbGVtZW50VmFsdWVmR0FCTEVScWVsZW1lbnRJZGVudGlmaWVycWZhbWlseV9uYW1lX2JpcnRo2BhYaaRmcmFuZG9tUOFMkL6pWaVejQQEv7_aS-loZGlnZXN0SUQVbGVsZW1lbnRWYWx1ZcB4GDIwMjUtMDMtMDRUMTQ6MTI6MDQuMzc1WnFlbGVtZW50SWRlbnRpZmllcmtleHBpcnlfZGF0ZQ`;
 /**
@@ -46,6 +47,56 @@ const buildSdJwt = async (payload: Record<string, unknown>) => {
 	await jwt.sign(signer);
 	const sdJwt = new SDJwt({ jwt, disclosures: [] });
 	return sdJwt.encodeSDJwt();
+};
+
+const verifierCertificatePem = `-----BEGIN CERTIFICATE-----
+MIIC5DCCAomgAwIBAgIUJlxjbr618T2Zb2dxCxfzzeTnYMwwCgYIKoZIzj0EAwIw
+PzELMAkGA1UEBhMCRVUxFTATBgNVBAoMDHd3V2FsbGV0Lm9yZzEZMBcGA1UEAwwQ
+d3dXYWxsZXQgUm9vdCBDQTAeFw0yNjAzMjAxMDA3MTlaFw0yNzAzMjAxMDA3MTla
+MEMxCzAJBgNVBAYTAkVVMRUwEwYDVQQKDAx3d1dhbGxldC5vcmcxHTAbBgNVBAMM
+FGV4YW1wbGUud3d3YWxsZXQub3JnMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE
+pRwtHC77yWVX2XpncAlzUyYE0IPjNEqtO2eEXCv3qNhpC5i4QgnFnISr+/SagB4g
+qAq22PZPlHsCukmjscdjiKOCAV0wggFZMB8GA1UdIwQYMBaAFOy9nGNg5magtflH
+l1/bNcrjabgLMB0GA1UdDgQWBBQnp8p5McTXqRqiDe8vc8u6bazIozAOBgNVHQ8B
+Af8EBAMCB4AwOgYDVR0SBDMwMYERaW5mb0B3d3dhbGxldC5vcmeGHGh0dHBzOi8v
+ZXhhbXBsZS53d3dhbGxldC5vcmcwEgYDVR0lBAswCQYHKIGMXQUBBjAMBgNVHRMB
+Af8EAjAAMEwGA1UdHwRFMEMwQaA/oD2GO2h0dHBzOi8vZXhhbXBsZS53d3dhbGxl
+dC5vcmcvaWFjYS9jcmwvd3d3YWxsZXRfb3JnX2lhY2EuY3JsMFsGA1UdEQRUMFKC
+FGV4YW1wbGUud3d3YWxsZXQub3JnghtleGFtcGxlLWlzc3Vlci53d3dhbGxldC5v
+cmeCHWV4YW1wbGUtdmVyaWZpZXIud3d3YWxsZXQub3JnMAoGCCqGSM49BAMCA0kA
+MEYCIQCoUS8pFmhxwEf4pOQULb7GRCcAF/7NEWf9H1buoaLAKAIhAJZAYYsl7mrg
+haC8hh+EFqTdJJJzCyAxThkMjhwKEr8j
+-----END CERTIFICATE-----`;
+
+const verifierPrivateKeyPem = `-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgF+SYouRj+4/uAvQp
+01wTiFSlzNl8yftHOal5GxNXoxmhRANCAASlHC0cLvvJZVfZemdwCXNTJgTQg+M0
+Sq07Z4RcK/eo2GkLmLhCCcWchKv79JqAHiCoCrbY9k+UewK6SaOxx2OI
+-----END PRIVATE KEY-----`;
+
+const verifierCertificateBase64 = verifierCertificatePem
+	.replace("-----BEGIN CERTIFICATE-----", "")
+	.replace("-----END CERTIFICATE-----", "")
+	.replace(/\s+/g, "");
+
+const buildRequestUriJwt = async (clientId: string, dcqlQuery: Record<string, unknown>) => {
+	const privateKey = await importPKCS8(verifierPrivateKeyPem, "ES256");
+	return new SignJWT({
+		client_id: clientId,
+		response_uri: "https://verifier.example.com/cb",
+		state: "state-hash",
+		nonce: "nonce-hash",
+		client_metadata: { vp_formats: {} },
+		response_mode: OpenID4VPResponseMode.DIRECT_POST,
+		dcql_query: dcqlQuery,
+	})
+		.setProtectedHeader({
+			alg: "ES256",
+			x5c: [verifierCertificateBase64],
+			typ: "oauth-authz-req+jwt",
+		})
+		.setIssuedAt()
+		.sign(privateKey);
 };
 
 describe("OpenID4VPServerAPI.handleAuthorizationRequest", () => {
@@ -352,5 +403,73 @@ describe("OpenID4VPServerAPI.handleAuthorizationRequest", () => {
 		const result = await helper.handleAuthorizationRequest(url.toString(), []);
 		assert("error" in result);
 		assert(result.error === "old_state");
+	});
+
+	it("should accept x509_hash when the request_uri hash matches the signing certificate", async () => {
+		const signedClaimsPid = { vct: "urn:eudi:pid:1", given_name: "Alice" };
+		const sdJwtPid = await buildSdJwt(signedClaimsPid);
+		const expectedClientId = `x509_hash:${Crypto.createHash("sha256").update(Buffer.from(verifierCertificateBase64, "base64")).digest("base64url")}`;
+		const requestUriJwt = await buildRequestUriJwt(expectedClientId, {
+			credentials: [
+				{
+					id: "testCredential",
+					format: VerifiableCredentialFormat.DC_SDJWT,
+					meta: { vct_values: ["urn:eudi:pid:1"] },
+					claims: [{ path: ["given_name"] }],
+				},
+			],
+		});
+
+		const helper = new OpenID4VPServerAPI({
+			httpClient: {
+				get: async (url: string) => {
+					if (url === "https://verifier.example.com/request-object") {
+						return { data: requestUriJwt };
+					}
+					throw new Error(`unexpected http call: ${url}`);
+				},
+			},
+			rpStateStore: {
+				store: async () => {},
+				retrieve: async () => ({}) as any,
+			},
+			parseCredential: async () => ({ signedClaims: signedClaimsPid }),
+			selectCredentialForBatch: async () => null,
+			keystore: {
+				signJwtPresentation: async () => ({ vpjwt: "vp-jwt" }),
+				generateDeviceResponse: async () => ({ deviceResponseMDoc: {} }),
+			},
+			strings: {
+				purposeNotSpecified: "No purpose provided",
+				allClaimsRequested: "All claims",
+			},
+		});
+
+		const dcql_query = {
+			credentials: [
+				{
+					id: "testCredential",
+					format: VerifiableCredentialFormat.DC_SDJWT,
+					meta: { vct_values: ["urn:eudi:pid:1"] },
+					claims: [{ path: ["given_name"] }],
+				},
+			],
+		};
+
+		const url = new URL("openid4vp://authorize");
+		url.searchParams.set("client_id", expectedClientId);
+		url.searchParams.set("response_uri", "https://verifier.example.com/cb");
+		url.searchParams.set("nonce", "nonce-hash");
+		url.searchParams.set("state", "state-hash");
+		url.searchParams.set("client_metadata", JSON.stringify({ vp_formats: {} }));
+		url.searchParams.set("response_mode", JSON.stringify(OpenID4VPResponseMode.DIRECT_POST));
+		url.searchParams.set("dcql_query", JSON.stringify(dcql_query));
+		url.searchParams.set("request_uri", "https://verifier.example.com/request-object");
+
+		const result = await helper.handleAuthorizationRequest(url.toString(), [
+			{ format: VerifiableCredentialFormat.DC_SDJWT, data: sdJwtPid, batchId: 7, instanceId: 0 },
+		]);
+		assert(!("error" in result));
+		assert(result.verifierDomainName === expectedClientId);
 	});
 });

@@ -77,6 +77,7 @@ const decoder = new TextDecoder();
 const encoder = new TextEncoder();
 const certFromB64 = (certBase64: string) =>
 	`-----BEGIN CERTIFICATE-----\n${certBase64.match(/.{1,64}/g)?.join("\n")}\n-----END CERTIFICATE-----`;
+const supportedClientIdSchemes = new Set(["x509_san_dns", "x509_hash"]);
 
 function isOpenID4VPResponseMode(value: unknown): value is OpenID4VPResponseMode {
 	return typeof value === "string" && Object.values(OpenID4VPResponseMode).includes(value as OpenID4VPResponseMode);
@@ -92,6 +93,25 @@ function getRandomUUID(randomUUID?: () => string): string {
 	if (randomUUID) return randomUUID();
 	if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
 	return generateRandomIdentifier(16);
+}
+
+function getClientIdScheme(clientId: string): string {
+	return clientId.split(":")[0];
+}
+
+async function calculateX509HashFromLeafCert(leafCertBase64: string, subtle?: SubtleCrypto): Promise<string> {
+	let certBytes: Uint8Array;
+	if (typeof Buffer !== "undefined") {
+		certBytes = Uint8Array.from(Buffer.from(leafCertBase64, "base64"));
+	} else {
+		const binary = atob(leafCertBase64);
+		certBytes = new Uint8Array(binary.length);
+		for (let i = 0; i < binary.length; i++) {
+			certBytes[i] = binary.charCodeAt(i);
+		}
+	}
+	const digest = await getSubtleCrypto(subtle).digest("SHA-256", certBytes);
+	return base64url.encode(new Uint8Array(digest));
 }
 
 const retrieveKeys = async (S: OpenID4VPRelyingPartyState, httpClient: { get: (url: string, options?: Record<string, unknown>) => Promise<{ data: unknown }> }) => {
@@ -149,7 +169,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 	}
 
 	private async handleRequestUri(request_uri: string): Promise<
-		{ payload: Record<string, unknown>; parsedHeader: Record<string, unknown> } |
+		{ payload: Record<string, unknown>; parsedHeader: Record<string, unknown>; leafCertBase64: string } |
 		{ error: HandleAuthorizationRequestError }
 	> {
 		const requestUriResponse = await this.deps.httpClient.get(request_uri, {});
@@ -164,13 +184,17 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 			return { error: HandleAuthorizationRequestErrors.INVALID_TYP };
 		}
 		const x5c = parsedHeader.x5c as string[];
-		const publicKey = await importX509(certFromB64(x5c[0]), parsedHeader.alg);
+		const leafCertBase64 = x5c?.[0];
+		if (!leafCertBase64) {
+			return { error: HandleAuthorizationRequestErrors.NONTRUSTED_VERIFIER };
+		}
+		const publicKey = await importX509(certFromB64(leafCertBase64), parsedHeader.alg);
 		const verificationResult = await jwtVerify(jwt, publicKey).catch(() => null);
 		if (verificationResult == null) {
 			return { error: HandleAuthorizationRequestErrors.NONTRUSTED_VERIFIER };
 		}
 		const decodedPayload = JSON.parse(decoder.decode(base64url.decode(payload)));
-		return { payload: decodedPayload, parsedHeader };
+		return { payload: decodedPayload, parsedHeader, leafCertBase64 };
 	}
 
 	private async matchCredentialsToDCQL(vcList: CredentialT[], dcqlJson: any): Promise<
@@ -589,8 +613,8 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 			return { error: HandleAuthorizationRequestErrors.COULD_NOT_RESOLVE_REQUEST };
 		}
 
-		const client_id_scheme = client_id.split(":")[0];
-		if (client_id_scheme !== "x509_san_dns") {
+		const client_id_scheme = getClientIdScheme(client_id);
+		if (!supportedClientIdSchemes.has(client_id_scheme)) {
 			return { error: HandleAuthorizationRequestErrors.NON_SUPPORTED_CLIENT_ID_SCHEME };
 		}
 
@@ -601,8 +625,18 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 				if ("error" in result) {
 					return result;
 				}
-				const { payload, parsedHeader } = result;
+				const { payload, parsedHeader, leafCertBase64 } = result;
 				client_id = payload.client_id as string;
+				const requestObjectClientIdScheme = getClientIdScheme(client_id);
+				if (!supportedClientIdSchemes.has(requestObjectClientIdScheme)) {
+					return { error: HandleAuthorizationRequestErrors.NON_SUPPORTED_CLIENT_ID_SCHEME };
+				}
+				if (requestObjectClientIdScheme === "x509_hash") {
+					const expectedClientId = `x509_hash:${await calculateX509HashFromLeafCert(leafCertBase64, this.deps.subtle)}`;
+					if (client_id !== expectedClientId) {
+						return { error: HandleAuthorizationRequestErrors.NONTRUSTED_VERIFIER };
+					}
+				}
 
 				dcql_query = payload.dcql_query ?? dcql_query;
 				response_uri = (payload.response_uri ?? payload.redirect_uri) as string;
