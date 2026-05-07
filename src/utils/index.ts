@@ -1,4 +1,4 @@
-export { compressionOptions } from './compressionOptions';
+export { compressionUtils } from './compressionUtils';
 export { verifyX5C } from './verifyX5C';
 export { getSdJwtVcMetadata } from './getSdJwtVcMetadata';
 export { resolveWellKnownUrl } from './resolveWellKnownUrl';
