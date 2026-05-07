@@ -1,5 +1,5 @@
 import { HttpClient } from '../interfaces';
-import { verifySRIFromObject } from './verifySRIFromObject';
+import { verifySRIFromObject } from './sriUtils';
 import { MetadataError, MetadataWarning } from '../types';
 import { CredentialParsingError, isCredentialParsingWarnings } from '../error';
 import { TypeMetadata as TypeMetadataSchema } from "../schemas/SdJwtVcTypeMetadataSchema";
