@@ -51,6 +51,11 @@ export function fromBase64Url(s: string): Uint8Array {
 	return fromBase64(s.replace(/-/g, "+").replace(/_/g, "/"));
 }
 
+export function base64urlToBytes(base64urlValue: string): Uint8Array {
+	const base64 = base64urlValue.replace(/-/g, "+").replace(/_/g, "/");
+	return fromBase64(base64);
+}
+
 export function generateRandomIdentifier(length: number) {
 	const array = new Uint8Array(length);
 	crypto.getRandomValues(array);
