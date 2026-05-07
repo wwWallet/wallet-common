@@ -1,7 +1,3 @@
-import { VctDocumentProvider } from "../core";
-import { defaultHttpClient } from "../defaultHttpClient";
-import { getSdJwtVcMetadata } from "./getSdJwtVcMetadata";
-
 export type sriAlgorithm = 'sha256' | 'sha384' | 'sha512';
 
 export type SubtleAlgorithm = 'SHA-256' | 'SHA-384' | 'SHA-512';
@@ -17,25 +13,6 @@ export const subtleToSriAlgorithm: Record<SubtleAlgorithm, sriAlgorithm> = {
 	'SHA-384': 'sha384',
 	'SHA-512': 'sha512',
 };
-
-export async function calculateVctIntegritySRI(
-	vctDocumentProvider: VctDocumentProvider,
-	vctUrn: string,
-	subtle: SubtleCrypto = crypto.subtle,
-	algorithm: SubtleAlgorithm = 'SHA-256'
-): Promise <string> {
-
-	const metadata = await getSdJwtVcMetadata(vctDocumentProvider, crypto.subtle, defaultHttpClient, vctUrn, undefined);
-
-	// if urn is http / https
-	// then fetch data (should be application/json)
-	// check if fetch data is successful
-	// return calculateObjectSRI
-
-	// else check our vct registry for this urn
-
-	return '';
-}
 
 export async function calculateObjectSRI(
 	subtle: SubtleCrypto,
