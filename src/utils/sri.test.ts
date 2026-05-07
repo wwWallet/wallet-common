@@ -8,7 +8,7 @@ import {
 	subtleToSriAlgorithm,
 	sriAlgorithm,
 	SubtleAlgorithm,
-} from './sriUtils';
+} from './sri';
 
 const ALGORITHMS = Object.entries(sriToSubtleAlgorithm) as [
 	sriAlgorithm,

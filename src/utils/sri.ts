@@ -40,7 +40,7 @@ export async function calculateDataSRI(
 }
 
 /**
- * Verifies that a given object matches the expected SRI integrity string.
+ * Verifies that a given object matches the expected SRI string.
  * @param obj - The object to verify
  * @param expectedIntegrity - The SRI string (e.g. 'sha256-<base64hash>')
  * @returns Promise resolving to true if valid, false otherwise
