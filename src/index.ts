@@ -14,8 +14,6 @@ export * from './credential-verifiers/MsoMdocVerifier';
 
 export * from './PublicKeyResolverEngine';
 
-export * from './CompressionOptions';
-
 export * from './interfaces';
 
 export * from './schemas';

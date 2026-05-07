@@ -1,3 +1,4 @@
+export { compressionOptions } from './compressionOptions';
 export { verifyX5C } from './verifyX5C';
 export { getSdJwtVcMetadata } from './getSdJwtVcMetadata';
 export { resolveWellKnownUrl } from './resolveWellKnownUrl';
