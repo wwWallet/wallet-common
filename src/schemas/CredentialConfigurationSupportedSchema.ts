@@ -1,17 +1,30 @@
 import { z } from 'zod';
 import { VerifiableCredentialFormat } from '../types';
 
+const attackPotentialResistanceValues = [
+	"iso_18045_high",
+	"iso_18045_moderate",
+	"iso_18045_enhanced-basic",
+	"iso_18045_basic"
+] as const;
+
+const KeyAttestationsRequiredSchema = z.object({
+	key_storage: z.array(
+		z.enum(attackPotentialResistanceValues)
+	).min(1).optional(),
+	user_authentication: z.array(
+		z.enum(attackPotentialResistanceValues)
+	).min(1).optional(),
+});
+
+const ProofTypeSchema = z.object({
+	proof_signing_alg_values_supported: z.array(z.string()).min(1),
+	key_attestations_required: KeyAttestationsRequiredSchema.optional(),
+});
+
 const proofTypesSupportedSchema = z.object({
-	jwt: z.object({
-		proof_signing_alg_values_supported: z.array(z.string())
-	}).optional(),
-	attestation: z.object({
-		proof_signing_alg_values_supported: z.array(z.string()),
-		key_attestations_required: z.object({
-			key_storage: z.array(z.enum(["iso_18045_high", "iso_18045_moderate", "iso_18045_enhanced-basic", "iso_18045_basic"])).optional(),
-			user_authentication: z.array(z.enum(["iso_18045_high", "iso_18045_moderate", "iso_18045_enhanced-basic", "iso_18045_basic"])).optional(),
-		}).optional(),
-	}).optional(),
+	jwt: ProofTypeSchema.optional(),
+	attestation: ProofTypeSchema.optional(),
 });
 
 const OpenIdClaimSchema = z.object({
