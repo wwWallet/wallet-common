@@ -51,6 +51,7 @@ export interface RPState {
 	presentation_during_issuance_session: string | null;
 
 	date_created: number;
+	response_mode?: OpenID4VPResponseMode;
 }
 
 export type CredentialEngineOptions = {
@@ -81,11 +82,18 @@ export enum OpenID4VPResponseMode {
 	DC_API_JWT = "dc_api.jwt",
 }
 
+export enum OpenID4VPJweEncryption {
+	A128GCM = "A128GCM",
+	A192GCM = "A192GCM",
+	A256GCM = "A256GCM",
+}
+
+export type OpenID4VPClientIdScheme = "x509_san_dns" | "x509_hash";
+
 export type OpenID4VPClientMetadata = {
 	jwks?: { keys: any[] };
 	jwks_uri?: string;
-	authorization_encrypted_response_alg?: string;
-	authorization_encrypted_response_enc?: string;
+	encrypted_response_enc_values_supported?: string[];
 	vp_formats: any;
 };
 
