@@ -119,6 +119,57 @@ describe("The SDJWTVCParser", () => {
 		assert(result.error === CredentialParsingError.InvalidSdJwtVcPayload);
 	});
 
+	it("should fallback to issuer metadata matched by vct when credentialIssuer is missing", async () => {
+		const httpClientWithIssuerMetadata: HttpClient = {
+			get: async (url: string, headers?: Record<string, unknown>, options?: any) => {
+				if (url.includes(".well-known/openid-credential-issuer")) {
+					return {
+						status: 200,
+						headers: {},
+						data: {
+							credential_issuer: "http://wallet-enterprise-issuer:8003",
+							credential_endpoint: "http://wallet-enterprise-issuer:8003/credential",
+							credential_configurations_supported: {
+								"pid_sd_jwt": {
+									format: "dc+sd-jwt",
+									scope: "pid_sd_jwt",
+									vct: "urn:eudi:pid:1",
+									credential_metadata: {
+										display: [
+											{
+												name: "PID via VCT fallback",
+												locale: "en-US",
+											},
+										],
+										claims: [
+											{
+												path: ["family_name"],
+												mandatory: true,
+												display: [{ name: "Family Name", locale: "en-US" }],
+											},
+										],
+									},
+								},
+							},
+						},
+					};
+				}
+				return defaultHttpClient.get(url, headers, options);
+			},
+			post: defaultHttpClient.post,
+		};
+
+		const parser = SDJWTVCParser({ httpClient: httpClientWithIssuerMetadata, context });
+		const result = await parser.parse({ rawCredential });
+		assert(result.success === true);
+
+		if (result.success) {
+			const credentialName = await result.value.metadata.credential.name(["en-US"]);
+			assert(credentialName === "PID via VCT fallback");
+			assert(result.value.metadata.credential.TypeMetadata.claims?.length === 1);
+		}
+	});
+
 	it("should warn if issuer metadata fetch fail", async () => {
 		const malformedHttpClient: HttpClient = {
 			get: async (url: string) => {

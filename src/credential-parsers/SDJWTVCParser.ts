@@ -14,6 +14,7 @@ import { convertOpenid4vciToSdjwtvcClaims } from "../functions/convertOpenid4vci
 import { dataUriResolver } from "../resolvers/dataUriResolver";
 import { friendlyNameResolver } from "../resolvers/friendlyNameResolver";
 import { fromBase64Url } from "../utils";
+import type { CredentialConfigurationSupported } from "../schemas/CredentialConfigurationSupportedSchema";
 
 export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }): CredentialParser {
 	const encoder = new TextEncoder();
@@ -140,9 +141,21 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 			let TypeMetadata: Partial<TypeMetadataSchema> = {};
 			let credentialMetadata: TypeMetadataSchema | undefined = undefined;
 
-			const credentialIssuerMetadata = credentialIssuer?.credentialConfigurationId
-				? issuerMetadata?.credential_configurations_supported?.[credentialIssuer?.credentialConfigurationId]
-				: undefined;
+			const credentialConfigurationsSupported =
+				issuerMetadata?.credential_configurations_supported as Record<string, CredentialConfigurationSupported> | undefined;
+			const credentialIssuerMetadata = (() => {
+				if (!credentialConfigurationsSupported) return undefined;
+
+				const metadataByConfigurationId = credentialIssuer?.credentialConfigurationId
+					? credentialConfigurationsSupported[credentialIssuer.credentialConfigurationId]
+					: undefined;
+				if (metadataByConfigurationId) return metadataByConfigurationId;
+
+				// Fallback: if configuration id is missing/invalid, try matching by vct.
+				return Object.values(credentialConfigurationsSupported).find((configuration) =>
+					'vct' in configuration && configuration.vct === validatedParsedClaims.vct
+				);
+			})();
 
 			if (getSdJwtMetadataResult.credentialMetadata) {
 
