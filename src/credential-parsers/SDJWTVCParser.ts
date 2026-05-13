@@ -15,6 +15,7 @@ import { dataUriResolver } from "../resolvers/dataUriResolver";
 import { friendlyNameResolver } from "../resolvers/friendlyNameResolver";
 import { fromBase64Url } from "../utils";
 import type { CredentialConfigurationSupported } from "../schemas/CredentialConfigurationSupportedSchema";
+import { findBestCredentialConfigurationByVct } from "../utils/findBestCredentialConfigurationByVct";
 
 export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }): CredentialParser {
 	const encoder = new TextEncoder();
@@ -151,9 +152,10 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 					: undefined;
 				if (metadataByConfigurationId) return metadataByConfigurationId;
 
-				// Fallback: if configuration id is missing/invalid, try matching by vct.
-				return Object.values(credentialConfigurationsSupported).find((configuration) =>
-					'vct' in configuration && configuration.vct === validatedParsedClaims.vct
+				return findBestCredentialConfigurationByVct(
+					credentialConfigurationsSupported,
+					validatedParsedClaims.vct,
+					validatedParsedClaims
 				);
 			})();
 

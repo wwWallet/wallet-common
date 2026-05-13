@@ -119,7 +119,7 @@ describe("The SDJWTVCParser", () => {
 		assert(result.error === CredentialParsingError.InvalidSdJwtVcPayload);
 	});
 
-	it("should fallback to issuer metadata matched by vct when credentialIssuer is missing", async () => {
+	it("should fallback to the best issuer metadata matched by vct when credentialIssuer is missing", async () => {
 		const httpClientWithIssuerMetadata: HttpClient = {
 			get: async (url: string, headers?: Record<string, unknown>, options?: any) => {
 				if (url.includes(".well-known/openid-credential-issuer")) {
@@ -130,6 +130,26 @@ describe("The SDJWTVCParser", () => {
 							credential_issuer: "http://wallet-enterprise-issuer:8003",
 							credential_endpoint: "http://wallet-enterprise-issuer:8003/credential",
 							credential_configurations_supported: {
+								"generic_sd_jwt": {
+									format: "dc+sd-jwt",
+									scope: "generic_sd_jwt",
+									vct: "urn:eudi:pid:1",
+									credential_metadata: {
+										display: [
+											{
+												name: "Generic VCT match",
+												locale: "en-US",
+											},
+										],
+										claims: [
+											{
+												path: ["unmatched_claim"],
+												mandatory: true,
+												display: [{ name: "Unmatched Claim", locale: "en-US" }],
+											},
+										],
+									},
+								},
 								"pid_sd_jwt": {
 									format: "dc+sd-jwt",
 									scope: "pid_sd_jwt",
