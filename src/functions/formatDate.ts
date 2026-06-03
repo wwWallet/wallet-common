@@ -1,3 +1,5 @@
+import { formatCborDate, isCborDate } from "../utils";
+
 export function formatDate(value: any, format = 'datetime') {
 	// Regex for ISO 8601 format like '2024-10-08T07:28:49.117Z'. milliseconds are optional.
 	const iso8601Regex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?Z$/;
@@ -38,6 +40,8 @@ export function formatDate(value: any, format = 'datetime') {
 	} else if (value instanceof Date) {
 		// Handle Date objects directly
 		date = value;
+	} else if (isCborDate(value)) {
+		return formatCborDate(value);
 	} else {
 		// For unsupported types, return the original value
 		return value;
