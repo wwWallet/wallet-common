@@ -42,4 +42,6 @@ lerna-debug.log*
 output/*.svg
 output/*.png
 
+output/reports/*.json
+
 test/fixtures

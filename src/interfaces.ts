@@ -31,7 +31,7 @@ export interface ParsingEngineI {
 
 export interface VerifyingEngineI {
 	register(credentialVerifier: CredentialVerifier): void;
-	verify({ rawCredential, opts }: { rawCredential: unknown, opts: { expectedNonce?: string, expectedAudience?: string, holderNonce?: string, responseUri?: string, verifierEncryptionJwk?: JWK, handoverType?: "redirect" | "dc_api", dcApiOrigin?: string } }): Promise<CustomResult<{ holderPublicKey: JWK; }, CredentialVerificationError>>;
+	verify({ rawCredential, opts }: { rawCredential: unknown, opts: { expectedNonce?: string, expectedAudience?: string, holderNonce?: string, responseUri?: string, verifierEncryptionJwk?: JWK, handoverType?: "redirect" | "dc_api", dcApiOrigin?: string } }): Promise<CustomResult<{ holderPublicKey: JWK | undefined; }, CredentialVerificationError>>;
 }
 
 export interface PublicKeyResolverEngineI {
@@ -51,7 +51,7 @@ export interface CredentialParser {
 
 export interface CredentialVerifier {
 	verify(args: { rawCredential: unknown, opts: { expectedNonce?: string, expectedAudience?: string, holderNonce?: string, responseUri?: string, verifierEncryptionJwk?: JWK, handoverType?: "redirect" | "dc_api", dcApiOrigin?: string } }): Promise<CustomResult<{
-		holderPublicKey: JWK,
+		holderPublicKey: JWK | undefined,
 	}, CredentialVerificationError>>;
 }
 
@@ -79,4 +79,5 @@ export interface Context {
 	 */
 	trustedCertificates: string[];
 	vctResolutionEngine?: VctDocumentProvider;
+	disableCertificateTrustCheck?: boolean;
 }

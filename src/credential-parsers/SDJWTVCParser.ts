@@ -15,7 +15,12 @@ import { dataUriResolver } from "../resolvers/dataUriResolver";
 import { friendlyNameResolver } from "../resolvers/friendlyNameResolver";
 import { fromBase64Url } from "../utils";
 
-export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }): CredentialParser {
+export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient/* | undefined*/ }): CredentialParser {
+
+	if (!args.httpClient) {
+		console.warn("SDJWTVCParser running in offline mode. Metadata will not be fetched from issuer.");
+	}
+
 	const encoder = new TextEncoder();
 
 	function canParseSdJwtVc(raw: unknown): raw is string {
@@ -69,6 +74,7 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 	};
 
 	const cr = CredentialRenderingService();
+	// const renderer = args.httpClient ? CustomCredentialSvg({ httpClient: args.httpClient }) : undefined;
 	const renderer = CustomCredentialSvg({ httpClient: args.httpClient });
 
 
@@ -124,6 +130,38 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient }
 					error: CredentialParsingError.InvalidSdJwtVcPayload,
 				};
 			}
+
+			// if (!args.httpClient || !renderer) {
+			// 	return {
+			// 		success: true,
+			// 		value: {
+			// 			signedClaims: validatedParsedClaims,
+			// 			metadata: {
+			// 				credential: {
+			// 					format: typParseResult.data,
+			// 					vct: validatedParsedClaims?.vct as string | undefined ?? "",
+			// 					name: friendlyNameResolver({
+			// 						credentialDisplayArray: undefined,
+			// 						issuerDisplayArray: undefined,
+			// 						fallbackName: "SD-JWT Verifiable Credential",
+			// 					}),
+			// 					TypeMetadata: {},
+			// 					image: {
+			// 						dataUri: {} as any
+			// 					}
+			// 				},
+			// 				issuer: {
+			// 					id: validatedParsedClaims.iss ?? "UnknownIssuer",
+			// 					name: validatedParsedClaims.iss ?? "UnknownIssuer",
+			// 				}
+			// 			},
+			// 			validityInfo: {
+			// 				...extractValidityInfo(validatedParsedClaims)
+			// 			},
+			// 			warnings: [CredentialParsingError.FailFetchIssuerMetadata]
+			// 		}
+			// 	}
+			// }
 
 
 			const { metadata: issuerMetadata } = validatedParsedClaims.iss ? await getIssuerMetadata(args.httpClient, validatedParsedClaims.iss, warnings) : { metadata: undefined };

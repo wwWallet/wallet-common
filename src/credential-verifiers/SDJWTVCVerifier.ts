@@ -6,6 +6,7 @@ import { CustomResult, DigestHashAlgorithm, HashAlgorithm } from "../types";
 import { exportJWK, importJWK, importX509, JWK, jwtVerify, KeyLike } from "jose";
 import { fromBase64Url, toBase64Url } from "../utils/util";
 import { verifyCertificate } from "../utils/verifyCertificate";
+import { isCryptoKey } from "util/types";
 
 export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: PublicKeyResolverEngineI, httpClient: HttpClient }): CredentialVerifier {
 	let errors: { error: CredentialVerificationError, message: string }[] = [];
@@ -52,7 +53,7 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 		}
 		const cnf = (parseResult.parsedSdJwtWithPrettyClaims as any).cnf as Record<string, unknown>;
 
-		if (cnf.jwk && parseResult.credential.jwt && parseResult.credential.jwt.header && typeof parseResult.credential.jwt.header["alg"] === 'string') {
+		if (cnf && cnf.jwk && parseResult.credential.jwt && parseResult.credential.jwt.header && typeof parseResult.credential.jwt.header["alg"] === 'string') {
 			try {
 				const holderPublicKey = await importJWK(cnf.jwk as JWK, parseResult.credential.jwt.header["alg"]);
 				return {
@@ -103,15 +104,17 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 			if (x5c && x5c instanceof Array && x5c.length > 0 && typeof alg === 'string') { // extract public key from certificate
 				const lastCertificate: string = x5c[x5c.length - 1];
 				const lastCertificatePem = `-----BEGIN CERTIFICATE-----\n${lastCertificate}\n-----END CERTIFICATE-----`;
-				const certificateValidationResult = await verifyCertificate(lastCertificatePem, args.context.trustedCertificates);
-				const lastCertificateIsRootCa = args.context.trustedCertificates.map((c) => c.trim()).includes(lastCertificatePem);
-				const rootCertIsTrusted = certificateValidationResult === true || lastCertificateIsRootCa;
-				if (!rootCertIsTrusted) {
-					logError(CredentialVerificationError.NotTrustedIssuer, "Error on getIssuerPublicKey(): Issuer is not trusted");
-					return {
-						success: false,
-						error: CredentialVerificationError.NotTrustedIssuer,
-					};
+				if (!args.context.disableCertificateTrustCheck) {
+					const certificateValidationResult = await verifyCertificate(lastCertificatePem, args.context.trustedCertificates);
+					const lastCertificateIsRootCa = args.context.trustedCertificates.map((c) => c.trim()).includes(lastCertificatePem);
+					const rootCertIsTrusted = certificateValidationResult === true || lastCertificateIsRootCa;
+					if (!rootCertIsTrusted) {
+						logError(CredentialVerificationError.NotTrustedIssuer, "Error on getIssuerPublicKey(): Issuer is not trusted");
+						return {
+							success: false,
+							error: CredentialVerificationError.NotTrustedIssuer,
+						};
+					}
 				}
 
 				try {
@@ -308,11 +311,22 @@ export function SDJWTVCVerifier(args: { context: Context, pkResolverEngine: Publ
 				}
 			}
 
+			const key = publicKeyResult.value;
+
+			let holderPublicKey;
+
+			if (isCryptoKey(key)) {
+				holderPublicKey =
+					key.extractable
+						? await exportJWK(key)
+						: undefined;
+}
+
 			return {
 				success: true,
 				value: {
 					valid: true,
-					holderPublicKey: await exportJWK(publicKeyResult.value),
+					holderPublicKey
 				},
 			}
 		},
