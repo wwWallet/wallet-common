@@ -29,8 +29,16 @@ export const isCborDate = (value: unknown): value is CborDateWrapper => {
 export const formatCborDate = (
 	value: CborDateWrapper,
 	locales: string | string[] = 'en-GB',
-): string => {
+): string | object => {
+
+	if (value === undefined || value === null) {
+		return value;
+	};
+
 	const rawDate = value.date;
+	if (rawDate === undefined) {
+		return value;
+	}
 
 	const parsedDate =
 		rawDate instanceof Date
