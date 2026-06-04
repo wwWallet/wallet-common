@@ -139,4 +139,17 @@ describe("The Date/Time parser", () => {
 		assert(formattedDate != rawDate);
 	});
 
+	it("can match a CBOR Date object", async () => {
+		const cborDate = {
+			date: "14-08-2026"
+		};
+
+		const formattedDate = formatDate(cborDate);
+
+		console.log(cborDate);
+		console.log(formattedDate);
+
+		assert(formattedDate != cborDate);
+	});
+
 });
