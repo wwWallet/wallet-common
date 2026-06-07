@@ -240,9 +240,9 @@ export const SjvEaaDisclosureProfileMap: Record<number, DisclosureProfile> = {
 } as const;
 
 type DisclosurePolicy = {
-	recursive: boolean;
-	allowObjectProperties: boolean;
-	allowArrayElements: boolean;
+	recursive: boolean | undefined;
+	allowObjectProperties: boolean | undefined;
+	allowArrayElements: boolean | undefined;
 };
 
 export const PROFILE_POLICIES: Record<
@@ -263,7 +263,7 @@ export const PROFILE_POLICIES: Record<
 
 	[DisclosureProfile.PROFILE_9]: {
 		recursive: false,
-		allowObjectProperties: false,
+		allowObjectProperties: undefined,
 		allowArrayElements: true
 	},
 
@@ -281,7 +281,7 @@ export const PROFILE_POLICIES: Record<
 
 	[DisclosureProfile.PROFILE_12]: {
 		recursive: true,
-		allowObjectProperties: false,
+		allowObjectProperties: undefined,
 		allowArrayElements: true
 	},
 
@@ -292,7 +292,7 @@ export const PROFILE_POLICIES: Record<
 	}
 };
 
-type DisclosureAnalysis = {
+export interface DisclosureAnalysis {
 	hasObjectDisclosures: boolean;
 	hasArrayElementDisclosures: boolean;
 
@@ -301,10 +301,11 @@ type DisclosureAnalysis = {
 };
 
 export function analyzeDisclosureStructure(
-	payload: unknown
-) {
+	payload: unknown,
+	disclosures: unknown[]
+): DisclosureAnalysis {
 
-	const analysis = {
+	const analysis: DisclosureAnalysis = {
 		hasObjectDisclosures: false,
 		hasArrayElementDisclosures: false,
 
@@ -312,66 +313,135 @@ export function analyzeDisclosureStructure(
 		hasRecursiveArrayDisclosures: false
 	};
 
+	/**
+	 * Walks a JSON structure looking for SD-JWT
+	 * disclosure containers.
+	 */
 	function walk(
-		value: any,
-		isRoot: boolean,
-		path: string
-	) {
+		value: unknown,
+		callbacks: {
+			onObjectDisclosure(): void;
+			onArrayDisclosure(): void;
+		}
+	): void {
 
 		if (
-			value &&
-			typeof value === "object"
+			value === null ||
+			typeof value !== "object"
 		) {
+			return;
+		}
 
-			if ("_sd" in value) {
+		if (Array.isArray(value)) {
 
-				console.log("FOUND _sd AT:", path);
+			for (const element of value) {
 
-				analysis.hasObjectDisclosures = true;
-
-				if (!isRoot) {
-
-					console.log(
-						"RECURSIVE _sd DETECTED AT:",
-						path
-					);
-
-					analysis.hasRecursiveObjectDisclosures = true;
-				}
-			}
-
-			if (Array.isArray(value)) {
-
-				for (let i = 0; i < value.length; i++) {
-
-					walk(
-						value[i],
-						false,
-						`${path}[${i}]`
-					);
+				if (
+					element &&
+					typeof element === "object" &&
+					!Array.isArray(element) &&
+					Object.hasOwn(element, "...")
+				) {
+					callbacks.onArrayDisclosure();
 				}
 
-				return;
+				walk(element, callbacks);
 			}
 
-			for (const [key, child] of Object.entries(value)) {
+			return;
+		}
 
-				if (key === "_sd") {
-					continue;
-				}
+		if (Object.hasOwn(value, "_sd")) {
+			callbacks.onObjectDisclosure();
+		}
 
-				walk(
-					child,
-					false,
-					path
-						? `${path}.${key}`
-						: key
-				);
-			}
+		for (const child of Object.values(value)) {
+			walk(child, callbacks);
 		}
 	}
 
-	walk(payload, true, "$");
+	//
+	// 1. Analyze issuer payload
+	//
+
+	walk(payload, {
+		onObjectDisclosure() {
+			analysis.hasObjectDisclosures = true;
+		},
+		onArrayDisclosure() {
+			analysis.hasArrayElementDisclosures = true;
+		}
+	});
+
+	//
+	// 2. Analyze disclosed values for recursion
+	//
+
+	for (const disclosure of disclosures) {
+
+		if (
+			disclosure &&
+			typeof disclosure === "object" &&
+			"value" in disclosure
+		) {
+
+			walk(
+				disclosure.value,
+				{
+					onObjectDisclosure() {
+						analysis.hasRecursiveObjectDisclosures = true;
+					},
+					onArrayDisclosure() {
+						analysis.hasRecursiveArrayDisclosures = true;
+					}
+				}
+			);
+
+			continue;
+		}
+
+		if (!Array.isArray(disclosure)) {
+			continue;
+		}
+
+		//
+		// Object-property disclosure:
+		// [salt, claimName, claimValue]
+		//
+
+		if (disclosure.length === 3) {
+
+			const disclosedValue = disclosure[2];
+
+			walk(disclosedValue, {
+				onObjectDisclosure() {
+					analysis.hasRecursiveObjectDisclosures = true;
+				},
+				onArrayDisclosure() {
+					analysis.hasRecursiveArrayDisclosures = true;
+				}
+			});
+		}
+
+		//
+		// Array-element disclosure:
+		// [salt, element]
+		//
+
+		else if (disclosure.length === 2) {
+
+			const disclosedElement = disclosure[1];
+
+			walk(disclosedElement, {
+				onObjectDisclosure() {
+					analysis.hasRecursiveObjectDisclosures = true;
+				},
+				onArrayDisclosure() {
+					analysis.hasRecursiveArrayDisclosures = true;
+				}
+			});
+		}
+	}
 
 	return analysis;
 }
@@ -417,7 +487,6 @@ export function matchesProfile(
 		case DisclosureProfile.PROFILE_9:
 			return (
 				analysis.hasArrayElementDisclosures &&
-				!analysis.hasObjectDisclosures &&
 				!analysis.hasRecursiveArrayDisclosures
 			);
 
@@ -452,8 +521,7 @@ export function matchesProfile(
 		//
 		case DisclosureProfile.PROFILE_12:
 			return (
-				analysis.hasArrayElementDisclosures &&
-				!analysis.hasObjectDisclosures
+				analysis.hasRecursiveArrayDisclosures
 			);
 
 		//
@@ -469,4 +537,19 @@ export function matchesProfile(
 		default:
 			return false;
 	}
+}
+
+export function decodeDisclosure(
+	encoded: string
+): unknown {
+
+	const json =
+		Buffer
+			.from(
+				encoded,
+				"base64url"
+			)
+			.toString("utf8");
+
+	return JSON.parse(json);
 }
