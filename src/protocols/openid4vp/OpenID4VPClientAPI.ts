@@ -198,7 +198,7 @@ export class OpenID4VPClientAPI {
 					]
 				},
 				"encrypted_response_enc_values_supported": ["A256GCM"],
-				"vp_formats": {
+				"vp_formats_supported": {
 					"vc+sd-jwt": {
 						"sd-jwt_alg_values": [
 							"ES256",
