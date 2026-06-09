@@ -725,7 +725,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 			response_uri: response_uri ?? "",
 			client_id: client_id ?? "",
 			state: state ?? "",
-			client_metadata: client_metadata ?? { vp_formats: {} },
+			client_metadata: client_metadata ?? { vp_formats_supported: {} },
 			response_mode,
 			transaction_data: transaction_data ?? [],
 			dcql_query,
