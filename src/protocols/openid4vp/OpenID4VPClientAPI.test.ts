@@ -192,8 +192,6 @@ describe("OpenID4VPClientAPI small get/set helpers", () => {
 			rp_eph_kid: "kid-a",
 			rp_eph_pub: { kty: "EC", crv: "P-256", x: "x", y: "y" },
 			rp_eph_priv: { kty: "EC", crv: "P-256", x: "x", y: "y", d: "d" },
-			apv_jarm_encrypted_response_header: null,
-			apu_jarm_encrypted_response_header: null,
 			encrypted_response: null,
 			vp_token: null,
 			presentation_submission: null,
@@ -300,8 +298,6 @@ describe("OpenID4VPClientAPI small get/set helpers", () => {
 			rp_eph_kid: "kid-b",
 			rp_eph_pub: { kty: "EC", crv: "P-256", x: "x", y: "y" },
 			rp_eph_priv: { kty: "EC", crv: "P-256", x: "x", y: "y", d: "d" },
-			apv_jarm_encrypted_response_header: null,
-			apu_jarm_encrypted_response_header: null,
 			encrypted_response: null,
 			vp_token: null,
 			presentation_submission: null,
@@ -383,8 +379,6 @@ describe("OpenID4VPClientAPI small get/set helpers", () => {
 			rp_eph_kid: "kid-c",
 			rp_eph_pub: { kty: "EC", crv: "P-256", x: "x", y: "y" },
 			rp_eph_priv: { kty: "EC", crv: "P-256", x: "x", y: "y", d: "d" },
-			apv_jarm_encrypted_response_header: null,
-			apu_jarm_encrypted_response_header: null,
 			encrypted_response: null,
 			vp_token: null,
 			presentation_submission: null,
@@ -437,8 +431,6 @@ describe("OpenID4VPClientAPI.handleResponseDirectPost", () => {
 			rp_eph_kid: "kid-d",
 			rp_eph_pub: { kty: "EC", crv: "P-256", x: "x", y: "y" },
 			rp_eph_priv: { kty: "EC", crv: "P-256", x: "x", y: "y", d: "d" },
-			apv_jarm_encrypted_response_header: null,
-			apu_jarm_encrypted_response_header: null,
 			encrypted_response: null,
 			vp_token: null,
 			presentation_submission: null,
@@ -506,8 +498,6 @@ describe("OpenID4VPClientAPI.handleResponseDirectPost", () => {
 			rp_eph_kid: "kid-e",
 			rp_eph_pub: { kty: "EC", crv: "P-256", x: "x", y: "y" },
 			rp_eph_priv: { kty: "EC", crv: "P-256", x: "x", y: "y", d: "d" },
-			apv_jarm_encrypted_response_header: null,
-			apu_jarm_encrypted_response_header: null,
 			encrypted_response: null,
 			vp_token: null,
 			presentation_submission: null,
@@ -524,7 +514,7 @@ describe("OpenID4VPClientAPI.handleResponseDirectPost", () => {
 	});
 });
 
-describe("OpenID4VPClientAPI.handleResponseJARM", () => {
+describe("OpenID4VPClientAPI.handleEncryptedAuthorizationResponse", () => {
 	it("should decrypt and store response details", async () => {
 		const kv = new MemoryStore<string, any>();
 		const httpClient: HttpClient = { get: async () => { throw new Error("unexpected http call"); } };
@@ -547,25 +537,23 @@ describe("OpenID4VPClientAPI.handleResponseJARM", () => {
 		const { publicKey, privateKey } = await generateKeyPair("ECDH-ES");
 		const rpEphPub = await exportJWK(publicKey);
 		const rpEphPriv = await exportJWK(privateKey);
-		rpEphPub.kid = "kid-jarm";
-		rpEphPriv.kid = "kid-jarm";
+		rpEphPub.kid = "kid-e2ee";
+		rpEphPriv.kid = "kid-e2ee";
 
 		const rpState = {
-			session_id: "session-j",
+			session_id: "session-e2ee",
 			is_cross_device: true,
 			signed_request: "signed",
-			state: "session-j",
+			state: "session-e2ee",
 			nonce: "nonce",
 			callback_endpoint: null,
 			audience: "aud",
 			presentation_request_id: "pid",
 			presentation_definition: null,
 			dcql_query: null,
-			rp_eph_kid: "kid-jarm",
+			rp_eph_kid: "kid-e2ee",
 			rp_eph_pub: rpEphPub,
 			rp_eph_priv: rpEphPriv,
-			apv_jarm_encrypted_response_header: null,
-			apu_jarm_encrypted_response_header: null,
 			encrypted_response: null,
 			vp_token: null,
 			presentation_submission: null,
@@ -577,29 +565,24 @@ describe("OpenID4VPClientAPI.handleResponseJARM", () => {
 		};
 
 		await helper.saveRPState(rpState.session_id, rpState);
-		await kv.set("key:kid-jarm", rpState.session_id);
+		await kv.set("key:kid-e2ee", rpState.session_id);
 
-		const apu = toBase64Url(new TextEncoder().encode("apu"));
-		const apv = toBase64Url(new TextEncoder().encode("apv"));
-		const payload = { state: "session-j", vp_token: { pid: "vp" }, presentation_submission: { id: "ps" } };
+		const payload = { state: "session-e2ee", vp_token: { pid: "vp" }, presentation_submission: { id: "ps" } };
 		const jwe = await new CompactEncrypt(new TextEncoder().encode(JSON.stringify(payload)))
 			.setProtectedHeader({ alg: "ECDH-ES", enc: "A256GCM" })
-			.setKeyManagementParameters({ apu: new TextEncoder().encode("apu"), apv: new TextEncoder().encode("apv") })
 			.encrypt(publicKey);
 
-		const result = await helper.handleResponseJARM(jwe, "kid-jarm");
+		const result = await helper.handleEncryptedAuthorizationResponse(jwe, "kid-e2ee");
 		assert(result.ok === true);
 
-		const stored = await helper.getRPStateBySessionId("session-j");
+		const stored = await helper.getRPStateBySessionId("session-e2ee");
 		assert(stored?.completed === true);
 		assert(stored?.response_code);
-		assert(stored?.apu_jarm_encrypted_response_header === apu);
-		assert(stored?.apv_jarm_encrypted_response_header === apv);
 		assert(stored?.presentation_submission?.id === "ps");
 		assert(stored?.vp_token);
 
 		const mapped = await kv.get(`response_code:${stored?.response_code}`);
-		assert(mapped === "session-j");
+		assert(mapped === "session-e2ee");
 	});
 
 	it("should return errors for missing state, missing vp_token, and completed session", async () => {
@@ -624,25 +607,23 @@ describe("OpenID4VPClientAPI.handleResponseJARM", () => {
 		const { publicKey, privateKey } = await generateKeyPair("ECDH-ES");
 		const rpEphPub = await exportJWK(publicKey);
 		const rpEphPriv = await exportJWK(privateKey);
-		rpEphPub.kid = "kid-jarm-2";
-		rpEphPriv.kid = "kid-jarm-2";
+		rpEphPub.kid = "kid-e2ee-2";
+		rpEphPriv.kid = "kid-e2ee-2";
 
 		const rpState = {
-			session_id: "session-j2",
+			session_id: "session-e2ee2",
 			is_cross_device: true,
 			signed_request: "signed",
-			state: "session-j2",
+			state: "session-e2ee2",
 			nonce: "nonce",
 			callback_endpoint: null,
 			audience: "aud",
 			presentation_request_id: "pid",
 			presentation_definition: null,
 			dcql_query: null,
-			rp_eph_kid: "kid-jarm-2",
+			rp_eph_kid: "kid-e2ee-2",
 			rp_eph_pub: rpEphPub,
 			rp_eph_priv: rpEphPriv,
-			apv_jarm_encrypted_response_header: null,
-			apu_jarm_encrypted_response_header: null,
 			encrypted_response: null,
 			vp_token: null,
 			presentation_submission: null,
@@ -654,27 +635,27 @@ describe("OpenID4VPClientAPI.handleResponseJARM", () => {
 		};
 
 		await helper.saveRPState(rpState.session_id, rpState);
-		await kv.set("key:kid-jarm-2", rpState.session_id);
+		await kv.set("key:kid-e2ee-2", rpState.session_id);
 
 		const payloadMissingState = { vp_token: { pid: "vp" }, presentation_submission: null };
 		const jweMissingState = await new CompactEncrypt(new TextEncoder().encode(JSON.stringify(payloadMissingState)))
 			.setProtectedHeader({ alg: "ECDH-ES", enc: "A256GCM" })
 			.encrypt(publicKey);
-		const missingState = await helper.handleResponseJARM(jweMissingState, "kid-jarm-2");
+		const missingState = await helper.handleEncryptedAuthorizationResponse(jweMissingState, "kid-e2ee-2");
 		assert(missingState.ok === false);
 
-		const payloadMissingVp = { state: "session-j2", presentation_submission: null };
+		const payloadMissingVp = { state: "session-e2ee2", presentation_submission: null };
 		const jweMissingVp = await new CompactEncrypt(new TextEncoder().encode(JSON.stringify(payloadMissingVp)))
 			.setProtectedHeader({ alg: "ECDH-ES", enc: "A256GCM" })
 			.encrypt(publicKey);
-		const missingVp = await helper.handleResponseJARM(jweMissingVp, "kid-jarm-2");
+		const missingVp = await helper.handleEncryptedAuthorizationResponse(jweMissingVp, "kid-e2ee-2");
 		assert(missingVp.ok === false);
 
-		const payloadOk = { state: "session-j2", vp_token: "vp", presentation_submission: null };
+		const payloadOk = { state: "session-e2ee2", vp_token: "vp", presentation_submission: null };
 		const jweOk = await new CompactEncrypt(new TextEncoder().encode(JSON.stringify(payloadOk)))
 			.setProtectedHeader({ alg: "ECDH-ES", enc: "A256GCM" })
 			.encrypt(publicKey);
-		const completed = await helper.handleResponseJARM(jweOk, "kid-jarm-2");
+		const completed = await helper.handleEncryptedAuthorizationResponse(jweOk, "kid-e2ee-2");
 		assert(completed.ok === false);
 	});
 
@@ -697,31 +678,29 @@ describe("OpenID4VPClientAPI.handleResponseJARM", () => {
 			httpClient
 		);
 
-		const missingRp = await helper.handleResponseJARM("invalid.jwe", "missing-kid");
+		const missingRp = await helper.handleEncryptedAuthorizationResponse("invalid.jwe", "missing-kid");
 		assert(missingRp.ok === false);
 
 		const { publicKey, privateKey } = await generateKeyPair("ECDH-ES");
 		const rpEphPub = await exportJWK(publicKey);
 		const rpEphPriv = await exportJWK(privateKey);
-		rpEphPub.kid = "kid-jarm-3";
-		rpEphPriv.kid = "kid-jarm-3";
+		rpEphPub.kid = "kid-e2ee-3";
+		rpEphPriv.kid = "kid-e2ee-3";
 
 		const rpState = {
-			session_id: "session-j3",
+			session_id: "session-e2ee3",
 			is_cross_device: true,
 			signed_request: "signed",
-			state: "session-j3",
+			state: "session-e2ee3",
 			nonce: "nonce",
 			callback_endpoint: null,
 			audience: "aud",
 			presentation_request_id: "pid",
 			presentation_definition: null,
 			dcql_query: null,
-			rp_eph_kid: "kid-jarm-3",
+			rp_eph_kid: "kid-e2ee-3",
 			rp_eph_pub: rpEphPub,
 			rp_eph_priv: rpEphPriv,
-			apv_jarm_encrypted_response_header: null,
-			apu_jarm_encrypted_response_header: null,
 			encrypted_response: null,
 			vp_token: null,
 			presentation_submission: null,
@@ -733,14 +712,14 @@ describe("OpenID4VPClientAPI.handleResponseJARM", () => {
 		};
 
 		await helper.saveRPState(rpState.session_id, rpState);
-		await kv.set("key:kid-jarm-3", rpState.session_id);
+		await kv.set("key:kid-e2ee-3", rpState.session_id);
 
-		const okPayload = { state: "session-j3", vp_token: "vp", presentation_submission: null };
+		const okPayload = { state: "session-e2ee3", vp_token: "vp", presentation_submission: null };
 		const okJwe = await new CompactEncrypt(new TextEncoder().encode(JSON.stringify(okPayload)))
 			.setProtectedHeader({ alg: "ECDH-ES", enc: "A256GCM" })
 			.encrypt(publicKey);
 		const tamperedJwe = okJwe.split(".").slice(0, 4).concat("invalid!").join(".");
-		const decryptFail = await helper.handleResponseJARM(tamperedJwe, "kid-jarm-3");
+		const decryptFail = await helper.handleEncryptedAuthorizationResponse(tamperedJwe, "kid-e2ee-3");
 		assert(decryptFail.ok === false);
 	});
 });

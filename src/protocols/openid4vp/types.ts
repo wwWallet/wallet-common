@@ -34,9 +34,6 @@ export interface RPState {
 
 	rp_eph_priv: JWK;
 
-	apv_jarm_encrypted_response_header: string | null;
-	apu_jarm_encrypted_response_header: string | null;
-
 	encrypted_response: string | null;
 	vp_token: string | null;
 
