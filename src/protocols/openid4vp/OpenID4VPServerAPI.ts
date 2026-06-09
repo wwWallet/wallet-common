@@ -40,8 +40,7 @@ type OpenID4VPServerKeystore = {
 	generateDeviceResponse(
 		mdoc: any,
 		presentationDefinition: Record<string, unknown>,
-		apu: string | undefined,
-		apv: string | undefined,
+		nonce: string,
 		clientId: string,
 		responseUri: string,
 		verifierEncryptionJwk?: JsonWebKey | Record<string, unknown>,
@@ -402,8 +401,6 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		vcEntityList: CredentialT[]
 	) {
 		const { dcql_query, client_id, nonce, response_uri, transaction_data } = S;
-		let apu = undefined;
-		let apv = undefined;
 		let verifierEncryptionJwk: JsonWebKey | Record<string, unknown> | undefined;
 		let handoverType: "redirect" | "dc_api" = "redirect";
 		let dcApiOrigin: string | undefined;
@@ -538,9 +535,6 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 							},
 						],
 					};
-					const mdocGeneratedNonce = generateRandomIdentifier(8);
-					apu = mdocGeneratedNonce;
-					apv = nonce;
 
 					let dcqlQueryWithClaims: any;
 					if (!descriptor.claims || descriptor.claims.length === 0) {
@@ -560,8 +554,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 				const { deviceResponseMDoc } = await this.deps.keystore.generateDeviceResponse(
 					mdoc,
 					presentationDefinition,
-					apu,
-					apv,
+					nonce,
 					client_id,
 					response_uri,
 					verifierEncryptionJwk,
@@ -607,7 +600,6 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 			};
 
 			const jwe = await new EncryptJWT(jwePayload)
-				.setKeyManagementParameters({ apu: new TextEncoder().encode(apu), apv: new TextEncoder().encode(apv) })
 				.setProtectedHeader({
 					alg: alg,
 					enc: jweEnc,
