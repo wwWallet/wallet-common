@@ -39,7 +39,8 @@ type OpenID4VPServerKeystore = {
 	): Promise<{ vpjwt: string }>;
 	generateDeviceResponse(
 		mdoc: any,
-		presentationDefinition: Record<string, unknown>,
+		dcqlQuery: Record<string, unknown>,
+		selectedCredentialId: string,
 		apu: string | undefined,
 		apv: string | undefined,
 		clientId: string,
@@ -128,12 +129,6 @@ function getSubtleCrypto(subtle?: SubtleCrypto): SubtleCrypto {
 	if (subtle) return subtle;
 	if (globalThis.crypto?.subtle) return globalThis.crypto.subtle;
 	throw new Error("Missing SubtleCrypto implementation");
-}
-
-function getRandomUUID(randomUUID?: () => string): string {
-	if (randomUUID) return randomUUID();
-	if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
-	return generateRandomIdentifier(16);
 }
 
 function getClientIdScheme(clientId: string): string {
@@ -344,40 +339,6 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		return { mapping, descriptorPurpose };
 	}
 
-	private convertDcqlToPresentationDefinition(dcql_query: any) {
-		const pdId = getRandomUUID(this.deps.randomUUID);
-		const input_descriptors = dcql_query.credentials.map((cred: any) => {
-			const descriptorId = cred.meta?.doctype_value;
-			const doctype = descriptorId ?? cred.claims?.[0]?.path?.[0];
-
-			const format: Record<string, any> = {};
-			if (cred.format === "mso_mdoc") {
-				format.mso_mdoc = { alg: ["ES256", "ES384", "EdDSA"] };
-			}
-
-			const fields = cred.claims.map((claim: any) => ({
-				path: [`$['${doctype}']${claim.path.slice(1).map((p: string) => `['${p}']`).join("")}`],
-				intent_to_retain: claim.intent_to_retain ?? false,
-			}));
-
-			return {
-				id: descriptorId,
-				format,
-				constraints: {
-					limit_disclosure: "required",
-					fields,
-				},
-			};
-		});
-
-		return {
-			id: pdId,
-			name: "DCQL-converted Presentation Definition",
-			purpose: dcql_query.credential_sets?.[0]?.purpose ?? "No purpose defined",
-			input_descriptors,
-		};
-	}
-
 	private generatePresentationFrameForDCQLPaths(paths: string[][]): any {
 		const frame: Record<string, any> = {};
 
@@ -522,44 +483,45 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 
 				generatedVPs.push(vpjwt);
 				originalVCs.push(credential);
-				} else if (credential.format === VerifiableCredentialFormat.MSO_MDOC) {
-					const descriptor = (dcql_query as any).credentials.find((c: any) => c.id === selectionKey);
-					if (!descriptor) {
-						throw new Error(`No DCQL descriptor for id ${selectionKey}`);
-					}
-					const descriptorId = descriptor.meta?.doctype_value;
-					const { issuerSigned, docType, namespaceClaims } = decodeIssuerSignedCredential(credential.data);
-					const effectiveDocType = descriptorId ?? docType;
-					const mdoc = {
-						documents: [
-							{
-								docType: effectiveDocType,
-								issuerSigned,
-							},
-						],
-					};
-					const mdocGeneratedNonce = generateRandomIdentifier(8);
-					apu = mdocGeneratedNonce;
-					apv = nonce;
+			} else if (credential.format === VerifiableCredentialFormat.MSO_MDOC) {
+				const descriptor = (dcql_query as any).credentials.find((c: any) => c.id === selectionKey);
+				if (!descriptor) {
+					throw new Error(`No DCQL descriptor for id ${selectionKey}`);
+				}
+				const descriptorId = descriptor.meta?.doctype_value;
+				const { issuerSigned, docType, namespaceName, namespaceClaims } = decodeIssuerSignedCredential(credential.data);
+				const effectiveDocType = descriptorId ?? docType;
+				const mdoc = {
+					documents: [
+						{
+							docType: effectiveDocType,
+							issuerSigned,
+						},
+					],
+				};
+				const mdocGeneratedNonce = generateRandomIdentifier(8);
+				apu = mdocGeneratedNonce;
+				apv = nonce;
 
-					let dcqlQueryWithClaims: any;
-					if (!descriptor.claims || descriptor.claims.length === 0) {
-						dcqlQueryWithClaims = JSON.parse(JSON.stringify(dcql_query));
-						const descriptorIndex = dcqlQueryWithClaims.credentials.findIndex((c: any) => c.id === selectionKey);
-						if (descriptorIndex !== -1) {
-							dcqlQueryWithClaims.credentials[descriptorIndex].claims = Object.keys(namespaceClaims).map((key) => ({
-								id: key,
-								path: [effectiveDocType, key],
-							}));
-						}
-					} else {
-						dcqlQueryWithClaims = dcql_query;
+				let dcqlQueryWithClaims: any;
+				if (!descriptor.claims || descriptor.claims.length === 0) {
+					dcqlQueryWithClaims = JSON.parse(JSON.stringify(dcql_query));
+					const descriptorIndex = dcqlQueryWithClaims.credentials.findIndex((c: any) => c.id === selectionKey);
+					if (descriptorIndex !== -1) {
+						const namespaceForPaths = namespaceName ?? effectiveDocType;
+						dcqlQueryWithClaims.credentials[descriptorIndex].claims = Object.keys(namespaceClaims).map((key) => ({
+							id: key,
+							path: [namespaceForPaths, key],
+						}));
 					}
+				} else {
+					dcqlQueryWithClaims = dcql_query;
+				}
 
-				const presentationDefinition = this.convertDcqlToPresentationDefinition(dcqlQueryWithClaims);
 				const { deviceResponseMDoc } = await this.deps.keystore.generateDeviceResponse(
 					mdoc,
-					presentationDefinition,
+					dcqlQueryWithClaims,
+					selectionKey,
 					apu,
 					apv,
 					client_id,
@@ -629,11 +591,11 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		vcEntityList: CredentialT[]
 	): Promise<
 		| {
-				conformantCredentialsMap: Map<string, any>;
-				verifierDomainName: string;
-				verifierPurpose: string;
-				parsedTransactionData: ParsedTransactionDataT[] | null;
-			}
+			conformantCredentialsMap: Map<string, any>;
+			verifierDomainName: string;
+			verifierPurpose: string;
+			parsedTransactionData: ParsedTransactionDataT[] | null;
+		}
 		| { error: HandleAuthorizationRequestError }
 	> {
 		let {
