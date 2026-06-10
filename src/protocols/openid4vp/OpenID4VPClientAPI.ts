@@ -69,6 +69,16 @@ export class OpenID4VPClientAPI {
 		return bytes;
 	}
 
+	private calculatePresentationClaimValue = (value: unknown): string => {
+		const normalizedValue = value instanceof Map
+			? Object.fromEntries(value)
+			: value;
+
+		return typeof normalizedValue === 'object'
+			? JSON.stringify(normalizedValue)
+			: String(normalizedValue);
+	}
+
 	private async initializeCredentialEngine() {
 		console.log("Initializing credential engine...")
 
@@ -399,7 +409,7 @@ export class OpenID4VPClientAPI {
 						presentationClaims[descriptor.id] = Object.entries(filteredSource).map(([key, value]) => ({
 							key,
 							name: key,
-							value: typeof value === 'object' ? JSON.stringify(value) : String(value),
+							value: this.calculatePresentationClaimValue(value),
 						}));
 					} else {
 						return { error: new Error(`Unexpected credential_format for descriptor ${descriptor.id}`) };
@@ -467,7 +477,7 @@ export class OpenID4VPClientAPI {
 						presentationClaims[descriptor.id] = Object.entries(outputByNamespace[namespaceKey]).map(([key, value]) => ({
 							key,
 							name: key,
-							value: typeof value === 'object' ? JSON.stringify(value) : String(value),
+							value: this.calculatePresentationClaimValue(value),
 						}));
 					} else {
 						return { error: new Error(`Unexpected mdoc credential_format in output for descriptor ${descriptor.id}`) };
