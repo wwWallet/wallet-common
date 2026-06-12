@@ -19,19 +19,24 @@ export const createVctDocumentResolutionEngine = (providers: VctDocumentProvider
 		getVctMetadataDocument: async (vct: string) => {
 			try {
 				const results = await Promise.all(providers.map((p) => p.getVctMetadataDocument(vct)));
+
+				let invalidSchemaError: Result<TypeMetadata, VctResolutionError> | undefined;
 				for (const r of results) {
 					if (!r.ok) continue;
 
 					const parsed = TypeMetadata.safeParse(r.value);
 					if (parsed.success) return ok(parsed.data);
-					const error_description = JSON.stringify(parsed.error);
-					return err(VctResolutionErrors.InvalidSchema, error_description);
+
+					if (!invalidSchemaError) {
+						const error_description = JSON.stringify(parsed.error);
+						invalidSchemaError = err(VctResolutionErrors.InvalidSchema, error_description);
+					}
 				}
+				return invalidSchemaError ?? err(VctResolutionErrors.NotFound);
 			}
 			catch {
 				return err(VctResolutionErrors.NotFound);
 			}
-			return err(VctResolutionErrors.NotFound);
 		},
 	};
 };
