@@ -302,7 +302,7 @@ export interface DisclosureAnalysis {
 
 export function analyzeDisclosureStructure(
 	payload: unknown,
-	disclosures: unknown[]
+	disclosures: any[]
 ): DisclosureAnalysis {
 
 	const analysis: DisclosureAnalysis = {
@@ -313,133 +313,46 @@ export function analyzeDisclosureStructure(
 		hasRecursiveArrayDisclosures: false
 	};
 
-	/**
-	 * Walks a JSON structure looking for SD-JWT
-	 * disclosure containers.
-	 */
-	function walk(
-		value: unknown,
-		callbacks: {
-			onObjectDisclosure(): void;
-			onArrayDisclosure(): void;
-		}
-	): void {
+	function isRecursiveDisclosure(value: any): boolean {
 
-		if (
-			value === null ||
-			typeof value !== "object"
-		) {
-			return;
-		}
+		if (typeof value !== 'object') return false;
 
-		if (Array.isArray(value)) {
-
-			for (const element of value) {
-
-				if (
-					element &&
-					typeof element === "object" &&
-					!Array.isArray(element) &&
-					Object.hasOwn(element, "...")
-				) {
-					callbacks.onArrayDisclosure();
-				}
-
-				walk(element, callbacks);
-			}
-
-			return;
-		}
-
-		if (Object.hasOwn(value, "_sd")) {
-			callbacks.onObjectDisclosure();
-		}
-
-		for (const child of Object.values(value)) {
-			walk(child, callbacks);
-		}
+		return typeof value === 'object' &&
+			!Array.isArray(value) &&
+			value !== null &&
+			value["_sd"] || value["..."];
 	}
 
-	//
-	// 1. Analyze issuer payload
-	//
+	function isRecursiveArrayDisclosure(value: any): boolean {
 
-	walk(payload, {
-		onObjectDisclosure() {
-			analysis.hasObjectDisclosures = true;
-		},
-		onArrayDisclosure() {
-			analysis.hasArrayElementDisclosures = true;
-		}
-	});
+		if (typeof value !== 'object') return false;
 
-	//
-	// 2. Analyze disclosed values for recursion
-	//
+		return typeof value === 'object' &&
+			Array.isArray(value) &&
+			value
+				.map(v => isRecursiveDisclosure(v))
+				.filter(Boolean)
+				.length > 0
+	}
 
-	for (const disclosure of disclosures) {
 
-		if (
-			disclosure &&
-			typeof disclosure === "object" &&
-			"value" in disclosure
-		) {
-
-			walk(
-				disclosure.value,
-				{
-					onObjectDisclosure() {
-						analysis.hasRecursiveObjectDisclosures = true;
-					},
-					onArrayDisclosure() {
-						analysis.hasRecursiveArrayDisclosures = true;
-					}
-				}
-			);
-
-			continue;
-		}
-
-		if (!Array.isArray(disclosure)) {
-			continue;
-		}
-
-		//
-		// Object-property disclosure:
-		// [salt, claimName, claimValue]
-		//
-
-		if (disclosure.length === 3) {
-
-			const disclosedValue = disclosure[2];
-
-			walk(disclosedValue, {
-				onObjectDisclosure() {
-					analysis.hasRecursiveObjectDisclosures = true;
-				},
-				onArrayDisclosure() {
-					analysis.hasRecursiveArrayDisclosures = true;
-				}
-			});
-		}
-
-		//
-		// Array-element disclosure:
-		// [salt, element]
-		//
-
-		else if (disclosure.length === 2) {
-
-			const disclosedElement = disclosure[1];
-
-			walk(disclosedElement, {
-				onObjectDisclosure() {
-					analysis.hasRecursiveObjectDisclosures = true;
-				},
-				onArrayDisclosure() {
-					analysis.hasRecursiveArrayDisclosures = true;
-				}
-			});
+	for (let disclosure of disclosures) {
+		if (disclosure.key) {
+			if (isRecursiveDisclosure(disclosure.value)) {
+				analysis.hasRecursiveObjectDisclosures = true;
+			} else if (isRecursiveArrayDisclosure(disclosure.value)) {
+				analysis.hasRecursiveArrayDisclosures = true;
+			}
+			else {
+				analysis.hasObjectDisclosures = true;
+			}
+		} else {
+			if (isRecursiveDisclosure(disclosure.value)) {
+				analysis.hasRecursiveArrayDisclosures = true;
+			}
+			else {
+				analysis.hasArrayElementDisclosures = true;
+			}
 		}
 	}
 
