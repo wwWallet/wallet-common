@@ -1,4 +1,4 @@
-import { assert, describe, expect, it } from "vitest";
+import { afterEach, assert, beforeEach, describe, it, vi } from "vitest";
 import { verifyX5C } from "./verifyX5C";
 
 // this x5c is signed by the first element in the trustedCertificates array
@@ -42,6 +42,16 @@ VPrJszACIHBsYf7toXfUFjr6y1nAJ/oXP9l/fWBDydcQIq+Vnfem
 
 
 describe("verifyX5C function", () => {
+	beforeEach(() => {
+		// Keep cert validity checks deterministic regardless of current date
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2025-10-01T00:00:00.000Z"));
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
 	it("should verify successfully the chain", async () => {
 		const result = await verifyX5C(x5c, trustedCertificates);
 		assert(result === true);

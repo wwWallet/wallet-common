@@ -1,10 +1,12 @@
-import { assert, describe, it } from "vitest";
+import { assert, describe, it, vi } from "vitest";
 import { MemoryStore } from "../../core/MemoryStore";
 import { OpenID4VPClientAPI } from "./OpenID4VPClientAPI";
 import { OpenID4VPResponseMode  } from "./types";
 import { generateKeyPair, exportPKCS8, exportJWK, CompactEncrypt } from "jose";
 import { fromBase64Url, toBase64Url } from "../../utils/util";
 import type { HttpClient } from "../../interfaces";
+import { VerifiableCredentialFormat } from "../../types";
+import { DcqlPresentationResult } from "dcql";
 
 const x5c = [
 	"MIICyzCCAnGgAwIBAgIULnrxux9sI34oqbby3M4lSKOs8owwCgYIKoZIzj0EAwIwPzELMAkGA1UEBhMCRVUxFTATBgNVBAoMDHd3V2FsbGV0Lm9yZzEZMBcGA1UEAwwQd3dXYWxsZXQgUm9vdCBDQTAeFw0yNTA0MjkxMDI5NTNaFw0yNjA0MjkxMDI5NTNaMEExCzAJBgNVBAYTAkVVMRUwEwYDVQQKDAx3d1dhbGxldC5vcmcxGzAZBgNVBAMMEmxvY2FsLnd3d2FsbGV0Lm9yZzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABFVivGt53M4qEP06QT20BSlGiMIdzLLvG+b9fq/fHKM+NGT+a3snXiPwU7X7jrOFWxwyjZeean40+vx6Gy06VfqjggFHMIIBQzAdBgNVHQ4EFgQUM/A3FTQLjww5/9u01MX/SRyVqaUwHwYDVR0jBBgwFoAU0HGu3T+/Wqh3yNifz9sNd+HPBS4wDgYDVR0PAQH/BAQDAgeAMDIGA1UdEgQrMCmBEWluZm9Ad3d3YWxsZXQub3JnhhRodHRwczovL3d3d2FsbGV0Lm9yZzASBgNVHSUECzAJBgcogYxdBQECMAwGA1UdEwEB/wQCMAAwRAYDVR0fBD0wOzA5oDegNYYzaHR0cHM6Ly93d3dhbGxldC5vcmcvaWFjYS9jcmwvd3d3YWxsZXRfb3JnX2lhY2EuY3JsMFUGA1UdEQROMEyCEmxvY2FsLnd3d2FsbGV0Lm9yZ4IZbG9jYWwtaXNzdWVyLnd3d2FsbGV0Lm9yZ4IbbG9jYWwtdmVyaWZpZXIud3d3YWxsZXQub3JnMAoGCCqGSM49BAMCA0gAMEUCIQCQ8h+5krhO+f4woReDY1D7CaM6qCda3m814e6DLvOphAIgHQL+Wm7WFRwxgjzMLN37RojJGrZbF4OFChIkmm0uu5o="
@@ -27,6 +29,44 @@ const presentationRequest = {
 		]
 	}
 };
+
+describe("OpenID4VPClientAPI.validateDcqlVpToken", () => {
+
+	it("should serialize Map values when building presentation claim values", () => {
+		const kv = new MemoryStore<string, any>();
+		const httpClient: HttpClient = {
+			get: async () => {
+				throw new Error("unexpected http call");
+			}
+		};
+		const helper = new OpenID4VPClientAPI(
+			kv,
+			{
+				credentialEngineOptions: {
+					clockTolerance: 0,
+					subtle: crypto.subtle,
+					lang: "en",
+					trustedCertificates: [],
+					trustedCredentialIssuerIdentifiers: undefined
+				},
+				redirectUri: "openid4vp://cb"
+			},
+			httpClient
+		);
+
+		const result = (helper as any).calculatePresentationClaimValue(
+			new Map([
+				["given_name", "John"],
+				["family_name", "Doe"]
+			])
+		);
+
+		assert.equal(
+			result,
+			'{"given_name":"John","family_name":"Doe"}'
+		);
+	});
+});
 
 describe("OpenID4VPClientAPI.generateAuthorizationRequestURL", () => {
 	it("should build a valid URL, store rpState, and include DCQL in the request JWT", async () => {
@@ -97,6 +137,60 @@ describe("OpenID4VPClientAPI.generateAuthorizationRequestURL", () => {
 		assert(payload.dcql_query?.credentials?.[0]?.id === "pidMsoMdoc");
 		assert(!("transaction_data" in payload));
 		assert(payload.client_metadata?.jwks?.keys?.length === 1);
+		assert(payload.client_metadata?.jwks?.keys?.[0]?.alg === "ECDH-ES");
+		assert(result.rpState.rp_eph_pub.alg === "ECDH-ES");
+	});
+
+	it("should build a valid URL using x509_hash client identifier", async () => {
+		const kv = new MemoryStore<string, any>();
+		const httpClient: HttpClient = {
+			get: async () => {
+				throw new Error("unexpected http call");
+			}
+		};
+
+		const { privateKey } = await generateKeyPair("ES256");
+		const privateKeyPem = await exportPKCS8(privateKey);
+
+		const helper = new OpenID4VPClientAPI(
+			kv,
+			{
+				credentialEngineOptions: {
+					clockTolerance: 0,
+					subtle: crypto.subtle,
+					lang: "en",
+					trustedCertificates: [],
+					trustedCredentialIssuerIdentifiers: undefined
+				},
+				redirectUri: "openid4vp://cb"
+			},
+			httpClient
+		);
+
+		const certBytes = Uint8Array.from(Buffer.from(x5c[0], "base64"));
+		const certHash = await crypto.subtle.digest("SHA-256", certBytes);
+		const certHashB64Url = toBase64Url(new Uint8Array(certHash));
+		const expectedClientId = `x509_hash:${certHashB64Url}`;
+
+		const result = await helper.generateAuthorizationRequestURL(
+			presentationRequest,
+			"session-hash",
+			"https://verifier.example.com/cb",
+			"https://verifier.example.com",
+			privateKeyPem,
+			x5c,
+			OpenID4VPResponseMode.DIRECT_POST,
+			"https://verifier.example.com/callback",
+			"x509_hash"
+		);
+
+		assert(result.url.searchParams.get("client_id") === expectedClientId);
+		assert(result.rpState.audience === expectedClientId);
+		assert(result.rpState.rp_eph_pub.alg === "ECDH-ES");
+		const [, encodedPayload] = result.rpState.signed_request.split(".");
+		const payload = JSON.parse(new TextDecoder().decode(fromBase64Url(encodedPayload)));
+		assert(payload.client_id === expectedClientId);
+		assert(payload.client_metadata?.jwks?.keys?.[0]?.alg === "ECDH-ES");
 	});
 });
 

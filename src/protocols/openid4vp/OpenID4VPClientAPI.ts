@@ -12,11 +12,12 @@ import { CredentialRenderingService } from "../../rendering";
 import { VerifiableCredentialFormat } from "../../types";
 import { fromBase64Url, toBase64Url } from "../../utils/util";
 import { TransactionData } from "./transactionData";
-import { CredentialEngineOptions, CredentialIssuerMetadata, IacasResponse, OpenID4VPOptions, PresentationClaims, PresentationInfo, OpenID4VPResponseMode, RPState } from "./types";
+import { CredentialEngineOptions, CredentialIssuerMetadata, IacasResponse, OpenID4VPClientIdScheme, OpenID4VPOptions, PresentationClaims, PresentationInfo, OpenID4VPResponseMode, RPState } from "./types";
 import { DcqlPresentationResult } from 'dcql';
 import { randomUUID } from "crypto";
 import { exportJWK, generateKeyPair, importPKCS8, SignJWT, compactDecrypt, CompactDecryptResult, importJWK } from "jose";
 import { serializeDcqlQuery } from "../../utils/serializeDcqlQuery";
+import { prependToPath } from "../../utils";
 
 export const OpenID4VPClientErrors = {
 	MissingRPStateForKid: "missing_rpstate_for_kid",
@@ -49,6 +50,35 @@ export class OpenID4VPClientAPI {
 		this.httpClient = httpClient;
 	}
 
+	private getBase64UrlSha256(data: Uint8Array): Promise<string> {
+		return this.options.credentialEngineOptions.subtle.digest("SHA-256", data).then((digest) => {
+			return toBase64Url(new Uint8Array(digest));
+		});
+	}
+
+	private decodeBase64Certificate(base64Certificate: string): Uint8Array {
+		if (typeof Buffer !== "undefined") {
+			return Uint8Array.from(Buffer.from(base64Certificate, "base64"));
+		}
+
+		const binary = atob(base64Certificate);
+		const bytes = new Uint8Array(binary.length);
+		for (let i = 0; i < binary.length; i++) {
+			bytes[i] = binary.charCodeAt(i);
+		}
+		return bytes;
+	}
+
+	private calculatePresentationClaimValue = (value: unknown): string => {
+		const normalizedValue = value instanceof Map
+			? Object.fromEntries(value)
+			: value;
+
+		return typeof normalizedValue === 'object'
+			? JSON.stringify(normalizedValue)
+			: String(normalizedValue);
+	}
+
 	private async initializeCredentialEngine() {
 		console.log("Initializing credential engine...")
 
@@ -61,7 +91,7 @@ export class OpenID4VPClientAPI {
 
 		if (this.options.credentialEngineOptions.trustedCredentialIssuerIdentifiers) {
 			const result = (await Promise.all(this.options.credentialEngineOptions.trustedCredentialIssuerIdentifiers.map(async (credentialIssuerIdentifier) =>
-				this.httpClient.get(`${credentialIssuerIdentifier}/openid/.well-known/openid-credential-issuer`)
+				this.httpClient.get(prependToPath(credentialIssuerIdentifier, ".well-known/openid-credential-issuer") ?? "")
 					.then((res) => res.data as CredentialIssuerMetadata)
 					.catch((e) => { console.error(e); return null; })
 			))).filter((r): r is CredentialIssuerMetadata => r !== null);
@@ -101,15 +131,34 @@ export class OpenID4VPClientAPI {
 			openid4vcRendering,
 			credentialRendering,
 		};
-}
-	async generateAuthorizationRequestURL(presentationRequest: any, sessionId: string, responseUri: string, baseUri: string, privateKeyPem: string, x5c: string[], responseMode: OpenID4VPResponseMode, callbackEndpoint?: string): Promise<{ url: URL; stateId: string; rpState: RPState }> {
+	}
+	async generateAuthorizationRequestURL(
+		presentationRequest: any,
+		sessionId: string,
+		responseUri: string,
+		baseUri: string,
+		privateKeyPem: string,
+		x5c: string[],
+		responseMode: OpenID4VPResponseMode,
+		callbackEndpoint?: string,
+		clientIdScheme: OpenID4VPClientIdScheme = "x509_san_dns",
+	): Promise<{ url: URL; stateId: string; rpState: RPState }> {
 
 		console.log("Presentation Request: Session id used for authz req ", sessionId);
 
 		const nonce = randomUUID();
 		const state = sessionId;
 
-		const client_id = new URL(responseUri).hostname
+		let clientIdWithoutPrefix;
+		switch (clientIdScheme) {
+			case "x509_hash":
+				const leafCertificate = x5c[0];
+				clientIdWithoutPrefix = await this.getBase64UrlSha256(this.decodeBase64Certificate(leafCertificate));
+				break;
+			case "x509_san_dns":
+				clientIdWithoutPrefix = new URL(responseUri).hostname;
+		}
+		const fullClientId = `${clientIdScheme}:${clientIdWithoutPrefix}`;
 
 		const [rsaImportedPrivateKey, rpEphemeralKeypair] = await Promise.all([
 			importPKCS8(privateKeyPem, 'ES256'),
@@ -123,6 +172,7 @@ export class OpenID4VPClientAPI {
 		exportedEphPub.kid = generateRandomIdentifier(8);
 		exportedEphPriv.kid = exportedEphPub.kid;
 		exportedEphPub.use = 'enc';
+		exportedEphPub.alg = 'ECDH-ES';
 		let transactionDataObject: any[] = [];
 		if (presentationRequest?.dcql_query?.credentials) {
 			transactionDataObject = await Promise.all(presentationRequest?.dcql_query?.credentials
@@ -145,7 +195,7 @@ export class OpenID4VPClientAPI {
 			response_uri: responseUri,
 			aud: "https://self-issued.me/v2",
 			iss: new URL(responseUri).hostname,
-			client_id: "x509_san_dns:" + client_id,
+			client_id: fullClientId,
 			response_type: "vp_token",
 			response_mode: responseMode,
 			state: state,
@@ -157,8 +207,7 @@ export class OpenID4VPClientAPI {
 						exportedEphPub
 					]
 				},
-				"authorization_encrypted_response_alg": "ECDH-ES",
-				"authorization_encrypted_response_enc": "A256GCM",
+				"encrypted_response_enc_values_supported": ["A256GCM"],
 				"vp_formats": {
 					"vc+sd-jwt": {
 						"sd-jwt_alg_values": [
@@ -201,7 +250,7 @@ export class OpenID4VPClientAPI {
 
 			callback_endpoint: callbackEndpoint ?? null,
 
-			audience: `x509_san_dns:${client_id}`,
+			audience: fullClientId,
 			presentation_request_id:
 				presentationRequest.id ??
 				(presentationRequest.dcql_query as any)?.credentials?.[0]?.id,
@@ -227,7 +276,8 @@ export class OpenID4VPClientAPI {
 			presentation_during_issuance_session: null,
 
 			date_created: Date.now(),
-			};
+			response_mode: responseMode,
+		};
 
 		await this.saveRPState(sessionId, newRpState);
 		await this.rpStateKV.set("key:" + exportedEphPub.kid, sessionId);
@@ -237,7 +287,7 @@ export class OpenID4VPClientAPI {
 		const requestUri = baseUri + "/verification/request-object?id=" + state;
 
 		const redirectParameters = {
-			client_id: "x509_san_dns:" + client_id,
+			client_id: fullClientId,
 			request_uri: requestUri
 		};
 
@@ -290,7 +340,7 @@ export class OpenID4VPClientAPI {
 								transaction_data_hashes_alg: (kbjwtPayload as any).transaction_data_hashes_alg as string[] | undefined
 							});
 							console.log("Message: ", message)
-							messages[descriptor.id] = [ message ];
+							messages[descriptor.id] = [message];
 							if (!status) {
 								return { error: new Error("transaction_data validation error") };
 							}
@@ -359,22 +409,29 @@ export class OpenID4VPClientAPI {
 						presentationClaims[descriptor.id] = Object.entries(filteredSource).map(([key, value]) => ({
 							key,
 							name: key,
-							value: typeof value === 'object' ? JSON.stringify(value) : String(value),
+							value: this.calculatePresentationClaimValue(value),
 						}));
 					} else {
 						return { error: new Error(`Unexpected credential_format for descriptor ${descriptor.id}`) };
 					}
 				} else {
 					// ========== mdoc ==========
+					const verifierEncryptionJwk = rpState.rp_eph_pub;
+					const expectedHolderNonce = rpState.apu_jarm_encrypted_response_header
+						? decoder.decode(fromBase64Url(rpState.apu_jarm_encrypted_response_header))
+						: undefined;
 					const verificationResult = await ce.msoMdocVerifier.verify({
 						rawCredential: vp,
 						opts: {
 							expectedAudience: rpState.audience,
 							expectedNonce: rpState.nonce,
-							holderNonce: rpState.apu_jarm_encrypted_response_header
-								? decoder.decode(fromBase64Url(rpState.apu_jarm_encrypted_response_header))
-								: undefined,
+							holderNonce: expectedHolderNonce,
 							responseUri: this.options.redirectUri,
+							verifierEncryptionJwk,
+							handoverType: rpState.response_mode === OpenID4VPResponseMode.DC_API_JWT && rpState.audience.startsWith("origin:") ? "dc_api" : "redirect",
+							dcApiOrigin: rpState.response_mode === OpenID4VPResponseMode.DC_API_JWT && rpState.audience.startsWith("origin:")
+								? rpState.audience.replace(/^origin:/, "")
+								: undefined,
 						},
 					});
 					if (!verificationResult.success) {
@@ -408,10 +465,19 @@ export class OpenID4VPClientAPI {
 						if (!claimsObject) {
 							return { error: new Error(`No claims found in mdoc for doctype ${descriptor.meta?.doctype_value}`) };
 						}
-						presentationClaims[descriptor.id] = Object.entries(claimsObject.valid_claim_sets[0].output[descriptor.meta?.doctype_value]).map(([key, value]) => ({
+						const outputByNamespace = claimsObject.valid_claim_sets?.[0]?.output as Record<string, Record<string, unknown>> | undefined;
+						const requestedNamespace = Array.isArray(descriptor?.claims)
+							? descriptor.claims.find((c: any) => Array.isArray(c?.path) && typeof c.path[0] === "string")?.path?.[0]
+							: undefined;
+						const namespaceKey = requestedNamespace
+							?? (outputByNamespace ? Object.keys(outputByNamespace)[0] : undefined);
+						if (!namespaceKey || !outputByNamespace?.[namespaceKey]) {
+							return { error: new Error(`No mdoc output namespace found for descriptor ${descriptor.id}`) };
+						}
+						presentationClaims[descriptor.id] = Object.entries(outputByNamespace[namespaceKey]).map(([key, value]) => ({
 							key,
 							name: key,
-							value: typeof value === 'object' ? JSON.stringify(value) : String(value),
+							value: this.calculatePresentationClaimValue(value),
 						}));
 					} else {
 						return { error: new Error(`Unexpected mdoc credential_format in output for descriptor ${descriptor.id}`) };
@@ -528,7 +594,7 @@ export class OpenID4VPClientAPI {
 	}
 
 
-	public async handleResponseJARM(response: any, kid :string): Promise<Result<RPState, OpenID4VPClientError>> {
+	public async handleResponseJARM(response: any, kid: string): Promise<Result<RPState, OpenID4VPClientError>> {
 		// get rpstate only to get the private key to decrypt the response
 
 		const rpState = await this.getRPStateByKid(kid);
@@ -621,7 +687,7 @@ export class OpenID4VPClientAPI {
 		return ok(rpState);
 	}
 
-	public async getSignedRequestObject(sessionId: string): Promise<Result<string, OpenID4VPClientError>>{
+	public async getSignedRequestObject(sessionId: string): Promise<Result<string, OpenID4VPClientError>> {
 		const rpState = await this.getRPStateBySessionId(sessionId);
 
 		if (!rpState) {
