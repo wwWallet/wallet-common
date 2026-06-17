@@ -486,7 +486,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 					throw new Error(`No DCQL descriptor for id ${selectionKey}`);
 				}
 				const descriptorId = descriptor.meta?.doctype_value;
-				const { issuerSigned, docType, namespaceClaims } = decodeIssuerSignedCredential(credential.data);
+				const { issuerSigned, docType, namespaceName, namespaceClaims } = decodeIssuerSignedCredential(credential.data);
 				const effectiveDocType = descriptorId ?? docType;
 				const mdoc = {
 					documents: [
