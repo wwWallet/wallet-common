@@ -69,6 +69,16 @@ export class OpenID4VPClientAPI {
 		return bytes;
 	}
 
+	private calculatePresentationClaimValue = (value: unknown): string => {
+		const normalizedValue = value instanceof Map
+			? Object.fromEntries(value)
+			: value;
+
+		return typeof normalizedValue === 'object'
+			? JSON.stringify(normalizedValue)
+			: String(normalizedValue);
+	}
+
 	private async initializeCredentialEngine() {
 		console.log("Initializing credential engine...")
 
@@ -121,7 +131,7 @@ export class OpenID4VPClientAPI {
 			openid4vcRendering,
 			credentialRendering,
 		};
-}
+	}
 	async generateAuthorizationRequestURL(
 		presentationRequest: any,
 		sessionId: string,
@@ -264,7 +274,7 @@ export class OpenID4VPClientAPI {
 
 			date_created: Date.now(),
 			response_mode: responseMode,
-			};
+		};
 
 		await this.saveRPState(sessionId, newRpState);
 		await this.rpStateKV.set("key:" + exportedEphPub.kid, sessionId);
@@ -327,7 +337,7 @@ export class OpenID4VPClientAPI {
 								transaction_data_hashes_alg: (kbjwtPayload as any).transaction_data_hashes_alg as string[] | undefined
 							});
 							console.log("Message: ", message)
-							messages[descriptor.id] = [ message ];
+							messages[descriptor.id] = [message];
 							if (!status) {
 								return { error: new Error("transaction_data validation error") };
 							}
@@ -396,7 +406,7 @@ export class OpenID4VPClientAPI {
 						presentationClaims[descriptor.id] = Object.entries(filteredSource).map(([key, value]) => ({
 							key,
 							name: key,
-							value: typeof value === 'object' ? JSON.stringify(value) : String(value),
+							value: this.calculatePresentationClaimValue(value),
 						}));
 					} else {
 						return { error: new Error(`Unexpected credential_format for descriptor ${descriptor.id}`) };
@@ -448,10 +458,19 @@ export class OpenID4VPClientAPI {
 						if (!claimsObject) {
 							return { error: new Error(`No claims found in mdoc for doctype ${descriptor.meta?.doctype_value}`) };
 						}
-						presentationClaims[descriptor.id] = Object.entries(claimsObject.valid_claim_sets[0].output[descriptor.meta?.doctype_value]).map(([key, value]) => ({
+						const outputByNamespace = claimsObject.valid_claim_sets?.[0]?.output as Record<string, Record<string, unknown>> | undefined;
+						const requestedNamespace = Array.isArray(descriptor?.claims)
+							? descriptor.claims.find((c: any) => Array.isArray(c?.path) && typeof c.path[0] === "string")?.path?.[0]
+							: undefined;
+						const namespaceKey = requestedNamespace
+							?? (outputByNamespace ? Object.keys(outputByNamespace)[0] : undefined);
+						if (!namespaceKey || !outputByNamespace?.[namespaceKey]) {
+							return { error: new Error(`No mdoc output namespace found for descriptor ${descriptor.id}`) };
+						}
+						presentationClaims[descriptor.id] = Object.entries(outputByNamespace[namespaceKey]).map(([key, value]) => ({
 							key,
 							name: key,
-							value: typeof value === 'object' ? JSON.stringify(value) : String(value),
+							value: this.calculatePresentationClaimValue(value),
 						}));
 					} else {
 						return { error: new Error(`Unexpected mdoc credential_format in output for descriptor ${descriptor.id}`) };
@@ -568,7 +587,7 @@ export class OpenID4VPClientAPI {
 	}
 
 
-	public async handleEncryptedAuthorizationResponse(response: any, kid :string): Promise<Result<RPState, OpenID4VPClientError>> {
+	public async handleEncryptedAuthorizationResponse(response: any, kid: string): Promise<Result<RPState, OpenID4VPClientError>> {
 		// get rpstate only to get the private key to decrypt the response
 
 		const rpState = await this.getRPStateByKid(kid);
@@ -659,7 +678,7 @@ export class OpenID4VPClientAPI {
 		return ok(rpState);
 	}
 
-	public async getSignedRequestObject(sessionId: string): Promise<Result<string, OpenID4VPClientError>>{
+	public async getSignedRequestObject(sessionId: string): Promise<Result<string, OpenID4VPClientError>> {
 		const rpState = await this.getRPStateBySessionId(sessionId);
 
 		if (!rpState) {
