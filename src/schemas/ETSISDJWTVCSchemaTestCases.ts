@@ -9,7 +9,7 @@ export const ETSISDJWTVCMandatorySchema = z.object({
 
 export const ETSISDJWTVCBaseSchema = ETSISDJWTVCMandatorySchema.extend({
 	iss: z.string(),
-	issuing_authority: z.string()
+	// issuing_authority: z.string()	// [ETSI TS 119 472-1] EAA-5.2.4.1-03: A SD-JWT VC EAA shall not incorporate the issuing_authority claim if it incorporates the qualified certificate supporting the EAA signature.
 });
 
 type Base = z.infer<typeof ETSISDJWTVCMandatorySchema>;
@@ -69,8 +69,8 @@ export const SjvEaa2Schema = ETSISDJWTVCBaseSchema
 
 export const SjvEaa3Schema = ETSISDJWTVCBaseSchema
 	.extend({
-		issuing_country: z.string(),
-		iss_reg_id: z.string(),
+		// issuing_country: z.string(),	// [ETSI TS 119 472-1] EAA-5.2.4.1-07: A SD-JWT VC EAA shall not incorporate the issuing_country claim if it incorporates the qualified certificate supporting the SD-JWT VC EAA signature.
+		// iss_reg_id: z.string(),		// [ETSI TS 119 472-1] EAA-5.2.4.1-11: A SD-JWT VC EAA shall not incorporate the iss_reg_id claim if it incorporates the qualified certificate supporting the SD-JWT VC EAA signature.
 		sub: z.string(),
 		given_name: z.string(),
 		family_name: z.string()
@@ -91,8 +91,8 @@ export const SjvEaa3Schema = ETSISDJWTVCBaseSchema
 
 export const SjvEaa4Schema = ETSISDJWTVCBaseSchema
 	.extend({
-		issuing_country: z.string(),
-		iss_reg_id: z.string(),
+		// issuing_country: z.string(),
+		// iss_reg_id: z.string(),
 		also_known_as: z.string()
 	})
 	.passthrough()
@@ -111,8 +111,8 @@ export const SjvEaa4Schema = ETSISDJWTVCBaseSchema
 
 export const SjvEaa5Schema = ETSISDJWTVCBaseSchema
 	.extend({
-		issuing_country: z.string(),
-		iss_reg_id: z.string(),
+		// issuing_country: z.string(),
+		// iss_reg_id: z.string(),
 		sub: z.string(),
 		given_name: z.string(),
 		family_name: z.string(),
@@ -134,8 +134,8 @@ export const SjvEaa5Schema = ETSISDJWTVCBaseSchema
 
 export const SjvEaa6Schema = ETSISDJWTVCBaseSchema
 	.extend({
-		issuing_country: z.string(),
-		iss_reg_id: z.string(),
+		// issuing_country: z.string(),
+		// iss_reg_id: z.string(),
 		sub: z.string(),
 		given_name: z.string(),
 		family_name: z.string(),
@@ -157,8 +157,8 @@ export const SjvEaa6Schema = ETSISDJWTVCBaseSchema
 
 export const SjvEaa7Schema = ETSISDJWTVCBaseSchema
 	.extend({
-		issuing_country: z.string(),
-		iss_reg_id: z.string(),
+		// issuing_country: z.string(),
+		// iss_reg_id: z.string(),
 		sub: z.string(),
 		given_name: z.string(),
 		family_name: z.string(),
