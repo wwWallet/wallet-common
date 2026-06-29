@@ -15,13 +15,15 @@ const AuthorizationCodeGrantSchema = CommonGrantSchema.extend({
 	issuer_state: z.string().optional(),
 });
 
+const TxCodeSchema = z.object({
+	input_mode: z.enum(['numeric', 'text']).optional().default('numeric'),
+	length: z.number().int().optional(),
+	description: z.string().max(300).optional()
+});
+
 const PreAuthorizedCodeGrantSchema = CommonGrantSchema.extend({
 	'pre-authorized_code': z.string(),
-	tx_code: z.object({
-		input_mode: z.enum(['numeric', 'text']).optional().default('numeric'),
-		length: z.number().int().optional(),
-		description: z.string().max(300).optional(),
-	}).optional(),
+	tx_code: TxCodeSchema.optional(),
 });
 
 export const GrantsSchema = z.object({
@@ -38,5 +40,8 @@ export const GrantSchema = z.union([
 	}),
 ]);
 
-export type Grants = z.infer<typeof GrantsSchema>
-export type Grant = z.infer<typeof GrantSchema>
+export type Grants = z.infer<typeof GrantsSchema>;
+export type Grant = z.infer<typeof GrantSchema>;
+export type AuthorizationCodeGrant = z.infer<typeof AuthorizationCodeGrantSchema>;
+export type PreAuthorizedCodeGrant = z.infer<typeof PreAuthorizedCodeGrantSchema>;
+export type TxCode = z.infer<typeof TxCodeSchema>;
