@@ -262,9 +262,6 @@ export class OpenID4VPClientAPI {
 			rp_eph_pub: exportedEphPub,
 			rp_eph_priv: exportedEphPriv,
 
-			apv_jarm_encrypted_response_header: null,
-			apu_jarm_encrypted_response_header: null,
-
 			encrypted_response: null,
 			vp_token: null,
 
@@ -417,15 +414,11 @@ export class OpenID4VPClientAPI {
 				} else {
 					// ========== mdoc ==========
 					const verifierEncryptionJwk = rpState.rp_eph_pub;
-					const expectedHolderNonce = rpState.apu_jarm_encrypted_response_header
-						? decoder.decode(fromBase64Url(rpState.apu_jarm_encrypted_response_header))
-						: undefined;
 					const verificationResult = await ce.msoMdocVerifier.verify({
 						rawCredential: vp,
 						opts: {
 							expectedAudience: rpState.audience,
 							expectedNonce: rpState.nonce,
-							holderNonce: expectedHolderNonce,
 							responseUri: this.options.redirectUri,
 							verifierEncryptionJwk,
 							handoverType: rpState.response_mode === OpenID4VPResponseMode.DC_API_JWT && rpState.audience.startsWith("origin:") ? "dc_api" : "redirect",
@@ -594,7 +587,7 @@ export class OpenID4VPClientAPI {
 	}
 
 
-	public async handleResponseJARM(response: any, kid: string): Promise<Result<RPState, OpenID4VPClientError>> {
+	public async handleEncryptedAuthorizationResponse(response: any, kid: string): Promise<Result<RPState, OpenID4VPClientError>> {
 		// get rpstate only to get the private key to decrypt the response
 
 		const rpState = await this.getRPStateByKid(kid);
@@ -644,8 +637,6 @@ export class OpenID4VPClientAPI {
 		console.log("Encoding....")
 		rpState.vp_token = toBase64Url(encoder.encode(JSON.stringify(payload.vp_token)));
 		rpState.date_created = Date.now();
-		rpState.apv_jarm_encrypted_response_header = protectedHeader.apv && typeof protectedHeader.apv == 'string' ? protectedHeader.apv as string : null;
-		rpState.apu_jarm_encrypted_response_header = protectedHeader.apu && typeof protectedHeader.apu == 'string' ? protectedHeader.apu as string : null;
 		rpState.completed = true;
 
 		console.log("Stored rp state = ", rpState)

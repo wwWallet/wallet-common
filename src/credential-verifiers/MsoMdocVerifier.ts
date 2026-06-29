@@ -197,7 +197,6 @@ export function MsoMdocVerifier(args: { context: Context, pkResolverEngine: Publ
 	async function deviceResponseCheck(deviceResponse: DeviceResponse, opts: {
 		expectedNonce?: string;
 		expectedAudience?: string;
-		holderNonce?: string;
 		responseUri?: string;
 		verifierEncryptionJwk?: JWK;
 		handoverType?: "redirect" | "dc_api";
