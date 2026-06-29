@@ -131,39 +131,6 @@ export function SDJWTVCParser(args: { context: Context, httpClient: HttpClient/*
 				};
 			}
 
-			// if (!args.httpClient || !renderer) {
-			// 	return {
-			// 		success: true,
-			// 		value: {
-			// 			signedClaims: validatedParsedClaims,
-			// 			metadata: {
-			// 				credential: {
-			// 					format: typParseResult.data,
-			// 					vct: validatedParsedClaims?.vct as string | undefined ?? "",
-			// 					name: friendlyNameResolver({
-			// 						credentialDisplayArray: undefined,
-			// 						issuerDisplayArray: undefined,
-			// 						fallbackName: "SD-JWT Verifiable Credential",
-			// 					}),
-			// 					TypeMetadata: {},
-			// 					image: {
-			// 						dataUri: {} as any
-			// 					}
-			// 				},
-			// 				issuer: {
-			// 					id: validatedParsedClaims.iss ?? "UnknownIssuer",
-			// 					name: validatedParsedClaims.iss ?? "UnknownIssuer",
-			// 				}
-			// 			},
-			// 			validityInfo: {
-			// 				...extractValidityInfo(validatedParsedClaims)
-			// 			},
-			// 			warnings: [CredentialParsingError.FailFetchIssuerMetadata]
-			// 		}
-			// 	}
-			// }
-
-
 			const { metadata: issuerMetadata } = validatedParsedClaims.iss ? await getIssuerMetadata(args.httpClient, validatedParsedClaims.iss, warnings) : { metadata: undefined };
 
 			const vctIntegrity = validatedParsedClaims['vct#integrity'] as string | undefined;

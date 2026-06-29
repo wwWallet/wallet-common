@@ -382,11 +382,6 @@ export function matchesProfile(
 		//
 		case DisclosureProfile.PROFILE_8:
 
-			// console.log(analysis);
-			// console.log(analysis.hasObjectDisclosures);
-			// console.log(!analysis.hasArrayElementDisclosures);
-			// console.log(!analysis.hasRecursiveObjectDisclosures)
-
 			return (
 				analysis.hasObjectDisclosures &&
 				!analysis.hasArrayElementDisclosures &&

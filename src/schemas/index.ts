@@ -8,4 +8,3 @@ export * from './MdocIacasResponseSchema';
 export * from './ETSISDJWTVCSchema';
 export * from './ETSIMsoMdocSchema';
 export * from './ETSISDJWTVCSchemaTestCases';
-// export * from './ETSISDJWTVCAll.test';
