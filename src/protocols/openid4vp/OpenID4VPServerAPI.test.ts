@@ -1,6 +1,6 @@
-import { assert, describe, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 import Crypto from "node:crypto";
-import { Jwt, SDJwt } from "@sd-jwt/core";
+import { Jwt, SDJwt, pack } from "@sd-jwt/core";
 import { OpenID4VPServerAPI, retrieveKeys } from "./OpenID4VPServerAPI";
 import { OpenID4VPJweEncryption, OpenID4VPResponseMode } from "./types";
 import { VerifiableCredentialFormat } from "../../types";
@@ -47,6 +47,27 @@ const buildSdJwt = async (payload: Record<string, unknown>) => {
 	await jwt.sign(signer);
 	const sdJwt = new SDJwt({ jwt, disclosures: [] });
 	return sdJwt.encodeSDJwt();
+};
+
+const buildSelectiveSdJwt = async (payload: Record<string, unknown>, selectivelyDisclosable: string[]) => {
+	const hasher = async (data: string | ArrayBuffer, alg: string) =>
+		new Uint8Array(await Crypto.webcrypto.subtle.digest(
+			alg,
+			typeof data === "string" ? new TextEncoder().encode(data) : data
+		));
+	let salt = 0;
+	const { packedClaims, disclosures } = await pack(
+		payload,
+		Object.fromEntries(selectivelyDisclosable.map((claim) => [claim, true])),
+		{ alg: "sha-256", hasher },
+		async () => `salt-${salt++}`
+	);
+	const { privateKey } = Crypto.generateKeyPairSync("ed25519");
+	const jwt = new Jwt({ header: { alg: "EdDSA" }, payload: packedClaims as Record<string, unknown> });
+	await jwt.sign(async (data: string) =>
+		Crypto.sign(null, Buffer.from(data), privateKey).toString("base64url")
+	);
+	return new SDJwt({ jwt, disclosures }).encodeSDJwt();
 };
 
 const verifierCertificatePem = `-----BEGIN CERTIFICATE-----
@@ -477,6 +498,146 @@ describe("OpenID4VPServerAPI.handleAuthorizationRequest", () => {
 });
 
 describe("OpenID4VPServerAPI.createAuthorizationResponse", () => {
+	it("sends no SD-JWT disclosures when claims is absent", async () => {
+		const signedClaims = { vct: "urn:eudi:pid:1", given_name: "Alice", family_name: "Doe" };
+		const credentialData = await buildSelectiveSdJwt(signedClaims, ["given_name", "family_name"]);
+		let presentedSdJwt = "";
+		const helper = new OpenID4VPServerAPI({
+			httpClient: { get: async () => { throw new Error("unexpected http call"); } },
+			rpStateStore: {
+				store: async () => {},
+				retrieve: async () => ({
+					nonce: "nonce",
+					response_uri: "https://verifier.example.com/cb",
+					client_id: "x509_san_dns:verifier.example.com",
+					state: "state",
+					client_metadata: { vp_formats: {} },
+					response_mode: OpenID4VPResponseMode.DIRECT_POST,
+					dcql_query: {
+						credentials: [{
+							id: "pid",
+							format: VerifiableCredentialFormat.DC_SDJWT,
+							meta: { vct_values: ["urn:eudi:pid:1"] },
+						}],
+					},
+					transaction_data: [],
+				}),
+			},
+			parseCredential: async () => ({ signedClaims }),
+			selectCredentialForBatch: async () => ({
+				format: VerifiableCredentialFormat.DC_SDJWT,
+				data: credentialData,
+				batchId: 7,
+			}),
+			keystore: {
+				signJwtPresentation: async (_nonce, _audience, presentations) => {
+					presentedSdJwt = presentations[0];
+					return { vpjwt: `${presentations[0]}kb.jwt.value` };
+				},
+				generateDeviceResponse: async () => ({ deviceResponseMDoc: {} }),
+			},
+			strings: {
+				purposeNotSpecified: "No purpose provided",
+				allClaimsRequested: "All claims",
+			},
+		});
+
+		await helper.createAuthorizationResponse(
+			new Map([["pid", 7]]),
+			[{ format: VerifiableCredentialFormat.DC_SDJWT, data: credentialData, batchId: 7 }]
+		);
+
+		const components = presentedSdJwt.split("~");
+		assert(components.length === 2);
+		assert(components[1] === "");
+	});
+
+	it("allows an optional credential set to be omitted", async () => {
+		const signedClaims = { vct: "urn:eudi:pid:1", given_name: "Alice" };
+		const credentialData = await buildSdJwt(signedClaims);
+		const helper = new OpenID4VPServerAPI({
+			httpClient: { get: async () => { throw new Error("unexpected http call"); } },
+			rpStateStore: {
+				store: async () => {},
+				retrieve: async () => ({
+					nonce: "nonce",
+					response_uri: "https://verifier.example.com/cb",
+					client_id: "x509_san_dns:verifier.example.com",
+					state: "state",
+					client_metadata: { vp_formats: {} },
+					response_mode: OpenID4VPResponseMode.DIRECT_POST,
+					dcql_query: {
+						credentials: [
+							{ id: "pid", format: VerifiableCredentialFormat.DC_SDJWT, meta: { vct_values: ["urn:eudi:pid:1"] } },
+							{ id: "optional", format: VerifiableCredentialFormat.DC_SDJWT, meta: { vct_values: ["urn:eudi:ehic:1"] } },
+						],
+						credential_sets: [
+							{ options: [["pid"]] },
+							{ options: [["optional"]], required: false },
+						],
+					},
+					transaction_data: [],
+				}),
+			},
+			parseCredential: async () => ({ signedClaims }),
+			selectCredentialForBatch: async () => ({
+				format: VerifiableCredentialFormat.DC_SDJWT,
+				data: credentialData,
+				batchId: 7,
+			}),
+			keystore: {
+				signJwtPresentation: async () => ({ vpjwt: "vp-jwt" }),
+				generateDeviceResponse: async () => ({ deviceResponseMDoc: {} }),
+			},
+			strings: {
+				purposeNotSpecified: "No purpose provided",
+				allClaimsRequested: "All claims",
+			},
+		});
+
+		const response = await helper.createAuthorizationResponse(
+			new Map([["pid", 7]]),
+			[{ format: VerifiableCredentialFormat.DC_SDJWT, data: credentialData, batchId: 7 }]
+		);
+		assert("formData" in response);
+		assert.deepEqual(JSON.parse(response.formData.get("vp_token") as string), { pid: ["vp-jwt"] });
+	});
+
+	it("rejects omission of a required credential set", async () => {
+		const helper = new OpenID4VPServerAPI({
+			httpClient: { get: async () => { throw new Error("unexpected http call"); } },
+			rpStateStore: {
+				store: async () => {},
+				retrieve: async () => ({
+					nonce: "nonce",
+					response_uri: "https://verifier.example.com/cb",
+					client_id: "x509_san_dns:verifier.example.com",
+					state: "state",
+					client_metadata: { vp_formats: {} },
+					response_mode: OpenID4VPResponseMode.DIRECT_POST,
+					dcql_query: {
+						credentials: [{ id: "pid", format: VerifiableCredentialFormat.DC_SDJWT, meta: {} }],
+						credential_sets: [{ options: [["pid"]] }],
+					},
+					transaction_data: [],
+				}),
+			},
+			parseCredential: async () => null,
+			selectCredentialForBatch: async () => null,
+			keystore: {
+				signJwtPresentation: async () => ({ vpjwt: "" }),
+				generateDeviceResponse: async () => ({ deviceResponseMDoc: {} }),
+			},
+			strings: {
+				purposeNotSpecified: "No purpose provided",
+				allClaimsRequested: "All claims",
+			},
+		});
+
+		await expect(helper.createAuthorizationResponse(new Map(), []))
+			.rejects.toThrow("required DCQL credential set");
+	});
+
 	const createJwtResponse = async (encryptedResponseEncValuesSupported?: string[]) => {
 		const signedClaims = { vct: "urn:eudi:pid:1", given_name: "Alice" };
 		const sdJwtPid = await buildSdJwt(signedClaims);

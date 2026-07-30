@@ -110,6 +110,39 @@ export type OpenID4VPServerMessages = {
 	allClaimsRequested: string;
 };
 
+export type DcqlClaimPath = Array<string | number | null>;
+
+export type DcqlClaimSetOption = {
+	index: number;
+	paths: DcqlClaimPath[];
+};
+
+export type DcqlCredentialMatch = {
+	credentials: number[];
+	requestedFields: Array<{
+		name: string;
+		purpose: string;
+		path?: DcqlClaimPath;
+	}>;
+	claimSetOptions: DcqlClaimSetOption[];
+	mandatoryOnly: boolean;
+};
+
+export type DcqlCredentialSetMatch = {
+	index: number;
+	required: boolean;
+	purpose?: unknown;
+	options: string[][];
+	matchingOptions: string[][];
+};
+
+export type DcqlSelectionValue = number | {
+	batchId: number;
+	claimSetIndex?: number;
+};
+
+export type DcqlSelection = Map<string, DcqlSelectionValue>;
+
 export type OpenID4VPServerLastUsedNonceStore = {
 	get(): string | null;
 	set(nonce: string): void;

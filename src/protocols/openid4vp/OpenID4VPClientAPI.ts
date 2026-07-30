@@ -18,6 +18,7 @@ import { randomUUID } from "crypto";
 import { exportJWK, generateKeyPair, importPKCS8, SignJWT, compactDecrypt, CompactDecryptResult, importJWK } from "jose";
 import { serializeDcqlQuery } from "../../utils/serializeDcqlQuery";
 import { prependToPath } from "../../utils";
+import { validateDcqlCredentialSelection } from "./dcqlSelection";
 
 export const OpenID4VPClientErrors = {
 	MissingRPStateForKid: "missing_rpstate_for_kid",
@@ -311,8 +312,16 @@ export class OpenID4VPClientAPI {
 		const presentationClaims: PresentationClaims = {};
 		const ce = await this.initializeCredentialEngine();
 		const messages: PresentationInfo = {};
+		const returnedIds = Object.keys(vp_token_list);
+		const descriptorsById = new Map(
+			dcql_query.credentials.map((descriptor: any) => [descriptor.id, descriptor])
+		);
 
-		for (const descriptor of dcql_query.credentials) {
+		for (const returnedId of returnedIds) {
+			const descriptor = descriptorsById.get(returnedId) as any;
+			if (!descriptor) {
+				return { error: new Error(`VP token contains unknown descriptor ${returnedId}`) };
+			}
 			const vpEntry = vp_token_list[descriptor.id];
 			const vp = Array.isArray(vpEntry) ? vpEntry[0] : null;
 			if (!vp) {
@@ -392,11 +401,12 @@ export class OpenID4VPClientAPI {
 						const dcqlOut = claims?.valid_claim_sets?.[0]?.output as Record<string, unknown> | undefined;
 						const signedClaims = parseResult.value.signedClaims as Record<string, unknown>;
 
-						const requestedAll = descriptor?.claims == null;
+						const mandatoryOnly = descriptor?.claims == null;
 
-						// Get all claims if no specific claims were requested
+						// With no claims query, only directly encoded, non-selectively-disclosable
+						// claims can be present after parsing the presentation.
 						const source: Record<string, unknown> =
-							requestedAll
+							mandatoryOnly
 								? signedClaims
 								: (dcqlOut && Object.keys(dcqlOut).length > 0 ? dcqlOut : signedClaims);
 
@@ -455,23 +465,26 @@ export class OpenID4VPClientAPI {
 					const output = dcqlResult.credential_matches[descriptor.id].valid_credentials?.[0].meta.output as any;
 					if (output.credential_format === VerifiableCredentialFormat.MSO_MDOC) {
 						const claimsObject = dcqlResult.credential_matches[descriptor.id].valid_credentials?.[0].claims as any;
-						if (!claimsObject) {
+						if (!claimsObject && descriptor.claims) {
 							return { error: new Error(`No claims found in mdoc for doctype ${descriptor.meta?.doctype_value}`) };
 						}
-						const outputByNamespace = claimsObject.valid_claim_sets?.[0]?.output as Record<string, Record<string, unknown>> | undefined;
+						const outputByNamespace = claimsObject?.valid_claim_sets?.[0]?.output as Record<string, Record<string, unknown>> | undefined;
 						const requestedNamespace = Array.isArray(descriptor?.claims)
 							? descriptor.claims.find((c: any) => Array.isArray(c?.path) && typeof c.path[0] === "string")?.path?.[0]
 							: undefined;
 						const namespaceKey = requestedNamespace
 							?? (outputByNamespace ? Object.keys(outputByNamespace)[0] : undefined);
-						if (!namespaceKey || !outputByNamespace?.[namespaceKey]) {
+						if (!descriptor.claims) {
+							presentationClaims[descriptor.id] = [];
+						} else if (!namespaceKey || !outputByNamespace?.[namespaceKey]) {
 							return { error: new Error(`No mdoc output namespace found for descriptor ${descriptor.id}`) };
+						} else {
+							presentationClaims[descriptor.id] = Object.entries(outputByNamespace[namespaceKey]).map(([key, value]) => ({
+								key,
+								name: key,
+								value: this.calculatePresentationClaimValue(value),
+							}));
 						}
-						presentationClaims[descriptor.id] = Object.entries(outputByNamespace[namespaceKey]).map(([key, value]) => ({
-							key,
-							name: key,
-							value: this.calculatePresentationClaimValue(value),
-						}));
 					} else {
 						return { error: new Error(`Unexpected mdoc credential_format in output for descriptor ${descriptor.id}`) };
 					}
@@ -480,6 +493,11 @@ export class OpenID4VPClientAPI {
 				console.error(`Error processing descriptor ${descriptor.id}:`, e);
 				return { error: new Error(`Internal error verifying or parsing VP for descriptor ${descriptor.id}`) };
 			}
+		}
+
+		const selectionError = validateDcqlCredentialSelection(dcql_query, returnedIds);
+		if (selectionError) {
+			return { error: new Error(`Invalid DCQL VP token: ${selectionError}`) };
 		}
 		return { presentationClaims, messages };
 	}

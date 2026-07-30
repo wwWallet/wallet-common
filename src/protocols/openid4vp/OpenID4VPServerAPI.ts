@@ -13,9 +13,13 @@ import {
 	OpenID4VPJweEncryption,
 	TransactionDataResponseGenerator,
 	TransactionDataResponseGeneratorParams,
-	TransactionDataResponseParams
+	TransactionDataResponseParams,
+	DcqlCredentialMatch,
+	DcqlCredentialSetMatch,
+	DcqlSelection,
 } from "./types";
 import { VerifiableCredentialFormat } from "../../types";
+import { validateDcqlCredentialSelection } from "./dcqlSelection";
 export const HandleAuthorizationRequestErrors = {
 	NON_SUPPORTED_CLIENT_ID_SCHEME: "non_supported_client_id_scheme",
 	INSUFFICIENT_CREDENTIALS: "insufficient_credentials",
@@ -243,7 +247,11 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 	}
 
 	private async matchCredentialsToDCQL(vcList: CredentialT[], dcqlJson: any): Promise<
-		| { mapping: Map<string, { credentials: number[]; requestedFields: { name: string; purpose: string; path?: (string | null)[] }[] }>; descriptorPurpose: string }
+		| {
+			mapping: Map<string, DcqlCredentialMatch>;
+			credentialSets: DcqlCredentialSetMatch[];
+			descriptorPurpose: string;
+		}
 		| { error: HandleAuthorizationRequestError }
 	> {
 		const descriptorPurpose = this.deps.strings.purposeNotSpecified ?? null;
@@ -304,13 +312,12 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 			return match?.success === true && Array.isArray(match.valid_credentials) && match.valid_credentials.length > 0;
 		}
 
-		const satisfied = dcqlJson.credentials.every((cred: any) => hasValidMatch(cred.id));
-		if (!satisfied) {
+		if (!result.can_be_satisfied) {
 			return { error: HandleAuthorizationRequestErrors.INSUFFICIENT_CREDENTIALS };
 		}
 
 		// Build the mapping for each credential query
-		const mapping = new Map<string, { credentials: number[]; requestedFields: { name: string; purpose: string; path?: (string | null)[] }[] }>();
+		const mapping = new Map<string, DcqlCredentialMatch>();
 		for (const credReq of dcqlJson.credentials) {
 			const match = result.credential_matches[credReq.id];
 			const conforming: number[] = [];
@@ -322,33 +329,48 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 					}
 				}
 			}
+			const validClaimSets = match?.valid_credentials?.[0]?.claims?.valid_claim_sets ?? [];
+			const claimSetOptions = validClaimSets.map((claimSet: any) => ({
+				index: claimSet.claim_set_index ?? 0,
+				paths: (claimSet.valid_claim_indexes ?? [])
+					.map((claimIndex: number) => credReq.claims?.[claimIndex]?.path)
+					.filter(Array.isArray),
+			}));
 			mapping.set(credReq.id, {
 				credentials: conforming,
 				requestedFields:
-					!credReq.claims || credReq.claims.length === 0
-						? [{ name: this.deps.strings.allClaimsRequested, purpose: descriptorPurpose, path: [null] }]
+					!credReq.claims
+						? []
 						: credReq.claims.map((cl: any) => ({
 							name: cl.id || cl.path.join("."),
 							purpose: descriptorPurpose,
 							path: cl.path,
 						})),
+				claimSetOptions,
+				mandatoryOnly: !credReq.claims,
 			});
 		}
 
-		const allConforming = Array.from(mapping.values()).flatMap((m) => m.credentials);
-		if (allConforming.length === 0) {
-			return { error: HandleAuthorizationRequestErrors.INSUFFICIENT_CREDENTIALS };
-		}
-		return { mapping, descriptorPurpose };
+		const credentialSets = (result.credential_sets ?? []).map((set: any, index: number) => ({
+			index,
+			required: set.required ?? true,
+			purpose: set.purpose,
+			options: set.options,
+			matchingOptions: set.matching_options ?? [],
+		}));
+		return { mapping, credentialSets, descriptorPurpose };
 	}
 
-	private generatePresentationFrameForDCQLPaths(paths: string[][]): any {
+	private generatePresentationFrameForDCQLPaths(paths: Array<Array<string | number | null>>): any {
 		const frame: Record<string, any> = {};
 
 		for (const rawSegments of paths) {
 			let current = frame;
 			for (let i = 0; i < rawSegments.length; i++) {
 				const segment = rawSegments[i];
+				if (typeof segment !== "string") {
+					throw new Error("SD-JWT presentation paths containing array selectors are not supported");
+				}
 				if (i === rawSegments.length - 1) {
 					current[segment] = true;
 				} else {
@@ -360,12 +382,26 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		return frame;
 	}
 
+	private normalizeSelection(selectionMap: DcqlSelection): Map<string, { batchId: number; claimSetIndex?: number }> {
+		return new Map(Array.from(selectionMap.entries()).map(([id, value]) => [
+			id,
+			typeof value === "number" ? { batchId: value } : value,
+		]));
+	}
+
+	private validateSelection(dcqlQuery: any, selectionMap: Map<string, { batchId: number; claimSetIndex?: number }>): void {
+		const error = validateDcqlCredentialSelection(dcqlQuery, selectionMap.keys());
+		if (error) throw new Error(error);
+	}
+
 	private async handleDCQLFlow(
 		S: OpenID4VPRelyingPartyState,
-		selectionMap: Map<string, number>,
+		rawSelectionMap: DcqlSelection,
 		vcEntityList: CredentialT[]
 	) {
 		const { dcql_query, client_id, nonce, response_uri, transaction_data } = S;
+		const selectionMap = this.normalizeSelection(rawSelectionMap);
+		this.validateSelection(dcql_query, selectionMap);
 		let verifierEncryptionJwk: JsonWebKey | Record<string, unknown> | undefined;
 		let handoverType: "redirect" | "dc_api" = "redirect";
 		let dcApiOrigin: string | undefined;
@@ -377,12 +413,14 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 			handoverType = "dc_api";
 			dcApiOrigin = S.client_id.replace(/^origin:/, "");
 		}
-		const generatedVPs: string[] = [];
-		const originalVCs: CredentialT[] = [];
+		const generatedPresentations: Array<{ id: string; presentation: string; credential: CredentialT }> = [];
 
-		for (const [selectionKey, batchId] of selectionMap) {
+		for (const [selectionKey, selection] of selectionMap) {
+			const { batchId, claimSetIndex } = selection;
 			const credential = await this.deps.selectCredentialForBatch(batchId, vcEntityList);
-			if (!credential) continue;
+			if (!credential) {
+				throw new Error(`Selected credential '${selectionKey}' is no longer available`);
+			}
 
 			if (
 				credential.format === VerifiableCredentialFormat.VC_SDJWT ||
@@ -398,36 +436,20 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 				}
 				const { signedClaims } = parsed;
 
-				let paths: string[][];
-
-				if (!descriptor.claims || descriptor.claims.length === 0) {
-					paths = [];
-					const getNestedPaths = (val: any, path: string[]) => {
-						if (val === null || typeof val !== "object") {
-							if (path.length) paths.push(path);
-							return;
-						}
-						if (Array.isArray(val)) {
-							if (path.length) {
-								paths.push(path);
-							}
-							return;
-						}
-						const entries = Object.entries(val);
-						if (entries.length === 0) {
-							if (path.length) {
-								paths.push(path);
-							}
-							return;
-						}
-						for (const [k, v] of entries) {
-							getNestedPaths(v, path.concat(k));
-						}
-					};
-					getNestedPaths(signedClaims, []);
-				} else {
-					paths = descriptor.claims.map((cl: any) => cl.path);
+				let selectedClaims = descriptor.claims ?? [];
+				if (descriptor.claim_sets) {
+					const selectedClaimSetIndex = claimSetIndex ?? 0;
+					const selectedClaimIds = descriptor.claim_sets[selectedClaimSetIndex];
+					if (!selectedClaimIds) {
+						throw new Error(`Invalid claim set selection for '${selectionKey}'`);
+					}
+					selectedClaims = selectedClaimIds.map((claimId: string) => {
+						const claim = descriptor.claims.find((candidate: any) => candidate.id === claimId);
+						if (!claim) throw new Error(`Unknown claim id '${claimId}' in claim set`);
+						return claim;
+					});
 				}
+				const paths = selectedClaims.map((claim: any) => claim.path);
 
 				const frame = this.generatePresentationFrameForDCQLPaths(paths);
 				const subtle = getSubtleCrypto(this.deps.subtle);
@@ -437,26 +459,32 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 				};
 
 				const sdJwt = await SDJwt.fromEncode(credential.data, hasher);
-				const presentation = credential.data.split("~").length - 1 > 1
-					? await sdJwt.present(frame, hasher)
-					: credential.data;
+				const presentation = await sdJwt.present(frame, hasher);
 
 				const shaped = {
 					credential_format: credential.format,
 					vct: (signedClaims as any).vct,
 					cryptographic_holder_binding: true,
-					claims:
-						!descriptor.claims || descriptor.claims.length === 0
-							? signedClaims
-							: Object.fromEntries(
-								Object.entries(signedClaims).filter(([k]) =>
-									descriptor.claims.some((cl: any) => cl.path.includes(k))
-								)
-							)
+					claims: Object.fromEntries(
+						Object.entries(signedClaims).filter(([key]) =>
+							selectedClaims.some((claim: any) => claim.path[0] === key)
+						)
+					),
+				};
+				const selectedDcqlQuery = {
+					...dcql_query,
+					credentials: [{
+						...descriptor,
+						...(descriptor.claim_sets ? {
+							claims: selectedClaims,
+							claim_sets: undefined,
+						} : {}),
+					}],
+					credential_sets: undefined,
 				};
 				const presResult = DcqlPresentationResult.fromDcqlPresentation(
 					{ [selectionKey]: [shaped] } as any,
-					{ dcqlQuery: dcql_query as any }
+					{ dcqlQuery: selectedDcqlQuery as any }
 				);
 				if (!presResult.credential_matches[selectionKey]?.success) {
 					throw new Error(`Presentation for '${selectionKey}' did not satisfy DCQL`);
@@ -482,15 +510,14 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 					transactionDataResponseParams
 				);
 
-				generatedVPs.push(vpjwt);
-				originalVCs.push(credential);
+				generatedPresentations.push({ id: selectionKey, presentation: vpjwt, credential });
 			} else if (credential.format === VerifiableCredentialFormat.MSO_MDOC) {
 				const descriptor = (dcql_query as any).credentials.find((c: any) => c.id === selectionKey);
 				if (!descriptor) {
 					throw new Error(`No DCQL descriptor for id ${selectionKey}`);
 				}
 				const descriptorId = descriptor.meta?.doctype_value;
-				const { issuerSigned, docType, namespaceName, namespaceClaims } = decodeIssuerSignedCredential(credential.data);
+				const { issuerSigned, docType } = decodeIssuerSignedCredential(credential.data);
 				const effectiveDocType = descriptorId ?? docType;
 				const mdoc = {
 					documents: [
@@ -501,20 +528,27 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 					],
 				};
 
-				let dcqlQueryWithClaims: any;
-				if (!descriptor.claims || descriptor.claims.length === 0) {
-					dcqlQueryWithClaims = JSON.parse(JSON.stringify(dcql_query));
-					const descriptorIndex = dcqlQueryWithClaims.credentials.findIndex((c: any) => c.id === selectionKey);
-					if (descriptorIndex !== -1) {
-						const namespaceForPaths = namespaceName ?? effectiveDocType;
-						dcqlQueryWithClaims.credentials[descriptorIndex].claims = Object.keys(namespaceClaims).map((key) => ({
-							id: key,
-							path: [namespaceForPaths, key],
-						}));
+				let selectedDescriptor = descriptor;
+				if (descriptor.claim_sets) {
+					const selectedClaimIds = descriptor.claim_sets[claimSetIndex ?? 0];
+					if (!selectedClaimIds) {
+						throw new Error(`Invalid claim set selection for '${selectionKey}'`);
 					}
-				} else {
-					dcqlQueryWithClaims = dcql_query;
+					selectedDescriptor = {
+						...descriptor,
+						claims: selectedClaimIds.map((claimId: string) => {
+							const claim = descriptor.claims.find((candidate: any) => candidate.id === claimId);
+							if (!claim) throw new Error(`Unknown claim id '${claimId}' in claim set`);
+							return claim;
+						}),
+						claim_sets: undefined,
+					};
 				}
+				const dcqlQueryWithClaims = {
+					...dcql_query,
+					credentials: [selectedDescriptor],
+					credential_sets: undefined,
+				};
 
 				const { deviceResponseMDoc } = await this.deps.keystore.generateDeviceResponse(
 					mdoc,
@@ -529,13 +563,12 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 				);
 				const encodedDeviceResponse = base64url.encode(deviceResponseMDoc.encode());
 
-				generatedVPs.push(encodedDeviceResponse);
-				originalVCs.push(credential);
+				generatedPresentations.push({ id: selectionKey, presentation: encodedDeviceResponse, credential });
 			}
 		}
 
 		const vpTokenObject = Object.fromEntries(
-			Array.from(selectionMap.keys()).map((key, idx) => [key, [generatedVPs[idx]]])
+			generatedPresentations.map(({ id, presentation }) => [id, [presentation]])
 		);
 
 		const presentationSubmission = {
@@ -579,7 +612,12 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 			if (S.state) formData.append("state", S.state);
 		}
 
-		return { formData, generatedVPs, presentationSubmission, filteredVCEntities: originalVCs };
+		return {
+			formData,
+			generatedVPs: generatedPresentations.map(({ presentation }) => presentation),
+			presentationSubmission,
+			filteredVCEntities: generatedPresentations.map(({ credential }) => credential),
+		};
 	}
 
 	async handleAuthorizationRequest(
@@ -588,6 +626,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 	): Promise<
 		| {
 			conformantCredentialsMap: Map<string, any>;
+			credentialSets: DcqlCredentialSetMatch[];
 			verifierDomainName: string;
 			verifierPurpose: string;
 			parsedTransactionData: ParsedTransactionDataT[] | null;
@@ -697,8 +736,9 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 			return { error: matchResult.error };
 		}
 
-		const { mapping, descriptorPurpose } = matchResult as {
+		const { mapping, credentialSets, descriptorPurpose } = matchResult as {
 			mapping: Map<string, any>;
+			credentialSets: DcqlCredentialSetMatch[];
 			descriptorPurpose: string;
 		};
 		const verifierDomainName = client_id.includes("http")
@@ -711,13 +751,14 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 
 		return {
 			conformantCredentialsMap: mapping,
+			credentialSets,
 			verifierDomainName,
 			verifierPurpose: descriptorPurpose,
 			parsedTransactionData,
 		};
 	}
 
-	async createAuthorizationResponse(selectionMap: Map<string, number>, vcEntityList: CredentialT[]) {
+	async createAuthorizationResponse(selectionMap: DcqlSelection, vcEntityList: CredentialT[]) {
 		const S = await this.deps.rpStateStore.retrieve();
 
 		if (!S || S.nonce === "" || (this.deps.lastUsedNonceStore?.get?.() ?? null) === S.nonce) {
