@@ -3,6 +3,9 @@ export type DcqlCredentialSelectionQuery = {
 	credential_sets?: Array<{ options: string[][]; required?: boolean }>;
 };
 
+const MAX_SELECTION_STATES = 4096;
+const MAX_CREDENTIAL_SETS = 64;
+
 export const validateDcqlCredentialSelection = (
 	dcqlQuery: DcqlCredentialSelectionQuery,
 	selectedCredentialIds: Iterable<string>
@@ -18,18 +21,46 @@ export const validateDcqlCredentialSelection = (
 		return missing ? `Selection does not contain required DCQL credential '${missing.id}'` : null;
 	}
 
-	const satisfiedOptions = dcqlQuery.credential_sets.flatMap((credentialSet) =>
-		credentialSet.options.filter((option) => option.every((id) => selectedIds.has(id)))
-	);
-	const unsatisfiedRequiredSet = dcqlQuery.credential_sets.find((credentialSet) =>
-		(credentialSet.required ?? true)
-		&& !credentialSet.options.some((option) => option.every((id) => selectedIds.has(id)))
-	);
-	if (unsatisfiedRequiredSet) return "Selection does not satisfy a required DCQL credential set";
+	const choices = dcqlQuery.credential_sets.map((credentialSet) => {
+		const matchingOptions = credentialSet.options
+			.filter((option) => option.every((id) => selectedIds.has(id)));
+		return (credentialSet.required ?? true)
+			? matchingOptions
+			: [...matchingOptions, []];
+	});
+	if (choices.some((options) => options.length === 0)) {
+		return "Selection does not satisfy a required DCQL credential set";
+	}
+	if (choices.length > MAX_CREDENTIAL_SETS) {
+		return "DCQL credential-set selection is too complex";
+	}
 
-	const idsInSatisfiedOptions = new Set(satisfiedOptions.flat());
-	const partialOrExtraneous = Array.from(selectedIds).find((id) => !idsInSatisfiedOptions.has(id));
-	return partialOrExtraneous
-		? `Selection contains a partial or extraneous DCQL credential set at '${partialOrExtraneous}'`
-		: null;
+	const stateKey = (ids: Iterable<string>) => JSON.stringify(Array.from(ids).sort());
+	const selectedState = stateKey(selectedIds);
+	const visitedStates = new Set<string>();
+	let complexityExceeded = false;
+	const canExplainSelection = (setIndex: number, coveredIds: Set<string>): boolean => {
+		const visitKey = `${setIndex}:${stateKey(coveredIds)}`;
+		if (visitedStates.has(visitKey)) return false;
+		visitedStates.add(visitKey);
+		if (visitedStates.size > MAX_SELECTION_STATES) {
+			complexityExceeded = true;
+			return false;
+		}
+		if (setIndex === choices.length) return stateKey(coveredIds) === selectedState;
+
+		for (const option of choices[setIndex]) {
+			const nextCoveredIds = new Set(coveredIds);
+			option.forEach((id) => nextCoveredIds.add(id));
+			if (canExplainSelection(setIndex + 1, nextCoveredIds)) {
+				return true;
+			}
+		}
+		return false;
+	};
+
+	if (canExplainSelection(0, new Set())) return null;
+	return complexityExceeded
+		? "DCQL credential-set selection is too complex"
+		: "Selection combines alternative, partial, or extraneous DCQL credential sets";
 };

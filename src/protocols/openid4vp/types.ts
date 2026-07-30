@@ -107,7 +107,6 @@ export type OpenID4VPRelyingPartyState = {
 
 export type OpenID4VPServerMessages = {
 	purposeNotSpecified: string;
-	allClaimsRequested: string;
 };
 
 export type DcqlClaimPath = Array<string | number | null>;
@@ -124,7 +123,7 @@ export type DcqlCredentialMatch = {
 		purpose: string;
 		path?: DcqlClaimPath;
 	}>;
-	claimSetOptions: DcqlClaimSetOption[];
+	claimSetOptionsByBatchId: Map<number, DcqlClaimSetOption[]>;
 	mandatoryOnly: boolean;
 };
 

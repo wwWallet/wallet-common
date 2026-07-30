@@ -15,11 +15,13 @@ import {
 	TransactionDataResponseGeneratorParams,
 	TransactionDataResponseParams,
 	DcqlCredentialMatch,
+	DcqlClaimSetOption,
 	DcqlCredentialSetMatch,
 	DcqlSelection,
 } from "./types";
 import { VerifiableCredentialFormat } from "../../types";
 import { validateDcqlCredentialSelection } from "./dcqlSelection";
+import { generatePresentationFrameForDCQLPaths } from "./dcqlClaims";
 export const HandleAuthorizationRequestErrors = {
 	NON_SUPPORTED_CLIENT_ID_SCHEME: "non_supported_client_id_scheme",
 	INSUFFICIENT_CREDENTIALS: "insufficient_credentials",
@@ -295,23 +297,6 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		DcqlQuery.validate(parsedQuery);
 		const result = DcqlQuery.query(parsedQuery, shapedCredentials);
 
-		const matches = result.credential_matches;
-
-		function hasValidMatch(credId: string): boolean {
-			const match = matches[credId];
-			if (match?.success === false) {
-				match.failed_credentials?.forEach((failedCreds: any) => {
-					if (failedCreds.meta.success === false) {
-						console.error("DCQL metadata issues: ", failedCreds.meta.issues);
-					}
-					if (!failedCreds.claims.success) {
-						console.error("DCQL failed claims: ", failedCreds.claims);
-					}
-				});
-			}
-			return match?.success === true && Array.isArray(match.valid_credentials) && match.valid_credentials.length > 0;
-		}
-
 		if (!result.can_be_satisfied) {
 			return { error: HandleAuthorizationRequestErrors.INSUFFICIENT_CREDENTIALS };
 		}
@@ -321,21 +306,25 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		for (const credReq of dcqlJson.credentials) {
 			const match = result.credential_matches[credReq.id];
 			const conforming: number[] = [];
+			const claimSetOptionsByBatchId = new Map<number, DcqlClaimSetOption[]>();
 			if (match?.success && match.valid_credentials) {
 				for (const vcMatch of match.valid_credentials) {
 					const shaped = shapedCredentials[vcMatch.input_credential_index];
 					if (shaped?.batchId !== undefined) {
 						conforming.push(shaped.batchId);
+						const validClaimSets = vcMatch.claims?.valid_claim_sets ?? [];
+						claimSetOptionsByBatchId.set(
+							shaped.batchId,
+							validClaimSets.map((claimSet: any) => ({
+								index: claimSet.claim_set_index ?? 0,
+								paths: (claimSet.valid_claim_indexes ?? [])
+									.map((claimIndex: number) => credReq.claims?.[claimIndex]?.path)
+									.filter(Array.isArray),
+							}))
+						);
 					}
 				}
 			}
-			const validClaimSets = match?.valid_credentials?.[0]?.claims?.valid_claim_sets ?? [];
-			const claimSetOptions = validClaimSets.map((claimSet: any) => ({
-				index: claimSet.claim_set_index ?? 0,
-				paths: (claimSet.valid_claim_indexes ?? [])
-					.map((claimIndex: number) => credReq.claims?.[claimIndex]?.path)
-					.filter(Array.isArray),
-			}));
 			mapping.set(credReq.id, {
 				credentials: conforming,
 				requestedFields:
@@ -346,7 +335,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 							purpose: descriptorPurpose,
 							path: cl.path,
 						})),
-				claimSetOptions,
+				claimSetOptionsByBatchId,
 				mandatoryOnly: !credReq.claims,
 			});
 		}
@@ -359,27 +348,6 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 			matchingOptions: set.matching_options ?? [],
 		}));
 		return { mapping, credentialSets, descriptorPurpose };
-	}
-
-	private generatePresentationFrameForDCQLPaths(paths: Array<Array<string | number | null>>): any {
-		const frame: Record<string, any> = {};
-
-		for (const rawSegments of paths) {
-			let current = frame;
-			for (let i = 0; i < rawSegments.length; i++) {
-				const segment = rawSegments[i];
-				if (typeof segment !== "string") {
-					throw new Error("SD-JWT presentation paths containing array selectors are not supported");
-				}
-				if (i === rawSegments.length - 1) {
-					current[segment] = true;
-				} else {
-					current[segment] = current[segment] || {};
-					current = current[segment];
-				}
-			}
-		}
-		return frame;
 	}
 
 	private normalizeSelection(selectionMap: DcqlSelection): Map<string, { batchId: number; claimSetIndex?: number }> {
@@ -451,7 +419,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 				}
 				const paths = selectedClaims.map((claim: any) => claim.path);
 
-				const frame = this.generatePresentationFrameForDCQLPaths(paths);
+				const frame = generatePresentationFrameForDCQLPaths(paths, signedClaims);
 				const subtle = getSubtleCrypto(this.deps.subtle);
 				const hasher = (data: string | ArrayBuffer, alg: string) => {
 					const bytes = typeof data === "string" ? encoder.encode(data) : new Uint8Array(data);
@@ -714,7 +682,6 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		if (!isOpenID4VPResponseMode(response_mode)) {
 			return { error: HandleAuthorizationRequestErrors.INVALID_RESPONSE_MODE };
 		}
-		console.log("VC entity list = ", vcEntityList)
 		const vcList = vcEntityList.filter((cred) => cred.instanceId === 0);
 
 		await this.deps.rpStateStore.store({

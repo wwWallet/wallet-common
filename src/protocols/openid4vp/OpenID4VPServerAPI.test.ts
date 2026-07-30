@@ -153,7 +153,6 @@ describe("OpenID4VPServerAPI.handleAuthorizationRequest", () => {
 			},
 			strings: {
 				purposeNotSpecified: "No purpose provided",
-				allClaimsRequested: "All claims",
 			},
 		});
 
@@ -184,7 +183,7 @@ describe("OpenID4VPServerAPI.handleAuthorizationRequest", () => {
 		];
 
 		const result = await helper.handleAuthorizationRequest(url.toString(), vcEntityList);
-		assert(!("error" in result));
+		assert(!("error" in result), JSON.stringify(result));
 		assert(result.parsedTransactionData === null);
 		assert(result.verifierDomainName === "x509_san_dns:verifier.example.com");
 		const entry = result.conformantCredentialsMap.get("testCredential");
@@ -216,7 +215,6 @@ describe("OpenID4VPServerAPI.handleAuthorizationRequest", () => {
 			},
 			strings: {
 				purposeNotSpecified: "No purpose provided",
-				allClaimsRequested: "All claims",
 			},
 		});
 
@@ -251,6 +249,60 @@ describe("OpenID4VPServerAPI.handleAuthorizationRequest", () => {
 		assert(entry?.credentials?.[0] === 9);
 	});
 
+	it("associates claim-set alternatives with each matching batch", async () => {
+		const basicClaims = { vct: "urn:example:membership", tier: "basic" };
+		const premiumClaims = { vct: "urn:example:membership", tier: "premium" };
+		const basicCredential = await buildSdJwt(basicClaims);
+		const premiumCredential = await buildSdJwt(premiumClaims);
+		const storedState: { value: any | null } = { value: null };
+		const helper = new OpenID4VPServerAPI({
+			httpClient: { get: async () => { throw new Error("unexpected http call"); } },
+			rpStateStore: {
+				store: async (state) => { storedState.value = state; },
+				retrieve: async () => storedState.value,
+			},
+			parseCredential: async (credential) => ({
+				signedClaims: credential.data === basicCredential ? basicClaims : premiumClaims,
+			}),
+			selectCredentialForBatch: async () => null,
+			keystore: {
+				signJwtPresentation: async () => ({ vpjwt: "vp-jwt" }),
+				generateDeviceResponse: async () => ({ deviceResponseMDoc: {} }),
+			},
+			strings: { purposeNotSpecified: "No purpose provided" },
+		});
+		const dcqlQuery = {
+			credentials: [{
+				id: "membership",
+				format: VerifiableCredentialFormat.DC_SDJWT,
+				meta: { vct_values: ["urn:example:membership"] },
+				claims: [
+					{ id: "basic", path: ["tier"], values: ["basic"] },
+					{ id: "premium", path: ["tier"], values: ["premium"] },
+				],
+				claim_sets: [["basic"], ["premium"]],
+			}],
+		};
+		const url = new URL("openid4vp://authorize");
+		url.searchParams.set("client_id", "x509_san_dns:verifier.example.com");
+		url.searchParams.set("response_uri", "https://verifier.example.com/cb");
+		url.searchParams.set("nonce", "nonce-claim-sets");
+		url.searchParams.set("state", "state-claim-sets");
+		url.searchParams.set("client_metadata", JSON.stringify({ vp_formats: {} }));
+		url.searchParams.set("response_mode", JSON.stringify(OpenID4VPResponseMode.DIRECT_POST));
+		url.searchParams.set("dcql_query", JSON.stringify(dcqlQuery));
+
+		const result = await helper.handleAuthorizationRequest(url.toString(), [
+			{ format: VerifiableCredentialFormat.DC_SDJWT, data: basicCredential, batchId: 7, instanceId: 0 },
+			{ format: VerifiableCredentialFormat.DC_SDJWT, data: premiumCredential, batchId: 8, instanceId: 0 },
+		]);
+		assert(!("error" in result), JSON.stringify(result));
+		const optionsByBatch = result.conformantCredentialsMap
+			.get("membership")?.claimSetOptionsByBatchId;
+		assert.deepEqual(optionsByBatch?.get(7)?.map((option) => option.index), [0]);
+		assert.deepEqual(optionsByBatch?.get(8)?.map((option) => option.index), [1]);
+	});
+
 	it("should return insufficient credentials when request asks for missing vct", async () => {
 		const signedClaimsPid = { vct: "urn:eudi:pid:1", given_name: "Alice" };
 		const sdJwtPid = await buildSdJwt(signedClaimsPid);
@@ -270,7 +322,6 @@ describe("OpenID4VPServerAPI.handleAuthorizationRequest", () => {
 			},
 			strings: {
 				purposeNotSpecified: "No purpose provided",
-				allClaimsRequested: "All claims",
 			},
 		});
 
@@ -319,7 +370,6 @@ describe("OpenID4VPServerAPI.handleAuthorizationRequest", () => {
 			},
 			strings: {
 				purposeNotSpecified: "No purpose provided",
-				allClaimsRequested: "All claims",
 			},
 		});
 
@@ -351,7 +401,6 @@ describe("OpenID4VPServerAPI.handleAuthorizationRequest", () => {
 			},
 			strings: {
 				purposeNotSpecified: "No purpose provided",
-				allClaimsRequested: "All claims",
 			},
 		});
 
@@ -395,7 +444,6 @@ describe("OpenID4VPServerAPI.handleAuthorizationRequest", () => {
 			},
 			strings: {
 				purposeNotSpecified: "No purpose provided",
-				allClaimsRequested: "All claims",
 			},
 			lastUsedNonceStore: {
 				get: () => "nonce-reused",
@@ -464,7 +512,6 @@ describe("OpenID4VPServerAPI.handleAuthorizationRequest", () => {
 			},
 			strings: {
 				purposeNotSpecified: "No purpose provided",
-				allClaimsRequested: "All claims",
 			},
 		});
 
@@ -538,7 +585,6 @@ describe("OpenID4VPServerAPI.createAuthorizationResponse", () => {
 			},
 			strings: {
 				purposeNotSpecified: "No purpose provided",
-				allClaimsRequested: "All claims",
 			},
 		});
 
@@ -591,7 +637,6 @@ describe("OpenID4VPServerAPI.createAuthorizationResponse", () => {
 			},
 			strings: {
 				purposeNotSpecified: "No purpose provided",
-				allClaimsRequested: "All claims",
 			},
 		});
 
@@ -630,12 +675,57 @@ describe("OpenID4VPServerAPI.createAuthorizationResponse", () => {
 			},
 			strings: {
 				purposeNotSpecified: "No purpose provided",
-				allClaimsRequested: "All claims",
 			},
 		});
 
 		await expect(helper.createAuthorizationResponse(new Map(), []))
 			.rejects.toThrow("required DCQL credential set");
+	});
+
+	it("keeps mdoc claims absent when generating format-mandatory material", async () => {
+		let generatedQuery: any;
+		const helper = new OpenID4VPServerAPI({
+			httpClient: { get: async () => { throw new Error("unexpected http call"); } },
+			rpStateStore: {
+				store: async () => {},
+				retrieve: async () => ({
+					nonce: "nonce",
+					response_uri: "https://verifier.example.com/cb",
+					client_id: "x509_san_dns:verifier.example.com",
+					state: "state",
+					client_metadata: { vp_formats: {} },
+					response_mode: OpenID4VPResponseMode.DIRECT_POST,
+					dcql_query: {
+						credentials: [{
+							id: "pid",
+							format: VerifiableCredentialFormat.MSO_MDOC,
+							meta: { doctype_value: "eu.europa.ec.eudi.pid.1" },
+						}],
+					},
+					transaction_data: [],
+				}),
+			},
+			parseCredential: async () => null,
+			selectCredentialForBatch: async () => ({
+				format: VerifiableCredentialFormat.MSO_MDOC,
+				data: issuerSignedB64U,
+				batchId: 9,
+			}),
+			keystore: {
+				signJwtPresentation: async () => ({ vpjwt: "" }),
+				generateDeviceResponse: async (_mdoc, dcqlQuery) => {
+					generatedQuery = dcqlQuery;
+					return { deviceResponseMDoc: { encode: () => new Uint8Array([1]) } };
+				},
+			},
+			strings: { purposeNotSpecified: "No purpose provided" },
+		});
+
+		await helper.createAuthorizationResponse(
+			new Map([["pid", 9]]),
+			[{ format: VerifiableCredentialFormat.MSO_MDOC, data: issuerSignedB64U, batchId: 9 }]
+		);
+		assert(!("claims" in generatedQuery.credentials[0]));
 	});
 
 	const createJwtResponse = async (encryptedResponseEncValuesSupported?: string[]) => {
@@ -683,7 +773,6 @@ describe("OpenID4VPServerAPI.createAuthorizationResponse", () => {
 			},
 			strings: {
 				purposeNotSpecified: "No purpose provided",
-				allClaimsRequested: "All claims",
 			},
 		});
 

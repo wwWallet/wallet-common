@@ -31,6 +31,27 @@ const presentationRequest = {
 };
 
 describe("OpenID4VPClientAPI.validateDcqlVpToken", () => {
+	const createHelper = () => new OpenID4VPClientAPI(
+		new MemoryStore<string, any>(),
+		{
+			credentialEngineOptions: {
+				clockTolerance: 0,
+				subtle: crypto.subtle,
+				lang: "en",
+				trustedCertificates: [],
+				trustedCredentialIssuerIdentifiers: undefined
+			},
+			redirectUri: "openid4vp://cb"
+		},
+		{ get: async () => { throw new Error("unexpected http call"); } }
+	);
+
+	const rpState = {
+		audience: "x509_san_dns:verifier.example.com",
+		nonce: "nonce",
+		response_mode: OpenID4VPResponseMode.DIRECT_POST,
+		rp_eph_pub: {},
+	} as any;
 
 	it("should serialize Map values when building presentation claim values", () => {
 		const kv = new MemoryStore<string, any>();
@@ -65,6 +86,30 @@ describe("OpenID4VPClientAPI.validateDcqlVpToken", () => {
 			result,
 			'{"given_name":"John","family_name":"Doe"}'
 		);
+	});
+
+	it("accepts omission of an optional credential set", async () => {
+		const result = await (createHelper() as any).validateDcqlVpToken(
+			{},
+			{
+				credentials: [{ id: "diploma" }],
+				credential_sets: [{ options: [["diploma"]], required: false }],
+			},
+			rpState
+		);
+		assert(!result.error);
+	});
+
+	it("rejects omission of a required credential set", async () => {
+		const result = await (createHelper() as any).validateDcqlVpToken(
+			{},
+			{
+				credentials: [{ id: "pid" }],
+				credential_sets: [{ options: [["pid"]] }],
+			},
+			rpState
+		);
+		assert.match(result.error?.message ?? "", /required DCQL credential set/);
 	});
 });
 
