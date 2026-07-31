@@ -1,4 +1,4 @@
-import { formatCborDate, isCborDate } from "../utils";
+import { formatCborBirthDate, formatCborDate, isCborBirthDate, isCborDate } from "../utils";
 
 export function formatDate(value: any, format = 'datetime') {
 	// Regex for ISO 8601 format like '2024-10-08T07:28:49.117Z'. milliseconds are optional.
@@ -42,6 +42,8 @@ export function formatDate(value: any, format = 'datetime') {
 		date = value;
 	} else if (isCborDate(value)) {
 		return formatCborDate(value);
+	} else if (isCborBirthDate(value)) {
+		return formatCborBirthDate(value);
 	} else {
 		// For unsupported types, return the original value
 		return value;
