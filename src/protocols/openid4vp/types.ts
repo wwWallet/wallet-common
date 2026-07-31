@@ -1,4 +1,5 @@
 import type { JWK } from "jose";
+import { VpFormatsSupported } from "../../schemas";
 
 export type ClaimRecord = {
 	key: string;
@@ -91,7 +92,7 @@ export type OpenID4VPClientMetadata = {
 	jwks?: { keys: any[] };
 	jwks_uri?: string;
 	encrypted_response_enc_values_supported?: string[];
-	vp_formats: any;
+	vp_formats_supported: VpFormatsSupported;
 };
 
 export type OpenID4VPRelyingPartyState = {

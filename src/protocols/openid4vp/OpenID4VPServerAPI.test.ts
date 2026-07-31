@@ -86,7 +86,7 @@ const buildRequestUriJwt = async (clientId: string, dcqlQuery: Record<string, un
 		response_uri: "https://verifier.example.com/cb",
 		state: "state-hash",
 		nonce: "nonce-hash",
-		client_metadata: { vp_formats: {} },
+		client_metadata: { vp_formats_supported: {} },
 		response_mode: OpenID4VPResponseMode.DIRECT_POST,
 		dcql_query: dcqlQuery,
 	})
@@ -152,7 +152,7 @@ describe("OpenID4VPServerAPI.handleAuthorizationRequest", () => {
 		url.searchParams.set("response_uri", "https://verifier.example.com/cb");
 		url.searchParams.set("nonce", "nonce-123");
 		url.searchParams.set("state", "state-123");
-		url.searchParams.set("client_metadata", JSON.stringify({ vp_formats: {} }));
+		url.searchParams.set("client_metadata", JSON.stringify({ vp_formats_supported: {} }));
 		url.searchParams.set("response_mode", JSON.stringify(OpenID4VPResponseMode.DIRECT_POST));
 		url.searchParams.set("dcql_query", JSON.stringify(dcql_query));
 
@@ -215,7 +215,7 @@ describe("OpenID4VPServerAPI.handleAuthorizationRequest", () => {
 		url.searchParams.set("response_uri", "https://verifier.example.com/cb");
 		url.searchParams.set("nonce", "nonce-456");
 		url.searchParams.set("state", "state-456");
-		url.searchParams.set("client_metadata", JSON.stringify({ vp_formats: {} }));
+		url.searchParams.set("client_metadata", JSON.stringify({ vp_formats_supported: {} }));
 		url.searchParams.set("response_mode", JSON.stringify(OpenID4VPResponseMode.DIRECT_POST));
 		url.searchParams.set("dcql_query", JSON.stringify(dcql_query));
 
@@ -269,7 +269,7 @@ describe("OpenID4VPServerAPI.handleAuthorizationRequest", () => {
 		url.searchParams.set("response_uri", "https://verifier.example.com/cb");
 		url.searchParams.set("nonce", "nonce-789");
 		url.searchParams.set("state", "state-789");
-		url.searchParams.set("client_metadata", JSON.stringify({ vp_formats: {} }));
+		url.searchParams.set("client_metadata", JSON.stringify({ vp_formats_supported: {} }));
 		url.searchParams.set("response_mode", JSON.stringify(OpenID4VPResponseMode.DIRECT_POST));
 		url.searchParams.set("dcql_query", JSON.stringify(dcql_query));
 
@@ -307,7 +307,7 @@ describe("OpenID4VPServerAPI.handleAuthorizationRequest", () => {
 		url.searchParams.set("response_uri", "https://verifier.example.com/cb");
 		url.searchParams.set("nonce", "nonce-000");
 		url.searchParams.set("state", "state-000");
-		url.searchParams.set("client_metadata", JSON.stringify({ vp_formats: {} }));
+		url.searchParams.set("client_metadata", JSON.stringify({ vp_formats_supported: {} }));
 		url.searchParams.set("response_mode", JSON.stringify(OpenID4VPResponseMode.DIRECT_POST));
 
 		const result = await helper.handleAuthorizationRequest(url.toString(), []);
@@ -350,7 +350,7 @@ describe("OpenID4VPServerAPI.handleAuthorizationRequest", () => {
 		url.searchParams.set("response_uri", "https://verifier.example.com/cb");
 		url.searchParams.set("nonce", "nonce-001");
 		url.searchParams.set("state", "state-001");
-		url.searchParams.set("client_metadata", JSON.stringify({ vp_formats: {} }));
+		url.searchParams.set("client_metadata", JSON.stringify({ vp_formats_supported: {} }));
 		url.searchParams.set("response_mode", JSON.stringify(OpenID4VPResponseMode.DIRECT_POST));
 		url.searchParams.set("dcql_query", JSON.stringify(dcql_query));
 
@@ -398,7 +398,7 @@ describe("OpenID4VPServerAPI.handleAuthorizationRequest", () => {
 		url.searchParams.set("response_uri", "https://verifier.example.com/cb");
 		url.searchParams.set("nonce", "nonce-reused");
 		url.searchParams.set("state", "state-002");
-		url.searchParams.set("client_metadata", JSON.stringify({ vp_formats: {} }));
+		url.searchParams.set("client_metadata", JSON.stringify({ vp_formats_supported: {} }));
 		url.searchParams.set("response_mode", JSON.stringify(OpenID4VPResponseMode.DIRECT_POST));
 		url.searchParams.set("dcql_query", JSON.stringify(dcql_query));
 
@@ -463,7 +463,7 @@ describe("OpenID4VPServerAPI.handleAuthorizationRequest", () => {
 		url.searchParams.set("response_uri", "https://verifier.example.com/cb");
 		url.searchParams.set("nonce", "nonce-hash");
 		url.searchParams.set("state", "state-hash");
-		url.searchParams.set("client_metadata", JSON.stringify({ vp_formats: {} }));
+		url.searchParams.set("client_metadata", JSON.stringify({ vp_formats_supported: {} }));
 		url.searchParams.set("response_mode", JSON.stringify(OpenID4VPResponseMode.DIRECT_POST));
 		url.searchParams.set("dcql_query", JSON.stringify(dcql_query));
 		url.searchParams.set("request_uri", "https://verifier.example.com/request-object");
@@ -493,7 +493,7 @@ describe("OpenID4VPServerAPI.createAuthorizationResponse", () => {
 					client_id: "x509_san_dns:verifier.example.com",
 					state: "state-jwe",
 					client_metadata: {
-						vp_formats: {},
+						vp_formats_supported: {},
 						...(encryptedResponseEncValuesSupported
 							? { encrypted_response_enc_values_supported: encryptedResponseEncValuesSupported }
 							: {}),
