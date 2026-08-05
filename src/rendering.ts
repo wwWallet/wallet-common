@@ -1,6 +1,7 @@
 import { formatDate } from './functions/formatDate';
 import { CredentialRendering } from './interfaces';
 import { escapeSVG } from './utils/escapeSVG';
+import { imageValueToDataUri } from './utils/imageDataUri';
 import { CredentialClaimPath } from './types';
 
 function getPathValue(value: unknown, path: Array<string | number | null>): any {
@@ -51,7 +52,9 @@ export function CredentialRenderingService(): CredentialRendering {
 					return '-';
 				}
 				if (Array.isArray(pathArray)) {
-					let value = escapeSVG(getPathValue(json, pathArray));
+					const claimValue = getPathValue(json, pathArray);
+					const imageDataUri = imageValueToDataUri(claimValue);
+					let value = escapeSVG(imageDataUri ?? claimValue);
 
 					if (value !== undefined) {
 						value = formatDate(value, 'date');

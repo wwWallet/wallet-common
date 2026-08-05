@@ -167,4 +167,30 @@ describe("The CredentialRendering", () => {
 		assert(isValidSVG(dataUri) == true, "Not valid generated datauri svg");
 		fs.writeFileSync(path.join(__dirname, "../output/filtered.svg"), dataUriToSvg(dataUri), 'utf-8');
 	});
+
+	it("embeds an mdoc portrait bstr as an image data URI", async () => {
+		const dataUri = await cr.renderSvgTemplate({
+			json: { "eu.europa.ec.eudi.pid.1": { portrait: new Uint8Array([0xff, 0xd8, 0xff, 0x00]) } },
+			credentialImageSvgTemplate: '<svg xmlns="http://www.w3.org/2000/svg"><image href="{{picture}}"/></svg>',
+			sdJwtVcMetadataClaims: [{
+				path: ["eu.europa.ec.eudi.pid.1", "portrait"],
+				svg_id: "picture",
+			}],
+		});
+
+		assert(dataUri !== null, "Svg not rendered");
+		assert.match(dataUriToSvg(dataUri), /href="data:image\/jpeg;base64,\/9j\/AA=="/);
+	});
+
+	it("embeds a JPEG 2000 mdoc portrait with its correct media type", async () => {
+		const jp2 = new Uint8Array([0x00, 0x00, 0x00, 0x0c, 0x6a, 0x50, 0x20, 0x20, 0x0d, 0x0a, 0x87, 0x0a]);
+		const dataUri = await cr.renderSvgTemplate({
+			json: { portrait: jp2 },
+			credentialImageSvgTemplate: '<svg xmlns="http://www.w3.org/2000/svg"><image href="{{portrait}}"/></svg>',
+			sdJwtVcMetadataClaims: [{ path: ["portrait"], svg_id: "portrait" }],
+		});
+
+		assert(dataUri !== null, "Svg not rendered");
+		assert.include(dataUriToSvg(dataUri), 'href="data:image/jp2;base64,');
+	});
 })
