@@ -16,7 +16,7 @@
 	},
 	"dependencies": {
 		"@noble/curves": "^2.2.0",
-		"@owf/mdoc": "^0.6.0",
+		"@owf/mdoc": "^0.7.0",
 		"@peculiar/x509": "^2.0.0",
 		"@sd-jwt/core": "^0.10.0",
 		"@sd-jwt/sd-jwt-vc": "^0.13.0",

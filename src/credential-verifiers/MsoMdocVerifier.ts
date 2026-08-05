@@ -3,7 +3,7 @@ import * as x509 from "@peculiar/x509";
 import { CredentialVerificationError } from "../error";
 import { Context, CredentialVerifier, PublicKeyResolverEngineI } from "../interfaces";
 import { fromBase64Url } from "../utils/util";
-import { DeviceResponse, IssuerSigned, Verifier, type MdocContext, CoseKey } from "@owf/mdoc";
+import { DeviceResponse, IssuerSigned, Verifier, type MdocContext, CoseKey, SignatureAlgorithm } from "@owf/mdoc";
 import { buildOpenId4VpSessionTranscriptBytes } from "../protocols/openid4vp/sessionTranscript";
 import { p256, p384 } from '@noble/curves/nist.js';
 import { ed25519 } from '@noble/curves/ed25519.js';
@@ -50,21 +50,22 @@ export function MsoMdocVerifier(args: { context: Context, pkResolverEngine: Publ
 		(crt) => decodeCertificateToDer(crt)
 	);
 
-	const mdocContext: Pick<MdocContext, "crypto" | "cose" | "x509"> = {
+	const mdocContext: Pick<MdocContext, "crypto" | "cose" | "x509" | "fetch"> = {
+		fetch: globalThis.fetch,
 		crypto: {
 			digest: async ({ digestAlgorithm, bytes }) =>
 				new Uint8Array(await args.context.subtle.digest(digestAlgorithm, bytes as Uint8Array<ArrayBuffer>)),
 			random: () => {
 				throw new Error("random is not used in verifier flow");
 			},
-			calculateEphemeralMacKey: async () => {
-				throw new Error("calculateEphemeralMacKey is not used in verifier flow");
+			hdkf: async () => {
+				throw new Error("hdkf is not used in verifier flow");
 			},
 		},
 		cose: {
 			mac0: {
-				sign: async () => {
-					throw new Error("mac0.sign is not used in verifier flow");
+				authenticate: async () => {
+					throw new Error("mac0.authenticate is not used in verifier flow");
 				},
 				verify: async () => {
 					throw new Error("mac0.verify is not used in verifier flow");
@@ -74,16 +75,16 @@ export function MsoMdocVerifier(args: { context: Context, pkResolverEngine: Publ
 				sign: async () => {
 					throw new Error("sign1.sign is not used in verifier flow");
 				},
-				verify: async ({ sign1, key }) => {
-					switch (sign1.signatureAlgorithmName) {
-						case "ES256":
-							return p256.verify(sign1.signature, sign1.toBeSigned, key.publicKey, { lowS: false });
-						case "ES384":
-							return p384.verify(sign1.signature, sign1.toBeSigned, key.publicKey, { lowS: false });
-						case "EdDSA":
-							return ed25519.verify(sign1.signature, sign1.toBeSigned, key.publicKey);
+				verify: async ({ toBeVerified, signature, key, algorithm }) => {
+					switch (algorithm) {
+						case SignatureAlgorithm.ES256:
+							return p256.verify(signature, toBeVerified, key.publicKey, { lowS: false });
+						case SignatureAlgorithm.ES384:
+							return p384.verify(signature, toBeVerified, key.publicKey, { lowS: false });
+						case SignatureAlgorithm.EdDSA:
+							return ed25519.verify(signature, toBeVerified, key.publicKey);
 						default:
-							throw new Error(`Unsupported COSE signature algorithm: ${sign1.signatureAlgorithmName}`);
+							throw new Error(`Unsupported COSE signature algorithm: ${algorithm}`);
 					}
 				},
 
@@ -93,9 +94,12 @@ export function MsoMdocVerifier(args: { context: Context, pkResolverEngine: Publ
 			getIssuerNameField: ({ certificate, field }) =>
 				new x509.X509Certificate(certificate).issuerName.getField(field),
 
-			getPublicKey: async ({ certificate, alg }) => {
+			getPublicKey: async ({ certificate, algorithm }) => {
 				const cert = new x509.X509Certificate(certificate);
-				const key = await importX509(cert.toString(), alg, { extractable: true });
+				if (algorithm === undefined || !(algorithm in SignatureAlgorithm)) {
+					throw new Error(`Unsupported certificate public key algorithm: ${algorithm}`);
+				}
+				const key = await importX509(cert.toString(), SignatureAlgorithm[algorithm as SignatureAlgorithm], { extractable: true });
 				return CoseKey.fromJwk((await exportJWK(key)) as unknown as Record<string, unknown>);
 			},
 
@@ -112,6 +116,7 @@ export function MsoMdocVerifier(args: { context: Context, pkResolverEngine: Publ
 				for (let i = 0; i < chain.length; i++) {
 					await chain[i]?.verify({ publicKey: chain[i - 1]?.publicKey, date: now ?? new Date() });
 				}
+				return { chain: chain.map((certificate) => new Uint8Array(certificate.rawData)) };
 			},
 
 			getCertificateData: async ({ certificate }) => {
@@ -167,7 +172,7 @@ export function MsoMdocVerifier(args: { context: Context, pkResolverEngine: Publ
 				try {
 					await issuerSigned.verify(
 						{
-							trustedCertificates,
+							trustedCertificates: [{ issuance: trustedCertificates }],
 							now: new Date(),
 							skewSeconds: args.context.clockTolerance,
 						},
@@ -222,7 +227,7 @@ export function MsoMdocVerifier(args: { context: Context, pkResolverEngine: Publ
 				try {
 					await parsedDocument.issuerSigned.verify(
 						{
-							trustedCertificates,
+							trustedCertificates: [{ issuance: trustedCertificates }],
 							now: new Date(),
 							skewSeconds: args.context.clockTolerance,
 						},
@@ -279,7 +284,7 @@ export function MsoMdocVerifier(args: { context: Context, pkResolverEngine: Publ
 							{
 								deviceResponse,
 								sessionTranscript,
-								trustedCertificates,
+								trustedCertificates: [{ issuance: trustedCertificates }],
 								now: new Date(),
 								skewSeconds: args.context.clockTolerance,
 							},

@@ -1,6 +1,6 @@
 import { CredentialParsingError } from "../error";
 import { Context, CredentialParser, HttpClient, CredentialIssuerInfo } from "../interfaces";
-import { cborDecode, DeviceResponse, IssuerSigned } from "@owf/mdoc";
+import { cborDecode, cborEncode, DeviceResponse, IssuerSigned } from "@owf/mdoc";
 import { X509Certificate } from "@peculiar/x509";
 import { fromBase64Url } from "../utils/util";
 import { FriendlyNameCallback, ImageDataUriCallback, ParsedCredential, VerifiableCredentialFormat, TypeMetadataResult } from "../types";
@@ -17,6 +17,34 @@ type IssuerMetadata = z.infer<typeof OpenidCredentialIssuerMetadataSchema>;
 
 export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }): CredentialParser {
 	const credentialRendering = CredentialRenderingService();
+
+	function normalizeLegacyIssuerAuthKeyId(issuerSigned: unknown): void {
+		if (!(issuerSigned instanceof Map)) return;
+		const issuerAuth = issuerSigned.get("issuerAuth");
+		if (!Array.isArray(issuerAuth) || !(issuerAuth[1] instanceof Map)) return;
+
+		const keyId = issuerAuth[1].get(4);
+		if (typeof keyId === "string") {
+			// @owf/mdoc 0.6 accepted text COSE key identifiers. COSE labels key ID as
+			// a byte string, which 0.7 validates strictly. The unprotected header is
+			// not signed, so normalizing its representation preserves the signature.
+			issuerAuth[1].set(4, new TextEncoder().encode(keyId));
+		}
+	}
+
+	function normalizeLegacyKeyIds(encodedCredential: Uint8Array): Uint8Array {
+		const decoded = cborDecode<Map<unknown, unknown>>(encodedCredential);
+		if (!(decoded instanceof Map)) return encodedCredential;
+
+		normalizeLegacyIssuerAuthKeyId(decoded);
+		const documents = decoded.get("documents");
+		if (Array.isArray(documents)) {
+			for (const document of documents) {
+				if (document instanceof Map) normalizeLegacyIssuerAuthKeyId(document.get("issuerSigned"));
+			}
+		}
+		return cborEncode(decoded);
+	}
 
 	function looksLikeCborMap(raw: unknown): raw is string {
 		if (typeof raw !== "string") return false;
@@ -128,7 +156,7 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 		credentialIssuer?: CredentialIssuerInfo | null
 	): Promise<ParsedCredential | null> {
 		try {
-			const decodedCred = fromBase64Url(rawCredential);
+			const decodedCred = normalizeLegacyKeyIds(fromBase64Url(rawCredential));
 			const parsedMDOC = DeviceResponse.decode(decodedCred);
 			const [parsedDocument] = parsedMDOC.documents ?? [];
 			if (!parsedDocument) return null;
@@ -167,7 +195,7 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 		credentialIssuer?: CredentialIssuerInfo | null
 	): Promise<ParsedCredential | null> {
 		try {
-			const credentialBytes = fromBase64Url(rawCredential);
+			const credentialBytes = normalizeLegacyKeyIds(fromBase64Url(rawCredential));
 			const issuerSigned = IssuerSigned.decode(credentialBytes);
 			const docType = issuerSigned.issuerAuth.mobileSecurityObject.docType;
 

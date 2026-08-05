@@ -209,14 +209,41 @@
   resolved "https://registry.npmjs.org/@noble/hashes/-/hashes-1.7.1.tgz"
   integrity sha512-B8XBPsn4vT/KJAGqDzbwztd+6Yte3P4V7iafm24bxgDe/mlRuK6xmWPuCNrKt2vDafZ8MfJLlchDG/vYafQEjQ==
 
-"@owf/mdoc@^0.6.0":
-  version "0.6.0"
-  resolved "https://registry.yarnpkg.com/@owf/mdoc/-/mdoc-0.6.0.tgz#b096bfa555f87f5aca154840fc5e243a15728bc0"
-  integrity sha512-vJL62hzjcSweBjDD9eRUH1RIMSzZUtHKjVFMMo50oHPLO9ZVZbQABFe9IFoa5AgXkwfv27HjnFv/eRbkOrlsUA==
+"@owf/cose@0.3.2", "@owf/cose@^0.3.0":
+  version "0.3.2"
+  resolved "https://registry.yarnpkg.com/@owf/cose/-/cose-0.3.2.tgz#77ae4a3470697e6758e3ec8206899cbcff685945"
+  integrity sha512-g1l55f31iqx5SEUv7MSAjLoCFZZAmwiXXkouRdiVltrwHLrnVAAStYUZozh3mN3RibpDftB2+4W4QTIRjl2nXw==
   dependencies:
+    "@owf/identity-common" "0.3.2"
     cbor-x "^1.6.4"
-    zod "^4.3.6"
+    zod "^4.4.3"
     zod-validation-error "^5.0.0"
+
+"@owf/identity-common@0.3.2", "@owf/identity-common@^0.3.0":
+  version "0.3.2"
+  resolved "https://registry.yarnpkg.com/@owf/identity-common/-/identity-common-0.3.2.tgz#78cbb77d383bdda29e0256636760668d311d0f6c"
+  integrity sha512-XH5Bg6zuXc9SeimTe2ZD/+54GnhSyenFSy2Qe/z2HY1ul5j+6/lDNIhI83xct5aOkCD0uZ7zHbMhTI4Nq8YJOQ==
+
+"@owf/mdoc@^0.7.0":
+  version "0.7.0"
+  resolved "https://registry.yarnpkg.com/@owf/mdoc/-/mdoc-0.7.0.tgz#eb5bb0cf7b30e445ce9e2e4b535ab7c84f2c7f3a"
+  integrity sha512-WgYwmpxawDgkMmej719DwlgZ/6gmzCWyyFYf4Z/9eA50Xq/rAi5nQ4oQTu1/79A0IZwwWJdrcJp53yiOQHbUtg==
+  dependencies:
+    "@owf/cose" "^0.3.0"
+    "@owf/identity-common" "^0.3.0"
+    "@owf/token-status-list" "^0.3.0"
+    zod "^4.4.3"
+
+"@owf/token-status-list@^0.3.0":
+  version "0.3.2"
+  resolved "https://registry.yarnpkg.com/@owf/token-status-list/-/token-status-list-0.3.2.tgz#92c1dee8f90daf831f4ca80398ddc44ae8f381fa"
+  integrity sha512-12UDEVJaXp4DX0U+rNwkznWYD8dPRJ4GdOEkUSHbnWRm0D6iWXVXtePtbXtsOgYsT3J120+WaqzJc05sVu2Uhg==
+  dependencies:
+    "@owf/cose" "0.3.2"
+    "@owf/identity-common" "0.3.2"
+    cbor-x "^1.6.4"
+    pako "^3.0.1"
+    zod "^4.4.3"
 
 "@peculiar/asn1-cms@^2.6.0", "@peculiar/asn1-cms@^2.6.1":
   version "2.6.1"
@@ -1006,6 +1033,11 @@ pako@^2.1.0:
   resolved "https://registry.npmjs.org/pako/-/pako-2.1.0.tgz"
   integrity sha512-w+eufiZ1WuJYgPXbV/PO3NCMEc3xqylkKHzp8bxp1uW4qaSNQUkwmLLEc3kKsfz8lpV1F8Ht3U1Cm+9Srog2ug==
 
+pako@^3.0.1:
+  version "3.0.1"
+  resolved "https://registry.yarnpkg.com/pako/-/pako-3.0.1.tgz#3156f8fa86e3cc2ae5a36369475b14d4f05696ce"
+  integrity sha512-GupotUUI0mlhugKjUs4bjOwLt3nrehy9Ys2dxC0GtgVef5cnKggkDMmf2bq2poCCuVXopWPmqsc9VDT2iJUy+w==
+
 pathe@^2.0.3:
   version "2.0.3"
   resolved "https://registry.npmjs.org/pathe/-/pathe-2.0.3.tgz"
@@ -1293,7 +1325,7 @@ zod@^3.24.1:
   resolved "https://registry.npmjs.org/zod/-/zod-3.24.1.tgz"
   integrity sha512-muH7gBL9sI1nciMZV67X5fTKKBLtwpZ5VBp1vsOQzj1MhrBZ4wlVCm3gedKZWLp0Oyel8sIGfeiz54Su+OVT+A==
 
-zod@^4.3.6:
-  version "4.3.6"
-  resolved "https://registry.yarnpkg.com/zod/-/zod-4.3.6.tgz#89c56e0aa7d2b05107d894412227087885ab112a"
-  integrity sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==
+zod@^4.4.3:
+  version "4.4.3"
+  resolved "https://registry.yarnpkg.com/zod/-/zod-4.4.3.tgz#b680f172885d18bbebf21a834ea25e55a1bbf356"
+  integrity sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==
