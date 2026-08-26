@@ -86,7 +86,7 @@ export function dataUriResolver({
 						.get(svgTemplateUri, {}, { useCache: true })
 						.catch(() => null);
 
-					if (svgResponse) {
+					if (svgResponse && svgResponse.status >= 200 && svgResponse.status < 300) {
 						credentialImageSvgTemplate = svgResponse.data as string;
 					}
 				}
