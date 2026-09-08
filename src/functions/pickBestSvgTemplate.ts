@@ -7,37 +7,50 @@ export function pickBestSvgTemplate(
 	templates: SvgTemplateEntry[] | undefined,
 	properties: SvgTemplateProperties
 ): SvgTemplateEntry | null {
-	if (!templates?.length) return null;
-	if (templates.length === 1) return templates[0];
+	return rankSvgTemplates(templates, properties)[0] ?? null;
+}
 
-	const { orientation, color_scheme, contrast } = properties;
+export function rankSvgTemplates(
+	templates: SvgTemplateEntry[] | undefined,
+	properties: SvgTemplateProperties
+): SvgTemplateEntry[] {
+	if (!templates?.length) return [];
 
-	let candidates = orientation
-		? templates.filter((t) => t.properties?.orientation === orientation)
-		: templates;
+	return templates
+		.map((template, index) => ({
+			template,
+			index,
+			score: getPreferenceScore(template, properties),
+		}))
+		.sort((a, b) => b.score - a.score || a.index - b.index)
+		.map(({ template }) => template);
+}
 
-	if (!candidates.length) {
-		candidates = templates;
+function getPreferenceScore(
+	template: SvgTemplateEntry,
+	properties: SvgTemplateProperties
+): number {
+	// Each preference outweighs every lower-priority match combined.
+	let score = template.properties ? 1 : 0;
+
+	if (
+		properties.orientation &&
+		template.properties?.orientation === properties.orientation
+	) {
+		score += 8;
+	}
+	if (
+		properties.color_scheme &&
+		template.properties?.color_scheme === properties.color_scheme
+	) {
+		score += 4;
+	}
+	if (
+		properties.contrast &&
+		template.properties?.contrast === properties.contrast
+	) {
+		score += 2;
 	}
 
-	if (color_scheme) {
-		const colorMatches = candidates.filter(
-			(t) => t.properties?.color_scheme === color_scheme
-		);
-		if (colorMatches.length) {
-			candidates = colorMatches;
-		}
-	}
-
-	if (contrast) {
-		const contrastMatches = candidates.filter(
-			(t) => t.properties?.contrast === contrast
-		);
-		if (contrastMatches.length) {
-			candidates = contrastMatches;
-		}
-	}
-
-	const withProperties = candidates.find((t) => t.properties);
-	return withProperties ?? candidates[0] ?? templates[0];
+	return score;
 }
