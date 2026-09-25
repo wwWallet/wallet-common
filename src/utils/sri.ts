@@ -33,7 +33,7 @@ export async function calculateDataSRI(
 	data: Uint8Array | Buffer,
 	algorithm: SubtleAlgorithm = 'SHA-256'
 ): Promise<string> {
-	const digest = await subtle.digest(algorithm, data);
+	const digest = await subtle.digest(algorithm, data as Uint8Array<ArrayBuffer>);
 	const hashArray = Array.from(new Uint8Array(digest));
 	const hashBase64 = btoa(String.fromCharCode(...hashArray));
 	return `${subtleToSriAlgorithm[algorithm]}-${hashBase64}`;

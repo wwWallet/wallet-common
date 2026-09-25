@@ -104,7 +104,7 @@ export function parseTransactionData(
 export async function convertTransactionDataB65uToHash(x: string) {
 	const data = fromBase64Url(x);
 	const webcrypto = globalThis.crypto?.subtle ?? crypto.subtle;
-	const digest = await webcrypto.digest(DigestHashAlgorithm.SHA_256, data);
+	const digest = await webcrypto.digest(DigestHashAlgorithm.SHA_256, data as Uint8Array<ArrayBuffer>);
 	return toBase64Url(digest);
 }
 
