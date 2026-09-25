@@ -17,6 +17,11 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v5
 
+    - name: Pin node.js version
+      uses: actions/setup-node@v5
+      with:
+        node-version: 24
+
     - name: Install dependencies
       run: yarn install
 
@@ -29,6 +34,11 @@ jobs:
     steps:
     - name: Check out code
       uses: actions/checkout@v5
+
+    - name: Pin node.js version
+      uses: actions/setup-node@v5
+      with:
+        node-version: 24
 
     - name: Install dependencies
       run: yarn install
