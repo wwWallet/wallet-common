@@ -81,7 +81,11 @@ const encoder = new TextEncoder();
 const certFromB64 = (certBase64: string) =>
 	`-----BEGIN CERTIFICATE-----\n${certBase64.match(/.{1,64}/g)?.join("\n")}\n-----END CERTIFICATE-----`;
 const supportedClientIdSchemes = new Set(["x509_san_dns", "x509_hash"]);
-const supportedJweEncryptions = new Set<string>(Object.values(OpenID4VPJweEncryption));
+const preferredJweEncryptions = [
+	OpenID4VPJweEncryption.A256GCM,
+	OpenID4VPJweEncryption.A192GCM,
+	OpenID4VPJweEncryption.A128GCM,
+];
 
 function decodeIssuerSignedCredential(credentialDataB64u: string): {
 	issuerSigned: IssuerSigned;
@@ -544,14 +548,14 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		if ([OpenID4VPResponseMode.DIRECT_POST_JWT, OpenID4VPResponseMode.DC_API_JWT].includes(S.response_mode)) {
 			let jweEnc: string;
 			if (S.client_metadata.encrypted_response_enc_values_supported) {
-				const firstSupportedEnc = S.client_metadata.encrypted_response_enc_values_supported.find(
-					(enc) => supportedJweEncryptions.has(enc));
-				if (!firstSupportedEnc) {
+				const bestSupportedEnc = preferredJweEncryptions.find(
+					(enc) => S.client_metadata.encrypted_response_enc_values_supported?.includes(enc));
+				if (!bestSupportedEnc) {
 					throw new Error("Could not find supported algorithm in encrypted_response_enc_values_supported");
 				}
-				jweEnc = firstSupportedEnc;
+				jweEnc = bestSupportedEnc;
 			} else {
-				jweEnc = OpenID4VPJweEncryption.A128GCM;
+				jweEnc = OpenID4VPJweEncryption.A256GCM;
 			}
 			const { rp_eph_pub_jwk, alg } = await retrieveKeys(S, this.deps.httpClient);
 			const rp_eph_pub = await importJWK(rp_eph_pub_jwk, alg);

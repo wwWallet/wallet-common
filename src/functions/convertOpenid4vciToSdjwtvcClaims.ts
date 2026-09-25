@@ -31,6 +31,7 @@ export function convertOpenid4vciToSdjwtvcClaims(
 				path: claim.path,
 				...(normalizedDisplay.length > 0 ? { display: normalizedDisplay } : {}),
 				...(mandatory !== undefined ? { mandatory } : {}),
+				...(claim.svg_id ? { svg_id: claim.svg_id } : {}),
 			} as ClaimMetadataEntry;
 		})
 		.filter((e): e is ClaimMetadataEntry => e !== null);

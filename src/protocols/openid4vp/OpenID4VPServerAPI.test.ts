@@ -535,10 +535,23 @@ describe("OpenID4VPServerAPI.createAuthorizationResponse", () => {
 		return result.formData.get("response") as string;
 	};
 
-	it("uses the first supported verifier JWE enc value", async () => {
-		const jwe = await createJwtResponse(["unsupported", OpenID4VPJweEncryption.A256GCM]);
+	it("uses the strongest wallet-preferred verifier JWE enc value", async () => {
+		const jwe = await createJwtResponse([
+			OpenID4VPJweEncryption.A128GCM,
+			"unsupported",
+			OpenID4VPJweEncryption.A256GCM,
+		]);
 
 		assert(decodeJweProtectedHeader(jwe).enc === OpenID4VPJweEncryption.A256GCM);
+	});
+
+	it("uses the next strongest wallet-preferred JWE enc value when A256GCM is not supported", async () => {
+		const jwe = await createJwtResponse([
+			OpenID4VPJweEncryption.A128GCM,
+			OpenID4VPJweEncryption.A192GCM,
+		]);
+
+		assert(decodeJweProtectedHeader(jwe).enc === OpenID4VPJweEncryption.A192GCM);
 	});
 
 	it("throws when verifier JWE enc values are provided but unsupported", async () => {
@@ -551,10 +564,10 @@ describe("OpenID4VPServerAPI.createAuthorizationResponse", () => {
 		}
 	});
 
-	it("falls back to A128GCM when verifier JWE enc values are not provided", async () => {
+	it("falls back to A256GCM when verifier JWE enc values are not provided", async () => {
 		const jwe = await createJwtResponse();
 
-		assert(decodeJweProtectedHeader(jwe).enc === OpenID4VPJweEncryption.A128GCM);
+		assert(decodeJweProtectedHeader(jwe).enc === OpenID4VPJweEncryption.A256GCM);
 	});
 });
 
