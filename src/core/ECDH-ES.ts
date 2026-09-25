@@ -8,5 +8,18 @@ export async function generateECDHKeypair() {
 		exportJWK(publicKey),
 	]);
 	const kid = generateRandomIdentifier(20);
-	return { privateKeyJwk: { kid, ...privateKeyJwk }, publicKeyJwk: { kid, ...publicKeyJwk } };
+	return {
+		privateKeyJwk: {
+			...privateKeyJwk,
+			kid,
+			alg: 'ECDH-ES',
+			use: 'enc'
+		},
+		publicKeyJwk: {
+			...publicKeyJwk,
+			kid,
+			alg: 'ECDH-ES',
+			use: 'enc'
+		}
+	};
 }
