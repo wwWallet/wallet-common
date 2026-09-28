@@ -91,21 +91,21 @@ export function MsoMdocVerifier(args: { context: Context, pkResolverEngine: Publ
 		},
 		x509: {
 			getIssuerNameField: ({ certificate, field }) =>
-				new x509.X509Certificate(certificate).issuerName.getField(field),
+				new x509.X509Certificate(certificate as Uint8Array<ArrayBuffer>).issuerName.getField(field),
 
 			getPublicKey: async ({ certificate, alg }) => {
-				const cert = new x509.X509Certificate(certificate);
+				const cert = new x509.X509Certificate(certificate as Uint8Array<ArrayBuffer>);
 				const key = await importX509(cert.toString(), alg, { extractable: true });
 				return CoseKey.fromJwk((await exportJWK(key)) as unknown as Record<string, unknown>);
 			},
 
 			verifyCertificateChain: async ({ trustedCertificates, x5chain, now }) => {
 				if (!x5chain.length) throw new Error("Certificate chain is empty");
-				const leaf = new x509.X509Certificate(x5chain[0]);
+				const leaf = new x509.X509Certificate(x5chain[0] as Uint8Array<ArrayBuffer>);
 				const chainBuilder = new x509.X509ChainBuilder({
 					certificates: [
-						...x5chain.map((c) => new x509.X509Certificate(c)),
-						...trustedCertificates.map((c) => new x509.X509Certificate(c)),
+						...x5chain.map((c) => new x509.X509Certificate(c as Uint8Array<ArrayBuffer>)),
+						...trustedCertificates.map((c) => new x509.X509Certificate(c as Uint8Array<ArrayBuffer>)),
 					],
 				});
 				const chain = (await chainBuilder.build(leaf)).map((c) => new x509.X509Certificate(c.rawData)).reverse();
@@ -115,7 +115,7 @@ export function MsoMdocVerifier(args: { context: Context, pkResolverEngine: Publ
 			},
 
 			getCertificateData: async ({ certificate }) => {
-				const cert = new x509.X509Certificate(certificate);
+				const cert = new x509.X509Certificate(certificate as Uint8Array<ArrayBuffer>);
 				const thumbprint = new Uint8Array(await args.context.subtle.digest("SHA-1", cert.rawData));
 				return {
 					issuerName: cert.issuerName.toString(),

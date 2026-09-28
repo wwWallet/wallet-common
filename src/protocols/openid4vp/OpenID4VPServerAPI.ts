@@ -149,7 +149,7 @@ async function calculateX509HashFromLeafCert(leafCertBase64: string, subtle?: Su
 			certBytes[i] = binary.charCodeAt(i);
 		}
 	}
-	const digest = await getSubtleCrypto(subtle).digest("SHA-256", certBytes);
+	const digest = await getSubtleCrypto(subtle).digest("SHA-256", certBytes as Uint8Array<ArrayBuffer>);
 	return base64url.encode(new Uint8Array(digest));
 }
 

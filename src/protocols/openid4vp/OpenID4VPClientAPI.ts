@@ -51,7 +51,7 @@ export class OpenID4VPClientAPI {
 	}
 
 	private getBase64UrlSha256(data: Uint8Array): Promise<string> {
-		return this.options.credentialEngineOptions.subtle.digest("SHA-256", data).then((digest) => {
+		return this.options.credentialEngineOptions.subtle.digest("SHA-256", data as Uint8Array<ArrayBuffer>).then((digest) => {
 			return toBase64Url(new Uint8Array(digest));
 		});
 	}
