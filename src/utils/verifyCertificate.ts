@@ -1,8 +1,8 @@
 import * as pkijs from "pkijs";
 import * as asn1js from "asn1js";
 import { Buffer } from "buffer";
-import webcrypto from "uncrypto";
 
+const webcrypto = globalThis.crypto;
 pkijs.setEngine("webcrypto", webcrypto, new pkijs.CryptoEngine({ name: "", crypto: webcrypto, subtle: webcrypto.subtle }))
 
 /**
@@ -52,4 +52,3 @@ export async function verifyCertificate(leafCertPem: string, trustedCerts: strin
 	const verificationResult = await certChainEngine.verify();
 	return verificationResult.result;
 }
-
