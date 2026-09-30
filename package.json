@@ -23,9 +23,9 @@
 		"@peculiar/x509": "^2.0.0",
 		"@sd-jwt/core": "^0.10.0",
 		"asn1js": "^3.0.5",
-		"axios": "^1.7.9",
+		"axios": "^1.18.0",
 		"buffer": "^6.0.3",
-		"dcql": "^3.0.0",
+		"dcql": "^3.0.1",
 		"jose": "^5.9.6",
 		"pkijs": "^3.2.4",
 		"reflect-metadata": "^0.2.2",
@@ -36,6 +36,6 @@
 		"@types/node": "^24.10.2",
 		"@xmldom/xmldom": "^0.9.12",
 		"typescript": "~5.9.3",
-		"vitest": "^3.2.4"
+		"vitest": "^4.1.11"
 	}
 }
