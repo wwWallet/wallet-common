@@ -24,6 +24,22 @@ The `interface.ts` file defines all the interfaces that are exported from this l
 
 ## Development
 
+### Yarn Classic Git installs
+
+Git consumers run this library's `prepare` script, including an installation of
+its development dependencies even during a production install. `.yarnrc` puts
+that installation's cache in `.yarn-cache` relative to the library checkout and
+limits network concurrency to one. This separates preparation from the consumer's
+cache to avoid overlapping extraction into the same directories. The cache is
+ignored by Git and excluded from the package's `files` list.
+
+Avoid setting `YARN_CACHE_FOLDER` to a shared cache when installing Git consumers:
+the environment override also applies to preparation and defeats this isolation.
+
+Run `node scripts/test-git-install.cjs` to verify a production Git install prepares
+and packs a fixture using the repository configuration. This test runs offline
+and needs Node.js, Yarn v1 and Git.
+
 ### Pre-commit Hook
 
 We use [pre-commit](https://pre-commit.com/) to enforce our `.editorconfig` before code is committed.
