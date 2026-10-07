@@ -1,6 +1,3 @@
-<img src="https://demo.wwwallet.org/wallet_192.png" width="80" style="max-width: 100%; float:left; margin-right: 20px;"/>
-
-
 # Wallet Common
 
 
