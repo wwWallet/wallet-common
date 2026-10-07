@@ -3,11 +3,14 @@ name: build
 
 on:
   push:
-    branches-ignore:
-      - 'tmp**'
+    branches:
+      - master
   pull_request:
     branches-ignore:
       - 'tmp**'
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -23,7 +26,7 @@ jobs:
         node-version: 24
 
     - name: Install dependencies
-      run: yarn install
+      run: yarn install --frozen-lockfile
 
     - name: Build package
       run: yarn build
@@ -41,7 +44,7 @@ jobs:
         node-version: 24
 
     - name: Install dependencies
-      run: yarn install
+      run: yarn install --frozen-lockfile
 
     - name: Run tests
       run: yarn test
