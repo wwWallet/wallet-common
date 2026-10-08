@@ -14,7 +14,6 @@ import { fromBase64Url, toBase64Url } from "../../utils/util";
 import { TransactionData } from "./transactionData";
 import { CredentialEngineOptions, CredentialIssuerMetadata, IacasResponse, OpenID4VPClientIdScheme, OpenID4VPOptions, PresentationClaims, PresentationInfo, OpenID4VPResponseMode, RPState } from "./types";
 import { DcqlPresentationResult } from 'dcql';
-import { randomUUID } from "crypto";
 import { exportJWK, generateKeyPair, importPKCS8, SignJWT, compactDecrypt, CompactDecryptResult, importJWK } from "jose";
 import { serializeDcqlQuery } from "../../utils/serializeDcqlQuery";
 import { prependToPath } from "../../utils";
@@ -51,7 +50,7 @@ export class OpenID4VPClientAPI {
 	}
 
 	private getBase64UrlSha256(data: Uint8Array): Promise<string> {
-		return this.options.credentialEngineOptions.subtle.digest("SHA-256", data).then((digest) => {
+		return this.options.credentialEngineOptions.subtle.digest("SHA-256", data as Uint8Array<ArrayBuffer>).then((digest) => {
 			return toBase64Url(new Uint8Array(digest));
 		});
 	}
@@ -67,6 +66,16 @@ export class OpenID4VPClientAPI {
 			bytes[i] = binary.charCodeAt(i);
 		}
 		return bytes;
+	}
+
+	private calculatePresentationClaimValue = (value: unknown): string => {
+		const normalizedValue = value instanceof Map
+			? Object.fromEntries(value)
+			: value;
+
+		return typeof normalizedValue === 'object'
+			? JSON.stringify(normalizedValue)
+			: String(normalizedValue);
 	}
 
 	private async initializeCredentialEngine() {
@@ -121,7 +130,7 @@ export class OpenID4VPClientAPI {
 			openid4vcRendering,
 			credentialRendering,
 		};
-}
+	}
 	async generateAuthorizationRequestURL(
 		presentationRequest: any,
 		sessionId: string,
@@ -136,7 +145,7 @@ export class OpenID4VPClientAPI {
 
 		console.log("Presentation Request: Session id used for authz req ", sessionId);
 
-		const nonce = randomUUID();
+		const nonce = crypto.randomUUID();
 		const state = sessionId;
 
 		let clientIdWithoutPrefix;
@@ -252,9 +261,6 @@ export class OpenID4VPClientAPI {
 			rp_eph_pub: exportedEphPub,
 			rp_eph_priv: exportedEphPriv,
 
-			apv_jarm_encrypted_response_header: null,
-			apu_jarm_encrypted_response_header: null,
-
 			encrypted_response: null,
 			vp_token: null,
 
@@ -267,7 +273,7 @@ export class OpenID4VPClientAPI {
 
 			date_created: Date.now(),
 			response_mode: responseMode,
-			};
+		};
 
 		await this.saveRPState(sessionId, newRpState);
 		await this.rpStateKV.set("key:" + exportedEphPub.kid, sessionId);
@@ -330,7 +336,7 @@ export class OpenID4VPClientAPI {
 								transaction_data_hashes_alg: (kbjwtPayload as any).transaction_data_hashes_alg as string[] | undefined
 							});
 							console.log("Message: ", message)
-							messages[descriptor.id] = [ message ];
+							messages[descriptor.id] = [message];
 							if (!status) {
 								return { error: new Error("transaction_data validation error") };
 							}
@@ -399,7 +405,7 @@ export class OpenID4VPClientAPI {
 						presentationClaims[descriptor.id] = Object.entries(filteredSource).map(([key, value]) => ({
 							key,
 							name: key,
-							value: typeof value === 'object' ? JSON.stringify(value) : String(value),
+							value: this.calculatePresentationClaimValue(value),
 						}));
 					} else {
 						return { error: new Error(`Unexpected credential_format for descriptor ${descriptor.id}`) };
@@ -407,15 +413,11 @@ export class OpenID4VPClientAPI {
 				} else {
 					// ========== mdoc ==========
 					const verifierEncryptionJwk = rpState.rp_eph_pub;
-					const expectedHolderNonce = rpState.apu_jarm_encrypted_response_header
-						? decoder.decode(fromBase64Url(rpState.apu_jarm_encrypted_response_header))
-						: undefined;
 					const verificationResult = await ce.msoMdocVerifier.verify({
 						rawCredential: vp,
 						opts: {
 							expectedAudience: rpState.audience,
 							expectedNonce: rpState.nonce,
-							holderNonce: expectedHolderNonce,
 							responseUri: this.options.redirectUri,
 							verifierEncryptionJwk,
 							handoverType: rpState.response_mode === OpenID4VPResponseMode.DC_API_JWT && rpState.audience.startsWith("origin:") ? "dc_api" : "redirect",
@@ -455,10 +457,19 @@ export class OpenID4VPClientAPI {
 						if (!claimsObject) {
 							return { error: new Error(`No claims found in mdoc for doctype ${descriptor.meta?.doctype_value}`) };
 						}
-						presentationClaims[descriptor.id] = Object.entries(claimsObject.valid_claim_sets[0].output[descriptor.meta?.doctype_value]).map(([key, value]) => ({
+						const outputByNamespace = claimsObject.valid_claim_sets?.[0]?.output as Record<string, Record<string, unknown>> | undefined;
+						const requestedNamespace = Array.isArray(descriptor?.claims)
+							? descriptor.claims.find((c: any) => Array.isArray(c?.path) && typeof c.path[0] === "string")?.path?.[0]
+							: undefined;
+						const namespaceKey = requestedNamespace
+							?? (outputByNamespace ? Object.keys(outputByNamespace)[0] : undefined);
+						if (!namespaceKey || !outputByNamespace?.[namespaceKey]) {
+							return { error: new Error(`No mdoc output namespace found for descriptor ${descriptor.id}`) };
+						}
+						presentationClaims[descriptor.id] = Object.entries(outputByNamespace[namespaceKey]).map(([key, value]) => ({
 							key,
 							name: key,
-							value: typeof value === 'object' ? JSON.stringify(value) : String(value),
+							value: this.calculatePresentationClaimValue(value),
 						}));
 					} else {
 						return { error: new Error(`Unexpected mdoc credential_format in output for descriptor ${descriptor.id}`) };
@@ -575,7 +586,7 @@ export class OpenID4VPClientAPI {
 	}
 
 
-	public async handleResponseJARM(response: any, kid :string): Promise<Result<RPState, OpenID4VPClientError>> {
+	public async handleEncryptedAuthorizationResponse(response: any, kid: string): Promise<Result<RPState, OpenID4VPClientError>> {
 		// get rpstate only to get the private key to decrypt the response
 
 		const rpState = await this.getRPStateByKid(kid);
@@ -618,15 +629,13 @@ export class OpenID4VPClientAPI {
 				"Encrypted Response: presentation_submission and vp_token are missing"
 			);
 		}
-		rpState.response_code = toBase64Url(encoder.encode(randomUUID()));
+		rpState.response_code = toBase64Url(encoder.encode(crypto.randomUUID()));
 		await this.saveResponseCodeMapping(rpState.response_code, rpState.session_id);
 		rpState.encrypted_response = response;
 		rpState.presentation_submission = payload.presentation_submission;
 		console.log("Encoding....")
 		rpState.vp_token = toBase64Url(encoder.encode(JSON.stringify(payload.vp_token)));
 		rpState.date_created = Date.now();
-		rpState.apv_jarm_encrypted_response_header = protectedHeader.apv && typeof protectedHeader.apv == 'string' ? protectedHeader.apv as string : null;
-		rpState.apu_jarm_encrypted_response_header = protectedHeader.apu && typeof protectedHeader.apu == 'string' ? protectedHeader.apu as string : null;
 		rpState.completed = true;
 
 		console.log("Stored rp state = ", rpState)
@@ -657,7 +666,7 @@ export class OpenID4VPClientAPI {
 			return err(OpenID4VPClientErrors.PresentationAlreadyCompleted, "Presentation flow already completed");
 		}
 
-		rpState.response_code = toBase64Url(encoder.encode(randomUUID()));
+		rpState.response_code = toBase64Url(encoder.encode(crypto.randomUUID()));
 		await this.saveResponseCodeMapping(rpState.response_code, rpState.session_id);
 		rpState.presentation_submission = presentation_submission;
 		rpState.vp_token = toBase64Url(encoder.encode(JSON.stringify(vp_token)));
@@ -668,7 +677,7 @@ export class OpenID4VPClientAPI {
 		return ok(rpState);
 	}
 
-	public async getSignedRequestObject(sessionId: string): Promise<Result<string, OpenID4VPClientError>>{
+	public async getSignedRequestObject(sessionId: string): Promise<Result<string, OpenID4VPClientError>> {
 		const rpState = await this.getRPStateBySessionId(sessionId);
 
 		if (!rpState) {

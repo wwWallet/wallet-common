@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SvgTemplateEntry } from "../schemas/SdJwtVcTypeMetadataSchema";
-import { pickBestSvgTemplate } from "./pickBestSvgTemplate";
+import { pickBestSvgTemplate, rankSvgTemplates } from "./pickBestSvgTemplate";
 
 describe("pickBestSvgTemplate", () => {
 	const realisticTemplates: SvgTemplateEntry[] = [
@@ -223,5 +223,43 @@ describe("pickBestSvgTemplate", () => {
 				color_scheme: "dark",
 			})
 		).toEqual(templates[0]);
+	});
+});
+
+describe("rankSvgTemplates", () => {
+	it("returns an empty list when there are no templates", () => {
+		expect(rankSvgTemplates(undefined, { orientation: "portrait" })).toEqual([]);
+		expect(rankSvgTemplates([], { orientation: "portrait" })).toEqual([]);
+	});
+
+	it("orders all templates by preference and preserves metadata order for ties", () => {
+		const templates: SvgTemplateEntry[] = [
+			{
+				uri: "https://example.com/landscape-light.svg",
+				properties: { orientation: "landscape", color_scheme: "light" },
+			},
+			{
+				uri: "https://example.com/portrait-dark-first.svg",
+				properties: { orientation: "portrait", color_scheme: "dark" },
+			},
+			{
+				uri: "https://example.com/portrait-dark-second.svg",
+				properties: { orientation: "portrait", color_scheme: "dark" },
+			},
+			{
+				uri: "https://example.com/landscape-dark.svg",
+				properties: { orientation: "landscape", color_scheme: "dark" },
+			},
+		];
+
+		expect(rankSvgTemplates(templates, {
+			orientation: "portrait",
+			color_scheme: "dark",
+		}).map(({ uri }) => uri)).toEqual([
+			"https://example.com/portrait-dark-first.svg",
+			"https://example.com/portrait-dark-second.svg",
+			"https://example.com/landscape-dark.svg",
+			"https://example.com/landscape-light.svg",
+		]);
 	});
 });

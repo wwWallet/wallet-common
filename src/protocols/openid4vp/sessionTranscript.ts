@@ -37,7 +37,7 @@ export async function buildOpenId4VpSessionTranscriptBytes(args: {
 	}
 
 	const handoverInfoHash = new Uint8Array(
-		await args.subtle.digest(DigestHashAlgorithm.SHA_256, handoverInfoBytes)
+		await args.subtle.digest(DigestHashAlgorithm.SHA_256, handoverInfoBytes as Uint8Array<ArrayBuffer>)
 	);
 	return cborEncode([null, null, [handoverIdentifier, handoverInfoHash]]);
 }

@@ -1,13 +1,10 @@
 import { z } from 'zod'
+import { GrantsSchema } from './GrantSchema';
 
 export const CredentialOfferSchema = z.object({
 	credential_issuer: z.string(),
 	credential_configuration_ids: z.array(z.string()),
-	grants: z.object({
-		"authorization_code": z.object({
-			"issuer_state": z.string().optional()
-		}).optional()
-	})
-})
+	grants: GrantsSchema.optional()
+});
 
 export type CredentialOffer = z.infer<typeof CredentialOfferSchema>;

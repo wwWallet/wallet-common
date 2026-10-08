@@ -1,8 +1,26 @@
-import jsonpointer from 'jsonpointer';
 import { formatDate } from './functions/formatDate';
 import { CredentialRendering } from './interfaces';
 import { escapeSVG } from './utils/escapeSVG';
 import { CredentialClaimPath } from './types';
+
+function getPathValue(value: unknown, path: Array<string | number | null>): any {
+	let current = value;
+	for (const segment of path) {
+		if (segment === null || current === null || current === undefined) {
+			return undefined;
+		}
+		if (current instanceof Map) {
+			current = current.get(segment);
+			continue;
+		}
+		if (typeof current === "object") {
+			current = (current as Record<string | number, unknown>)[segment];
+			continue;
+		}
+		return undefined;
+	}
+	return current;
+}
 
 export function CredentialRenderingService(): CredentialRendering {
 	const renderSvgTemplate = async ({ json, credentialImageSvgTemplate, sdJwtVcMetadataClaims, filter }: { json: any, credentialImageSvgTemplate: string, sdJwtVcMetadataClaims: any, filter?: Array<CredentialClaimPath> }) => {
@@ -32,12 +50,8 @@ export function CredentialRenderingService(): CredentialRendering {
 				if (Array.isArray(pathArray) && filter && !filter.map(f => f.join('.')).includes(pathArray.join('.'))) {
 					return '-';
 				}
-				// If pathArray exists, convert it to a JSON pointer path
 				if (Array.isArray(pathArray)) {
-					const jsonPointerPath = `/${pathArray.join('/')}`;
-
-					// Retrieve the value from beautifiedForm using jsonpointer
-					let value = escapeSVG(jsonpointer.get(json, jsonPointerPath));
+					let value = escapeSVG(getPathValue(json, pathArray));
 
 					if (value !== undefined) {
 						value = formatDate(value, 'date');

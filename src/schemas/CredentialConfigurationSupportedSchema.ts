@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { VerifiableCredentialFormat } from '../types';
+import { SvgTemplateEntry } from './SdJwtVcTypeMetadataSchema';
 
 const attackPotentialResistanceValues = [
 	"iso_18045_high",
@@ -32,6 +33,7 @@ const OpenIdClaimSchema = z.object({
 		z.union([z.string(), z.null(), z.number().int().nonnegative()])
 	).nonempty(),
 	mandatory: z.boolean().optional(),
+	svg_id: z.string().optional(),
 	display: z.array(
 		z.object({
 			name: z.string().optional(),
@@ -55,6 +57,9 @@ const commonSchema = z.object({
 			logo: z.object({
 				uri: z.string(),
 				alt_text: z.string().optional(),
+			}).optional(),
+			rendering: z.object({
+				svg_templates: z.array(SvgTemplateEntry).optional(),
 			}).optional(),
 		})).optional(),
 		claims: z.array(OpenIdClaimSchema).optional(),

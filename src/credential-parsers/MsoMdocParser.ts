@@ -5,6 +5,7 @@ import { X509Certificate } from "@peculiar/x509";
 import { fromBase64Url } from "../utils/util";
 import { FriendlyNameCallback, ImageDataUriCallback, ParsedCredential, VerifiableCredentialFormat, TypeMetadataResult } from "../types";
 import { CustomCredentialSvg } from "../functions/CustomCredentialSvg";
+import { CredentialRenderingService } from "../rendering";
 import { getIssuerMetadata } from "../utils/getIssuerMetadata";
 import { convertOpenid4vciToSdjwtvcClaims } from "../functions/convertOpenid4vciToSdjwtvcClaims";
 import type { z } from "zod";
@@ -15,6 +16,7 @@ import { friendlyNameResolver } from "../resolvers/friendlyNameResolver";
 type IssuerMetadata = z.infer<typeof OpenidCredentialIssuerMetadataSchema>;
 
 export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }): CredentialParser {
+	const credentialRendering = CredentialRenderingService();
 
 	function looksLikeCborMap(raw: unknown): raw is string {
 		if (typeof raw !== "string") return false;
@@ -147,7 +149,10 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 			const dataUri = dataUriResolver({
 				httpClient: args.httpClient,
 				customRenderer: renderer,
+				signedClaims,
 				issuerDisplayArray,
+				sdJwtVcRenderer: credentialRendering,
+				sdJwtVcMetadataClaims: TypeMetadata.claims,
 				fallbackName: "mdoc Verifiable Credential",
 			});
 
@@ -182,7 +187,10 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 			const dataUri = dataUriResolver({
 				httpClient: args.httpClient,
 				customRenderer: renderer,
+				signedClaims,
 				issuerDisplayArray,
+				sdJwtVcRenderer: credentialRendering,
+				sdJwtVcMetadataClaims: TypeMetadata.claims,
 				fallbackName: "mdoc Verifiable Credential",
 			});
 

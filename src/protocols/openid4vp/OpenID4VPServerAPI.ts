@@ -39,9 +39,9 @@ type OpenID4VPServerKeystore = {
 	): Promise<{ vpjwt: string }>;
 	generateDeviceResponse(
 		mdoc: any,
-		presentationDefinition: Record<string, unknown>,
-		apu: string | undefined,
-		apv: string | undefined,
+		dcqlQuery: Record<string, unknown>,
+		selectedCredentialId: string,
+		nonce: string,
 		clientId: string,
 		responseUri: string,
 		verifierEncryptionJwk?: JsonWebKey | Record<string, unknown>,
@@ -81,7 +81,11 @@ const encoder = new TextEncoder();
 const certFromB64 = (certBase64: string) =>
 	`-----BEGIN CERTIFICATE-----\n${certBase64.match(/.{1,64}/g)?.join("\n")}\n-----END CERTIFICATE-----`;
 const supportedClientIdSchemes = new Set(["x509_san_dns", "x509_hash"]);
-const supportedJweEncryptions = new Set<string>(Object.values(OpenID4VPJweEncryption));
+const preferredJweEncryptions = [
+	OpenID4VPJweEncryption.A256GCM,
+	OpenID4VPJweEncryption.A192GCM,
+	OpenID4VPJweEncryption.A128GCM,
+];
 
 function decodeIssuerSignedCredential(credentialDataB64u: string): {
 	issuerSigned: IssuerSigned;
@@ -130,12 +134,6 @@ function getSubtleCrypto(subtle?: SubtleCrypto): SubtleCrypto {
 	throw new Error("Missing SubtleCrypto implementation");
 }
 
-function getRandomUUID(randomUUID?: () => string): string {
-	if (randomUUID) return randomUUID();
-	if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
-	return generateRandomIdentifier(16);
-}
-
 function getClientIdScheme(clientId: string): string {
 	return clientId.split(":")[0];
 }
@@ -151,7 +149,7 @@ async function calculateX509HashFromLeafCert(leafCertBase64: string, subtle?: Su
 			certBytes[i] = binary.charCodeAt(i);
 		}
 	}
-	const digest = await getSubtleCrypto(subtle).digest("SHA-256", certBytes);
+	const digest = await getSubtleCrypto(subtle).digest("SHA-256", certBytes as Uint8Array<ArrayBuffer>);
 	return base64url.encode(new Uint8Array(digest));
 }
 
@@ -344,40 +342,6 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		return { mapping, descriptorPurpose };
 	}
 
-	private convertDcqlToPresentationDefinition(dcql_query: any) {
-		const pdId = getRandomUUID(this.deps.randomUUID);
-		const input_descriptors = dcql_query.credentials.map((cred: any) => {
-			const descriptorId = cred.meta?.doctype_value;
-			const doctype = descriptorId ?? cred.claims?.[0]?.path?.[0];
-
-			const format: Record<string, any> = {};
-			if (cred.format === "mso_mdoc") {
-				format.mso_mdoc = { alg: ["ES256", "ES384", "EdDSA"] };
-			}
-
-			const fields = cred.claims.map((claim: any) => ({
-				path: [`$['${doctype}']${claim.path.slice(1).map((p: string) => `['${p}']`).join("")}`],
-				intent_to_retain: claim.intent_to_retain ?? false,
-			}));
-
-			return {
-				id: descriptorId,
-				format,
-				constraints: {
-					limit_disclosure: "required",
-					fields,
-				},
-			};
-		});
-
-		return {
-			id: pdId,
-			name: "DCQL-converted Presentation Definition",
-			purpose: dcql_query.credential_sets?.[0]?.purpose ?? "No purpose defined",
-			input_descriptors,
-		};
-	}
-
 	private generatePresentationFrameForDCQLPaths(paths: string[][]): any {
 		const frame: Record<string, any> = {};
 
@@ -402,8 +366,6 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		vcEntityList: CredentialT[]
 	) {
 		const { dcql_query, client_id, nonce, response_uri, transaction_data } = S;
-		let apu = undefined;
-		let apv = undefined;
 		let verifierEncryptionJwk: JsonWebKey | Record<string, unknown> | undefined;
 		let handoverType: "redirect" | "dc_api" = "redirect";
 		let dcApiOrigin: string | undefined;
@@ -522,46 +484,43 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 
 				generatedVPs.push(vpjwt);
 				originalVCs.push(credential);
-				} else if (credential.format === VerifiableCredentialFormat.MSO_MDOC) {
-					const descriptor = (dcql_query as any).credentials.find((c: any) => c.id === selectionKey);
-					if (!descriptor) {
-						throw new Error(`No DCQL descriptor for id ${selectionKey}`);
-					}
-					const descriptorId = descriptor.meta?.doctype_value;
-					const { issuerSigned, docType, namespaceClaims } = decodeIssuerSignedCredential(credential.data);
-					const effectiveDocType = descriptorId ?? docType;
-					const mdoc = {
-						documents: [
-							{
-								docType: effectiveDocType,
-								issuerSigned,
-							},
-						],
-					};
-					const mdocGeneratedNonce = generateRandomIdentifier(8);
-					apu = mdocGeneratedNonce;
-					apv = nonce;
+			} else if (credential.format === VerifiableCredentialFormat.MSO_MDOC) {
+				const descriptor = (dcql_query as any).credentials.find((c: any) => c.id === selectionKey);
+				if (!descriptor) {
+					throw new Error(`No DCQL descriptor for id ${selectionKey}`);
+				}
+				const descriptorId = descriptor.meta?.doctype_value;
+				const { issuerSigned, docType, namespaceName, namespaceClaims } = decodeIssuerSignedCredential(credential.data);
+				const effectiveDocType = descriptorId ?? docType;
+				const mdoc = {
+					documents: [
+						{
+							docType: effectiveDocType,
+							issuerSigned,
+						},
+					],
+				};
 
-					let dcqlQueryWithClaims: any;
-					if (!descriptor.claims || descriptor.claims.length === 0) {
-						dcqlQueryWithClaims = JSON.parse(JSON.stringify(dcql_query));
-						const descriptorIndex = dcqlQueryWithClaims.credentials.findIndex((c: any) => c.id === selectionKey);
-						if (descriptorIndex !== -1) {
-							dcqlQueryWithClaims.credentials[descriptorIndex].claims = Object.keys(namespaceClaims).map((key) => ({
-								id: key,
-								path: [effectiveDocType, key],
-							}));
-						}
-					} else {
-						dcqlQueryWithClaims = dcql_query;
+				let dcqlQueryWithClaims: any;
+				if (!descriptor.claims || descriptor.claims.length === 0) {
+					dcqlQueryWithClaims = JSON.parse(JSON.stringify(dcql_query));
+					const descriptorIndex = dcqlQueryWithClaims.credentials.findIndex((c: any) => c.id === selectionKey);
+					if (descriptorIndex !== -1) {
+						const namespaceForPaths = namespaceName ?? effectiveDocType;
+						dcqlQueryWithClaims.credentials[descriptorIndex].claims = Object.keys(namespaceClaims).map((key) => ({
+							id: key,
+							path: [namespaceForPaths, key],
+						}));
 					}
+				} else {
+					dcqlQueryWithClaims = dcql_query;
+				}
 
-				const presentationDefinition = this.convertDcqlToPresentationDefinition(dcqlQueryWithClaims);
 				const { deviceResponseMDoc } = await this.deps.keystore.generateDeviceResponse(
 					mdoc,
-					presentationDefinition,
-					apu,
-					apv,
+					dcqlQueryWithClaims,
+					selectionKey,
+					nonce,
 					client_id,
 					response_uri,
 					verifierEncryptionJwk,
@@ -589,14 +548,14 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		if ([OpenID4VPResponseMode.DIRECT_POST_JWT, OpenID4VPResponseMode.DC_API_JWT].includes(S.response_mode)) {
 			let jweEnc: string;
 			if (S.client_metadata.encrypted_response_enc_values_supported) {
-				const firstSupportedEnc = S.client_metadata.encrypted_response_enc_values_supported.find(
-					(enc) => supportedJweEncryptions.has(enc));
-				if (!firstSupportedEnc) {
+				const bestSupportedEnc = preferredJweEncryptions.find(
+					(enc) => S.client_metadata.encrypted_response_enc_values_supported?.includes(enc));
+				if (!bestSupportedEnc) {
 					throw new Error("Could not find supported algorithm in encrypted_response_enc_values_supported");
 				}
-				jweEnc = firstSupportedEnc;
+				jweEnc = bestSupportedEnc;
 			} else {
-				jweEnc = OpenID4VPJweEncryption.A128GCM;
+				jweEnc = OpenID4VPJweEncryption.A256GCM;
 			}
 			const { rp_eph_pub_jwk, alg } = await retrieveKeys(S, this.deps.httpClient);
 			const rp_eph_pub = await importJWK(rp_eph_pub_jwk, alg);
@@ -607,7 +566,6 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 			};
 
 			const jwe = await new EncryptJWT(jwePayload)
-				.setKeyManagementParameters({ apu: new TextEncoder().encode(apu), apv: new TextEncoder().encode(apv) })
 				.setProtectedHeader({
 					alg: alg,
 					enc: jweEnc,
@@ -629,11 +587,11 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		vcEntityList: CredentialT[]
 	): Promise<
 		| {
-				conformantCredentialsMap: Map<string, any>;
-				verifierDomainName: string;
-				verifierPurpose: string;
-				parsedTransactionData: ParsedTransactionDataT[] | null;
-			}
+			conformantCredentialsMap: Map<string, any>;
+			verifierDomainName: string;
+			verifierPurpose: string;
+			parsedTransactionData: ParsedTransactionDataT[] | null;
+		}
 		| { error: HandleAuthorizationRequestError }
 	> {
 		let {
