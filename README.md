@@ -48,3 +48,35 @@ git add -A
 - Auto-fixers run (e.g. add final newlines).
 - After the auto-fixers, the editorconfig-checker runs inside Docker to validate all staged files.
 - If violations remain, fix them manually until the commit passes.
+
+### Pull requests
+
+Pull requests are squash-merged, and the **PR title** becomes the commit message on `master`. Your branch's own commit messages are not kept, so commit however you like.
+
+The title must follow [Conventional Commits](https://www.conventionalcommits.org/); the `Validate PR title` check enforces this:
+
+```
+type(optional-scope): lower-case summary
+```
+
+- Types: `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `build`, `ci`, `chore`, `revert`.
+- Examples: `fix(rendering): fall back to simple card when SVG template 404s`, `chore(deps): bump vitest`.
+- Breaking change for consumers (removed or renamed export, changed type, stricter schema, new Node requirement): add `!` after the type, e.g. `feat(schemas)!: require credential_configuration_ids`, and describe the break in the PR description.
+- Runtime dependency bump: `fix(deps): …`. Dev-only dependency bump: `chore(deps): …`.
+- To fix a failing check, edit the title; the check re-runs automatically.
+
+## Releases & versioning
+
+wallet-common follows [semantic versioning](https://semver.org/). Every merge to `master` runs the `release` workflow, which uses [semantic-release](https://github.com/semantic-release/semantic-release) to work out the next version from the PR titles merged since the last `v*` tag:
+
+| PR title | Release |
+|---|---|
+| `feat: …` | minor (`1.1.0`) |
+| `fix: …`, `perf: …`, `revert: …` | patch (`1.0.1`) |
+| any type with `!`, e.g. `feat!: …` | major (`2.0.0`) |
+| `docs`, `test`, `ci`, `build`, `refactor`, `chore` | no release |
+
+When there is something to release, the workflow writes the version into `package.json`, commits it to `master` as `chore(release): X.Y.Z`, tags that commit `vX.Y.Z` and publishes a GitHub Release with the notes.
+
+- The version in `package.json` is owned by the release workflow. Don't change it by hand.
+- Consumers pin an exact tag: `"wallet-common": "git+https://github.com/wwWallet/wallet-common.git#vX.Y.Z"`.
