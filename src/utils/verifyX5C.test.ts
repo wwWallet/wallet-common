@@ -1,3 +1,4 @@
+import { BasicConstraintsExtension, X509CertificateGenerator } from "@peculiar/x509";
 import { afterEach, assert, beforeEach, describe, it, vi } from "vitest";
 import { verifyX5C } from "./verifyX5C";
 
@@ -61,4 +62,79 @@ describe("verifyX5C function", () => {
 		const result = await verifyX5C(x5c, [ trustedCertificates[1] ]); // include only the second
 		assert(result === false);
 	})
+	it("accepts a wrapped explicitly trusted leaf with a trailing root", async () => {
+		const leafPem = `-----BEGIN CERTIFICATE-----\n${x5c[0].match(/.{1,64}/g)!.join("\n")}\n-----END CERTIFICATE-----`;
+		const root = trustedCertificates[0].replace(/-----(BEGIN|END) CERTIFICATE-----|\s/g, "");
+		assert(await verifyX5C([x5c[0], root], [leafPem]) === true);
+	});
+
+	it("accepts an explicitly trusted leaf regardless of PEM wrapping", async () => {
+		const leafPem = `-----BEGIN CERTIFICATE-----\r\n${x5c[0].match(/.{1,64}/g)!.join("\r\n")}\r\n-----END CERTIFICATE-----`;
+		assert(await verifyX5C(x5c, [leafPem]) === true);
+	});
+
+	it("rejects an expired explicitly trusted leaf", async () => {
+		vi.setSystemTime(new Date("2027-01-01T00:00:00Z"));
+		assert(await verifyX5C(x5c, [`-----BEGIN CERTIFICATE-----\n${x5c[0]}\n-----END CERTIFICATE-----`]) === false);
+	});
+
+	it("rejects a certificate with a modified signature under a trusted CA", async () => {
+		const bytes = Uint8Array.from(atob(x5c[0]), c => c.charCodeAt(0));
+		bytes[bytes.length - 1] ^= 1;
+		const altered = btoa(String.fromCharCode(...bytes));
+		assert(await verifyX5C([altered], trustedCertificates) === false);
+	});
+
+	it("rejects malformed certificates", async () => {
+		assert(await verifyX5C(["invalid"], trustedCertificates) === false);
+	});
+
+	it("preserves acceptance of an empty chain", async () => {
+		assert(await verifyX5C([], trustedCertificates) === true);
+		assert(await verifyX5C([], []) === true);
+	});
+
+	it("accepts a full chain anchored in the configured CA", async () => {
+		const root = trustedCertificates[0].replace(/-----(BEGIN|END) CERTIFICATE-----|\s/g, "");
+		assert(await verifyX5C([x5c[0], root], [trustedCertificates[0]]) === true);
+	});
+
+	it("does not trust an issuer merely because its leaf is trusted", async () => {
+		const root = trustedCertificates[0].replace(/-----(BEGIN|END) CERTIFICATE-----|\s/g, "");
+		const leafPem = `-----BEGIN CERTIFICATE-----\n${x5c[0]}\n-----END CERTIFICATE-----`;
+		assert(await verifyX5C([root], [leafPem]) === false);
+		assert(await verifyX5C([x5c[0]], []) === false);
+	});
+
+	it("rejects a not-yet-valid explicitly trusted leaf", async () => {
+		vi.setSystemTime(new Date("2025-01-01T00:00:00Z"));
+		assert(await verifyX5C(x5c, [`-----BEGIN CERTIFICATE-----\n${x5c[0]}\n-----END CERTIFICATE-----`]) === false);
+	});
+
+	it("rejects a different leaf signed by the same issuer as a trusted leaf", async () => {
+		const algorithm = { name: "ECDSA", namedCurve: "P-256" };
+		const keys = await crypto.subtle.generateKey(algorithm, true, ["sign", "verify"]);
+		const validity = {
+			notBefore: new Date("2025-01-01T00:00:00Z"),
+			notAfter: new Date("2030-01-01T00:00:00Z"),
+			signingAlgorithm: { name: "ECDSA", hash: "SHA-256" },
+		};
+		const root = await X509CertificateGenerator.createSelfSigned({
+			...validity, name: "CN=Test issuer", keys,
+			extensions: [new BasicConstraintsExtension(true, undefined, true)],
+		}, crypto);
+		const createLeaf = async (name: string) => {
+			const leafKeys = await crypto.subtle.generateKey(algorithm, true, ["sign", "verify"]);
+			return X509CertificateGenerator.create({
+				...validity, subject: name, issuer: "CN=Test issuer",
+				publicKey: leafKeys.publicKey, signingKey: keys.privateKey,
+			}, crypto);
+		};
+		const trusted = await createLeaf("CN=Trusted wallet");
+		const other = await createLeaf("CN=Other wallet");
+		assert(await verifyX5C([trusted.toString("base64"), root.toString("base64")], [trusted.toString("pem")]) === true);
+		assert(await verifyX5C([other.toString("base64"), root.toString("base64")], [root.toString("pem")]) === true);
+		assert(await verifyX5C([other.toString("base64"), root.toString("base64")], [trusted.toString("pem")]) === false);
+	});
+
 })
