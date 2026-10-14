@@ -1,0 +1,58 @@
+name: Bug report
+description: Create a report to help us improve
+body:
+  - type: textarea
+    id: describe-the-bug
+    attributes:
+      label: Describe the bug
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+
+  - type: textarea
+    id: to-reproduce
+    attributes:
+      label: To Reproduce
+      description: Describe how to reproduce the issue in a consuming application or a standalone example. Include the affected function, type, or schema if known, and a minimal code example if available.
+      value: |
+        1. Use wallet-common in '...' (consuming repository or standalone example).
+        2. Set up the relevant configuration and input '...'.
+        3. Perform the action or run the code that triggers the issue '...'.
+        4. Observe the error or incorrect result '...'.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected behavior
+      description: A clear and concise description of what you expected to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: If applicable, add screenshots to help explain your problem.
+
+  - type: textarea
+    id: environment-information
+    attributes:
+      label: Environment information (if available)
+      description: Please complete the lines that apply.
+      value: |
+        - wallet-common version, tag, or commit:
+        - Consuming application and version:
+        - Runtime: [Node.js / browser]
+        - Node version (if applicable):
+        - TypeScript version (if applicable):
+        - OS:
+        - Browser and version (if applicable):
+        - Credential format or protocol (if applicable):
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add any other context about the problem here.
