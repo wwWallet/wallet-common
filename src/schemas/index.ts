@@ -6,3 +6,4 @@ export * from './OpenidCredentialIssuerMetadataSchema';
 export * from './SdJwtVcPayloadSchema';
 export * from './SdJwtVcTypeMetadataSchema';
 export * from './MdocIacasResponseSchema';
+export * from './OpenID4VPClientMetadataVpFormatsSupportedSchema';

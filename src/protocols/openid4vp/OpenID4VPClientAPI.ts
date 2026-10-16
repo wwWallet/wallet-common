@@ -12,7 +12,7 @@ import { CredentialRenderingService } from "../../rendering";
 import { VerifiableCredentialFormat } from "../../types";
 import { fromBase64Url, toBase64Url } from "../../utils/util";
 import { TransactionData } from "./transactionData";
-import { CredentialEngineOptions, CredentialIssuerMetadata, IacasResponse, OpenID4VPClientIdScheme, OpenID4VPOptions, PresentationClaims, PresentationInfo, OpenID4VPResponseMode, RPState } from "./types";
+import { CredentialEngineOptions, CredentialIssuerMetadata, IacasResponse, OpenID4VPClientIdScheme, OpenID4VPOptions, PresentationClaims, PresentationInfo, OpenID4VPResponseMode, RPState, OpenID4VPClientMetadata } from "./types";
 import { DcqlPresentationResult } from 'dcql';
 import { exportJWK, generateKeyPair, importPKCS8, SignJWT, compactDecrypt, CompactDecryptResult, importJWK } from "jose";
 import { serializeDcqlQuery } from "../../utils/serializeDcqlQuery";
@@ -207,7 +207,7 @@ export class OpenID4VPClientAPI {
 					]
 				},
 				"encrypted_response_enc_values_supported": ["A256GCM"],
-				"vp_formats": {
+				"vp_formats_supported": {
 					"vc+sd-jwt": {
 						"sd-jwt_alg_values": [
 							"ES256",
@@ -225,10 +225,11 @@ export class OpenID4VPClientAPI {
 						]
 					},
 					"mso_mdoc": {
-						"alg": ["ES256"]
+						"issuerauth_alg_values": [-7],
+						"deviceauth_alg_values": [-7]
 					}
 				}
-			},
+			} satisfies OpenID4VPClientMetadata,
 			transaction_data: transactionDataObject.length > 0 ? transactionDataObject : undefined
 		})
 			.setIssuedAt()
