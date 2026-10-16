@@ -4,3 +4,4 @@ export { prependToPath } from './urlPathUtils';
 export * from './cborDate';
 export * from './sri';
 export * from './util';
+export * from './imageDataUri';
