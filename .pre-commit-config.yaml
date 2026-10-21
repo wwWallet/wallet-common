@@ -27,3 +27,9 @@ repos:
         entry: yarn lint
         language: system
         pass_filenames: false
+
+      - id: typecheck
+        name: Check TypeScript types
+        entry: yarn typecheck
+        language: system
+        pass_filenames: false
