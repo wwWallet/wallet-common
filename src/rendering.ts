@@ -13,7 +13,7 @@ function getPathValue(value: unknown, path: Array<string | number | null>): any 
 			current = current.get(segment);
 			continue;
 		}
-		if (typeof current === "object") {
+		if (typeof current === 'object') {
 			current = (current as Record<string | number, unknown>)[segment];
 			continue;
 		}
@@ -23,8 +23,17 @@ function getPathValue(value: unknown, path: Array<string | number | null>): any 
 }
 
 export function CredentialRenderingService(): CredentialRendering {
-	const renderSvgTemplate = async ({ json, credentialImageSvgTemplate, sdJwtVcMetadataClaims, filter }: { json: any, credentialImageSvgTemplate: string, sdJwtVcMetadataClaims: any, filter?: Array<CredentialClaimPath> }) => {
-
+	const renderSvgTemplate = async ({
+		json,
+		credentialImageSvgTemplate,
+		sdJwtVcMetadataClaims,
+		filter,
+	}: {
+		json: any;
+		credentialImageSvgTemplate: string;
+		sdJwtVcMetadataClaims: any;
+		filter?: Array<CredentialClaimPath>;
+	}) => {
 		let svgContent = null;
 		try {
 			svgContent = credentialImageSvgTemplate;
@@ -47,7 +56,11 @@ export function CredentialRenderingService(): CredentialRendering {
 				// Retrieve the path array for the current svgId from pathMap
 				const pathArray = pathMap[svgId];
 
-				if (Array.isArray(pathArray) && filter && !filter.map(f => f.join('.')).includes(pathArray.join('.'))) {
+				if (
+					Array.isArray(pathArray) &&
+					filter &&
+					!filter.map((f) => f.join('.')).includes(pathArray.join('.'))
+				) {
 					return '-';
 				}
 				if (Array.isArray(pathArray)) {
@@ -69,5 +82,5 @@ export function CredentialRenderingService(): CredentialRendering {
 
 	return {
 		renderSvgTemplate,
-	}
+	};
 }

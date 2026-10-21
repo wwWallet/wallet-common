@@ -1,8 +1,6 @@
 <img src="https://demo.wwwallet.org/wallet_192.png" width="80" style="max-width: 100%; float:left; margin-right: 20px;"/>
 
-
 # Wallet Common
-
 
 This library serves as a centralized collection of reusable component-functions that are shared across multiple software stacks. Its main goal is to promote consistency, reduce duplication and streamline development by providing well-tested, commonly used utilities and components in one place.
 
@@ -16,11 +14,9 @@ This library serves as a centralized collection of reusable component-functions 
 - Common type definitions
 - Common JSON schema definition for response validations
 
-
 ### Interfaces
 
 The `interface.ts` file defines all the interfaces that are exported from this library.
-
 
 ## Development
 
@@ -80,12 +76,12 @@ type(optional-scope): lower-case summary
 
 wallet-common follows [semantic versioning](https://semver.org/). Every merge to `master` runs the `release` workflow, which uses [semantic-release](https://github.com/semantic-release/semantic-release) to work out the next version from the commits merged since the last `v*` tag (PR title and description). If there are several, the largest bump wins:
 
-| PR title | Release (e.g. from `1.0.1`) |
-|---|---|
-| any type with `!`, e.g. `feat!: …` | major (`2.0.0`) |
-| `feat: …` | minor (`1.1.0`) |
-| `fix: …`, `perf: …` | patch (`1.0.2`) |
-| `docs`, `test`, `ci`, `build`, `refactor`, `chore` | no release |
+| PR title                                           | Release (e.g. from `1.0.1`) |
+| -------------------------------------------------- | ---------------------------- |
+| any type with `!`, e.g. `feat!: …`                 | major (`2.0.0`)              |
+| `feat: …`                                          | minor (`1.1.0`)              |
+| `fix: …`, `perf: …`                                | patch (`1.0.2`)              |
+| `docs`, `test`, `ci`, `build`, `refactor`, `chore` | no release                   |
 
 A line starting with `BREAKING CHANGE:` (or `BREAKING-CHANGE:`) in the PR description also makes a major release, whatever the title.
 

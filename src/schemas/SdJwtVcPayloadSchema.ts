@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 export const SdJwtVcPayloadSchema = z
 	.object({
@@ -14,7 +14,7 @@ export const SdJwtVcPayloadSchema = z
 			.optional(),
 		vc: z
 			.object({
-				"@context": z.array(z.string()).optional(),
+				'@context': z.array(z.string()).optional(),
 				type: z.array(z.string()).optional(),
 			})
 			.optional(),

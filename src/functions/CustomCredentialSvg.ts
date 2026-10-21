@@ -1,15 +1,13 @@
-import { HttpClient, CustomCredentialSvgI } from "../interfaces";
-import { CredentialClaims } from "../types";
-import { escapeSVG } from "../utils/escapeSVG";
-import { formatDate } from "./formatDate";
+import { HttpClient, CustomCredentialSvgI } from '../interfaces';
+import { CredentialClaims } from '../types';
+import { escapeSVG } from '../utils/escapeSVG';
+import { formatDate } from './formatDate';
 
 export function CustomCredentialSvg(args: { httpClient: HttpClient }): CustomCredentialSvgI {
-
-	const defaultBackgroundColor = "#D3D3D3";
-	const defaultTextColor = "#000000";
-	const defaultName = "Credential";
-	const svgTemplate =
-		`<svg
+	const defaultBackgroundColor = '#D3D3D3';
+	const defaultTextColor = '#000000';
+	const defaultName = 'Credential';
+	const svgTemplate = `<svg
 			xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="829"
 			height="504" version="1.1">
 			<rect width="100%" height="100%" fill="{{backgroundColor}}" />
@@ -18,8 +16,7 @@ export function CustomCredentialSvg(args: { httpClient: HttpClient }): CustomCre
 			<text x="50" y="80" font-family="Arial, Helvetica, sans-serif" font-size="35" fill="{{textColor}}" font-weight="normal">{{name}}</text>
 			<text x="50" y="120" font-family="Arial, Helvetica, sans-serif" font-size="20" fill="{{textColor}}" font-weight="normal">{{description}}</text>
 			<text x="790" y="431" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="25" fill="{{textColor}}" font-weight="normal">{{expiry_date}}</text>
-		</svg>`
-
+		</svg>`;
 
 	function formatExpiryDate(signedClaims: CredentialClaims): string {
 		if (signedClaims.expiry_date) {
@@ -28,27 +25,31 @@ export function CustomCredentialSvg(args: { httpClient: HttpClient }): CustomCre
 			const expiryDateISO = new Date(Number(signedClaims.exp) * 1000).toISOString();
 			return formatDate(expiryDateISO, 'date');
 		} else {
-			return "";
+			return '';
 		}
 	}
-
 
 	async function getBase64Image(url: string) {
 		if (!url) return null;
 
 		try {
-			const response = await args.httpClient.get(url, {}, { responseType: 'arraybuffer', useCache: true });
-			const mimeType = String(response.headers["content-type"] || "application/octet-stream");
-			const isBrowser = typeof window !== "undefined";
+			const response = await args.httpClient.get(
+				url,
+				{},
+				{ responseType: 'arraybuffer', useCache: true },
+			);
+			const mimeType = String(response.headers['content-type'] || 'application/octet-stream');
+			const isBrowser = typeof window !== 'undefined';
 
 			if (isBrowser) {
-				if (typeof response.data === "string" && response.data.startsWith("data:")) {
+				if (typeof response.data === 'string' && response.data.startsWith('data:')) {
 					return response.data;
 				}
 
-				const blob = typeof response.data === "string"
-					? await fetch(response.data).then((res) => res.blob())
-					: new Blob([response.data as BlobPart], { type: mimeType });
+				const blob =
+					typeof response.data === 'string'
+						? await fetch(response.data).then((res) => res.blob())
+						: new Blob([response.data as BlobPart], { type: mimeType });
 
 				return new Promise<string | null>((resolve, reject) => {
 					const reader = new FileReader();
@@ -58,24 +59,29 @@ export function CustomCredentialSvg(args: { httpClient: HttpClient }): CustomCre
 				});
 			} else {
 				const blob = response.data as any;
-				const base64 = Buffer.from(blob, "binary").toString("base64");
+				const base64 = Buffer.from(blob, 'binary').toString('base64');
 				return `data:${mimeType};base64,${base64}`;
 			}
 		} catch (error) {
-			console.error("Failed to load image", url, error);
+			console.error('Failed to load image', url, error);
 			return null;
 		}
 	}
 
-
-	const renderCustomSvgTemplate = async ({ signedClaims, displayConfig }: { signedClaims: CredentialClaims, displayConfig: any }) => {
-		const name =  displayConfig?.name ? escapeSVG(displayConfig?.name) : defaultName;
-		const description = displayConfig?.description ? escapeSVG(displayConfig?.description) : "";
+	const renderCustomSvgTemplate = async ({
+		signedClaims,
+		displayConfig,
+	}: {
+		signedClaims: CredentialClaims;
+		displayConfig: any;
+	}) => {
+		const name = displayConfig?.name ? escapeSVG(displayConfig?.name) : defaultName;
+		const description = displayConfig?.description ? escapeSVG(displayConfig?.description) : '';
 		const backgroundColor = displayConfig.background_color || defaultBackgroundColor;
 		const textColor = displayConfig.text_color || defaultTextColor;
-		const backgroundImageBase64 = displayConfig?.background_image?.uri ?
-			displayConfig?.background_image?.uri?.startsWith("data:") ?
-				displayConfig?.background_image.uri
+		const backgroundImageBase64 = displayConfig?.background_image?.uri
+			? displayConfig?.background_image?.uri?.startsWith('data:')
+				? displayConfig?.background_image.uri
 				: await getBase64Image(displayConfig?.background_image?.uri)
 			: '';
 
@@ -88,13 +94,13 @@ export function CustomCredentialSvg(args: { httpClient: HttpClient }): CustomCre
 				/{{backgroundImageBase64}}/g,
 				backgroundImageBase64
 					? `<image xlink:href="${backgroundImageBase64}" x="0" y="0" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" />`
-					: ''
+					: '',
 			)
 			.replace(
 				/{{logoBase64}}/g,
 				logoBase64
 					? `<image xlink:href="${logoBase64}" x="50" y="380" height="20%"><title>${displayConfig.logoAltText || 'Logo'}</title></image>`
-					: ''
+					: '',
 			)
 			.replace(/{{name}}/g, name)
 			.replace(/{{textColor}}/g, textColor)
@@ -107,5 +113,5 @@ export function CustomCredentialSvg(args: { httpClient: HttpClient }): CustomCre
 
 	return {
 		renderCustomSvgTemplate,
-	}
+	};
 }

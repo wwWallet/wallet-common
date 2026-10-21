@@ -1,10 +1,10 @@
-import { z } from 'zod'
+import { z } from 'zod';
 
 export enum GrantType {
-	CODE = "code",
-	AUTHORIZATION_CODE = "authorization_code",
-	REFRESH = "refresh_token",
-	PRE_AUTHORIZED_CODE = "urn:ietf:params:oauth:grant-type:pre-authorized_code",
+	CODE = 'code',
+	AUTHORIZATION_CODE = 'authorization_code',
+	REFRESH = 'refresh_token',
+	PRE_AUTHORIZED_CODE = 'urn:ietf:params:oauth:grant-type:pre-authorized_code',
 }
 
 const CommonGrantSchema = z.object({
@@ -18,7 +18,7 @@ const AuthorizationCodeGrantSchema = CommonGrantSchema.extend({
 const TxCodeSchema = z.object({
 	input_mode: z.enum(['numeric', 'text']).optional().default('numeric'),
 	length: z.number().int().optional(),
-	description: z.string().max(300).optional()
+	description: z.string().max(300).optional(),
 });
 
 const PreAuthorizedCodeGrantSchema = CommonGrantSchema.extend({
@@ -26,10 +26,12 @@ const PreAuthorizedCodeGrantSchema = CommonGrantSchema.extend({
 	tx_code: TxCodeSchema.optional(),
 });
 
-export const GrantsSchema = z.object({
-	authorization_code: AuthorizationCodeGrantSchema.optional(),
-	'urn:ietf:params:oauth:grant-type:pre-authorized_code': PreAuthorizedCodeGrantSchema.optional(),
-}).catchall(z.record(z.string(), z.any()));
+export const GrantsSchema = z
+	.object({
+		authorization_code: AuthorizationCodeGrantSchema.optional(),
+		'urn:ietf:params:oauth:grant-type:pre-authorized_code': PreAuthorizedCodeGrantSchema.optional(),
+	})
+	.catchall(z.record(z.string(), z.any()));
 
 export const GrantSchema = z.union([
 	z.object({

@@ -1,20 +1,20 @@
-import { TypeMetadata } from "../schemas/SdJwtVcTypeMetadataSchema";
-import { err, ok, Result } from "./Result";
+import { TypeMetadata } from '../schemas/SdJwtVcTypeMetadataSchema';
+import { err, ok, Result } from './Result';
 
 export const VctResolutionErrors = {
-	InvalidSchema: "invalid_schema",
-	NotFound: "not_found",
+	InvalidSchema: 'invalid_schema',
+	NotFound: 'not_found',
 } as const;
 
 export type VctResolutionError = (typeof VctResolutionErrors)[keyof typeof VctResolutionErrors];
-
 
 export interface VctDocumentProvider {
 	getVctMetadataDocument(vct: string): Promise<Result<TypeMetadata, VctResolutionError>>;
 }
 
-export const createVctDocumentResolutionEngine = (providers: VctDocumentProvider[]): VctDocumentProvider => {
-
+export const createVctDocumentResolutionEngine = (
+	providers: VctDocumentProvider[],
+): VctDocumentProvider => {
 	return {
 		getVctMetadataDocument: async (vct: string) => {
 			try {
@@ -33,8 +33,7 @@ export const createVctDocumentResolutionEngine = (providers: VctDocumentProvider
 					}
 				}
 				return invalidSchemaError ?? err(VctResolutionErrors.NotFound);
-			}
-			catch {
+			} catch {
 				return err(VctResolutionErrors.NotFound);
 			}
 		},

@@ -1,10 +1,8 @@
-import { assert, describe, it } from "vitest";
-import { formatDate } from "./formatDate";
+import { assert, describe, it } from 'vitest';
+import { formatDate } from './formatDate';
 
-describe("The Date/Time parser", () => {
-
-	it("can match ISO 8601 format without decimals", () => {
-
+describe('The Date/Time parser', () => {
+	it('can match ISO 8601 format without decimals', () => {
 		const rawDate = '2026-02-01T07:28:49Z';
 
 		const formattedDate = formatDate(rawDate);
@@ -13,11 +11,9 @@ describe("The Date/Time parser", () => {
 		console.log(formattedDate);
 
 		assert(formattedDate != rawDate);
-
 	});
 
-	it("can match ISO 8601 format with two ms decimals", () => {
-
+	it('can match ISO 8601 format with two ms decimals', () => {
 		const rawDate = '2026-02-01T07:28:49.11Z';
 
 		const formattedDate = formatDate(rawDate);
@@ -26,10 +22,9 @@ describe("The Date/Time parser", () => {
 		console.log(formattedDate);
 
 		assert(formattedDate != rawDate);
-
 	});
 
-	it("can match ISO 8601 format with three ms decimals", async () => {
+	it('can match ISO 8601 format with three ms decimals', async () => {
 		const rawDate = '2026-02-01T07:28:49.117Z';
 
 		const formattedDate = formatDate(rawDate);
@@ -40,7 +35,7 @@ describe("The Date/Time parser", () => {
 		assert(formattedDate != rawDate);
 	});
 
-	it("can match simple date YYYY-MM-DD format", async () => {
+	it('can match simple date YYYY-MM-DD format', async () => {
 		const rawDate = '2026-02-01';
 
 		const formattedDate = formatDate(rawDate);
@@ -51,7 +46,7 @@ describe("The Date/Time parser", () => {
 		assert(formattedDate != rawDate);
 	});
 
-	it("can handle a long format date", async () => {
+	it('can handle a long format date', async () => {
 		const rawDate = 'Sun Feb 01 2026 14:46:19 GMT+0200';
 
 		const formattedDate = formatDate(rawDate);
@@ -62,7 +57,7 @@ describe("The Date/Time parser", () => {
 		assert(formattedDate != rawDate);
 	});
 
-	it("can match a UNIX timestamp in seconds", async () => {
+	it('can match a UNIX timestamp in seconds', async () => {
 		const rawDate = 1769896800;
 
 		const formattedDate = formatDate(rawDate);
@@ -73,7 +68,7 @@ describe("The Date/Time parser", () => {
 		assert(formattedDate != rawDate);
 	});
 
-	it("can match a UNIX timestamp in milliseconds", async () => {
+	it('can match a UNIX timestamp in milliseconds', async () => {
 		const rawDate = 1769896800000;
 
 		const formattedDate = formatDate(rawDate);
@@ -84,7 +79,7 @@ describe("The Date/Time parser", () => {
 		assert(formattedDate != rawDate);
 	});
 
-	it("can match ISO 8601 format with three ms decimals", async () => {
+	it('can match ISO 8601 format with three ms decimals', async () => {
 		const rawDate = '2026-10-08T07:28:49.117Z';
 
 		const formattedDate = formatDate(rawDate);
@@ -95,7 +90,7 @@ describe("The Date/Time parser", () => {
 		assert(formattedDate != rawDate);
 	});
 
-	it("can match ISO 8601 format with six ms decimals", async () => {
+	it('can match ISO 8601 format with six ms decimals', async () => {
 		const rawDate = '2026-10-08T07:28:49.117456Z';
 
 		const formattedDate = formatDate(rawDate);
@@ -106,7 +101,7 @@ describe("The Date/Time parser", () => {
 		assert(formattedDate != rawDate);
 	});
 
-	it("can match ISO 8601 format with nine ms decimals", async () => {
+	it('can match ISO 8601 format with nine ms decimals', async () => {
 		const rawDate = '2026-10-08T07:28:49.117456789Z';
 
 		const formattedDate = formatDate(rawDate);
@@ -117,7 +112,7 @@ describe("The Date/Time parser", () => {
 		assert(formattedDate != rawDate);
 	});
 
-	it("cannot match invalid, ISO 8601-like format with ten ms decimals", async () => {
+	it('cannot match invalid, ISO 8601-like format with ten ms decimals', async () => {
 		const rawDate = '2026-10-08T07:28:49.1174567890Z';
 
 		const formattedDate = formatDate(rawDate);
@@ -128,7 +123,7 @@ describe("The Date/Time parser", () => {
 		assert(formattedDate == rawDate);
 	});
 
-	it("can match a Date object", async () => {
+	it('can match a Date object', async () => {
 		const rawDate = new Date();
 
 		const formattedDate = formatDate(rawDate);
@@ -139,9 +134,9 @@ describe("The Date/Time parser", () => {
 		assert(formattedDate != rawDate);
 	});
 
-	it("can match a CBOR Date object", async () => {
+	it('can match a CBOR Date object', async () => {
 		const cborDate = {
-			date: "14-08-2026"
+			date: '14-08-2026',
 		};
 
 		const formattedDate = formatDate(cborDate);
@@ -151,5 +146,4 @@ describe("The Date/Time parser", () => {
 
 		assert(formattedDate != cborDate);
 	});
-
 });

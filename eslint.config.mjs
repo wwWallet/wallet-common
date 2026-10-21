@@ -6,7 +6,14 @@ import prettierConfig from 'eslint-config-prettier/flat';
 
 export default defineConfig(
 	{
-		ignores: ['dist/**', 'build/**', 'output/**', 'coverage/**', '.nyc_output/**', 'node_modules/**'],
+		ignores: [
+			'dist/**',
+			'build/**',
+			'output/**',
+			'coverage/**',
+			'.nyc_output/**',
+			'node_modules/**',
+		],
 	},
 	{
 		linterOptions: {

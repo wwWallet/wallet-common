@@ -1,4 +1,4 @@
-import { formatCborDate, isCborDate } from "../utils";
+import { formatCborDate, isCborDate } from '../utils';
 
 export function formatDate(value: any, format = 'datetime') {
 	// Regex for ISO 8601 format like '2024-10-08T07:28:49.117Z'. milliseconds are optional.
@@ -6,7 +6,8 @@ export function formatDate(value: any, format = 'datetime') {
 	// Regex for simple YYYY-MM-DD format
 	const simpleDateRegex = /^\d{4}-\d{2}-\d{2}$/;
 	// Regex for long-form date strings like 'Wed Dec 11 2024 14:46:19 GMT+0200'
-	const longFormDateRegex = /^[A-Z][a-z]{2} [A-Z][a-z]{2} \d{2} \d{4} \d{2}:\d{2}:\d{2} GMT[+-]\d{4}/;
+	const longFormDateRegex =
+		/^[A-Z][a-z]{2} [A-Z][a-z]{2} \d{2} \d{4} \d{2}:\d{2}:\d{2} GMT[+-]\d{4}/;
 
 	let date;
 
@@ -14,12 +15,10 @@ export function formatDate(value: any, format = 'datetime') {
 		if (value.toString().length === 10) {
 			// Handle Unix timestamp (seconds) by converting to milliseconds
 			date = new Date(value * 1000);
-		}
-		else if (value.toString().length === 13) {
+		} else if (value.toString().length === 13) {
 			// Timestamp including milliseconds
 			date = new Date(value);
-		}
-		else {
+		} else {
 			// Unsupported timestamp formats
 			return value;
 		}
@@ -47,9 +46,17 @@ export function formatDate(value: any, format = 'datetime') {
 		return value;
 	}
 
-	const options = format === 'datetime'
-		? { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }
-		: { day: '2-digit', month: '2-digit', year: 'numeric' };
+	const options =
+		format === 'datetime'
+			? {
+					day: '2-digit',
+					month: '2-digit',
+					year: 'numeric',
+					hour: '2-digit',
+					minute: '2-digit',
+					second: '2-digit',
+				}
+			: { day: '2-digit', month: '2-digit', year: 'numeric' };
 
 	return date.toLocaleDateString('en-GB', options as any);
 }

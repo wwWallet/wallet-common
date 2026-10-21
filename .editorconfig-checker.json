@@ -1,6 +1,4 @@
 {
 	"SpacesAfterTabs": true,
-	"Exclude": [
-		"^(node_modules|dist|output|build)/"
-	]
+	"Exclude": ["^(node_modules|dist|output|build)/"]
 }

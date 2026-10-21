@@ -2,7 +2,7 @@ import { HttpClient } from '../interfaces';
 import { verifySRIFromObject } from './sri';
 import { MetadataError, MetadataWarning } from '../types';
 import { CredentialParsingError, isCredentialParsingWarnings } from '../error';
-import { TypeMetadata as TypeMetadataSchema } from "../schemas/SdJwtVcTypeMetadataSchema";
+import { TypeMetadata as TypeMetadataSchema } from '../schemas/SdJwtVcTypeMetadataSchema';
 import { VctDocumentProvider } from '../core';
 import { prependToPath } from './urlPathUtils';
 
@@ -11,7 +11,7 @@ function validateTypeMetadataShape(
 ): { ok: true; data: TypeMetadataSchema } | { ok: false; code: CredentialParsingError } {
 	const res = TypeMetadataSchema.safeParse(metadata);
 	if (!res.success) {
-		console.error("❌ Type Metadata shape validation failed:", res.error.issues);
+		console.error('❌ Type Metadata shape validation failed:', res.error.issues);
 		return { ok: false, code: CredentialParsingError.SchemaShapeFail };
 	}
 	return { ok: true, data: res.data };
@@ -19,9 +19,8 @@ function validateTypeMetadataShape(
 
 function handleMetadataCode(
 	code: CredentialParsingError,
-	warnings: MetadataWarning[]
+	warnings: MetadataWarning[],
 ): MetadataError | undefined {
-
 	if (isCredentialParsingWarnings(code)) {
 		warnings.push({ code });
 		return undefined; // continue flow
@@ -32,7 +31,6 @@ function handleMetadataCode(
 }
 
 function deepMerge(parent: any, child: any): any {
-
 	if (Array.isArray(parent) && Array.isArray(child)) {
 		// Merge display[] by locale
 		if (parent[0]?.locale && child[0]?.locale) {
@@ -83,10 +81,14 @@ function deepMerge(parent: any, child: any): any {
 
 		// Otherwise, merge arrays of objects (default behavior)
 		return [...parent, ...child];
-
 	}
 
-	if (typeof parent === 'object' && typeof child === 'object' && parent !== null && child !== null) {
+	if (
+		typeof parent === 'object' &&
+		typeof child === 'object' &&
+		parent !== null &&
+		child !== null
+	) {
 		const result: Record<string, any> = { ...parent };
 		for (const key of Object.keys(child)) {
 			if (key in parent) {
@@ -109,9 +111,8 @@ async function fetchAndMergeMetadata(
 	metadataId: string,
 	visited = new Set<string>(),
 	integrity?: string,
-	warnings: MetadataWarning[] = []
+	warnings: MetadataWarning[] = [],
 ): Promise<TypeMetadataSchema | MetadataError | undefined> {
-
 	if (visited.has(metadataId)) {
 		const resultCode = handleMetadataCode(CredentialParsingError.InfiniteRecursion, warnings);
 		if (resultCode) return resultCode;
@@ -136,7 +137,6 @@ async function fetchAndMergeMetadata(
 			if (!validated.ok) {
 				const resultCode = handleMetadataCode(validated.code, warnings);
 				if (resultCode) return resultCode;
-
 			} else {
 				metadata = validated.data as TypeMetadataSchema;
 			}
@@ -148,7 +148,7 @@ async function fetchAndMergeMetadata(
 		const maybe = await vctResolutionEngine.getVctMetadataDocument(metadataId);
 		if (maybe?.ok) {
 			metadata = maybe.value as TypeMetadataSchema;
-		} else if (maybe?.error === "invalid_schema") {
+		} else if (maybe?.error === 'invalid_schema') {
 			const resultCode = handleMetadataCode(CredentialParsingError.SchemaShapeFail, warnings);
 			if (resultCode) return resultCode;
 		}
@@ -168,7 +168,15 @@ async function fetchAndMergeMetadata(
 
 	if (typeof metadata.extends === 'string') {
 		const childIntegrity = metadata['extends#integrity'] as string | undefined;
-		const parent = await fetchAndMergeMetadata(vctResolutionEngine, subtle, httpClient, metadata.extends, visited, childIntegrity, warnings);
+		const parent = await fetchAndMergeMetadata(
+			vctResolutionEngine,
+			subtle,
+			httpClient,
+			metadata.extends,
+			visited,
+			childIntegrity,
+			warnings,
+		);
 		if (parent === undefined) {
 			const resultCode = handleMetadataCode(CredentialParsingError.NotFoundExtends, warnings);
 			if (resultCode) return resultCode;
@@ -182,16 +190,23 @@ async function fetchAndMergeMetadata(
 	return merged;
 }
 
-export async function resolveIssuerMetadata(httpClient: any, issuerUrl: string): Promise<{ code: CredentialParsingError } | undefined> {
+export async function resolveIssuerMetadata(
+	httpClient: any,
+	issuerUrl: string,
+): Promise<{ code: CredentialParsingError } | undefined> {
 	try {
-		const result = await httpClient.get(prependToPath(issuerUrl, ".well-known/jwt-vc-issuer"), {}, { useCache: true }) as {
+		const result = (await httpClient.get(
+			prependToPath(issuerUrl, '.well-known/jwt-vc-issuer'),
+			{},
+			{ useCache: true },
+		)) as {
 			data: { issuer: string };
 		};
 
 		if (
 			result &&
 			typeof result === 'object' &&
-			('data' in result) &&
+			'data' in result &&
 			typeof (result as any).data === 'object' &&
 			typeof (result as any).data.issuer === 'string'
 		) {
@@ -215,10 +230,19 @@ function isValidHttpUrl(value: string): boolean {
 	}
 }
 
-export async function getSdJwtVcMetadata(vctResolutionEngine: VctDocumentProvider | undefined, subtle : SubtleCrypto, httpClient: HttpClient, vct: string, vctIntegrity: string | undefined, warnings: MetadataWarning[] = []): Promise<{ credentialMetadata: TypeMetadataSchema | undefined; warnings: MetadataWarning[] } | MetadataError> {
+export async function getSdJwtVcMetadata(
+	vctResolutionEngine: VctDocumentProvider | undefined,
+	subtle: SubtleCrypto,
+	httpClient: HttpClient,
+	vct: string,
+	vctIntegrity: string | undefined,
+	warnings: MetadataWarning[] = [],
+): Promise<
+	| { credentialMetadata: TypeMetadataSchema | undefined; warnings: MetadataWarning[] }
+	| MetadataError
+> {
 	try {
 		if (vct && typeof vct === 'string') {
-
 			// TODO: Move to SDJWTVCVerifier
 			// Check jwt-vc-issuer by iss
 			// if (isValidHttpUrl(vct)) {
@@ -230,10 +254,18 @@ export async function getSdJwtVcMetadata(vctResolutionEngine: VctDocumentProvide
 			// }
 
 			try {
-				const mergedMetadata = await fetchAndMergeMetadata(vctResolutionEngine, subtle, httpClient, vct, new Set(), vctIntegrity, warnings);
+				const mergedMetadata = await fetchAndMergeMetadata(
+					vctResolutionEngine,
+					subtle,
+					httpClient,
+					vct,
+					new Set(),
+					vctIntegrity,
+					warnings,
+				);
 				if (mergedMetadata) {
 					if ('error' in mergedMetadata) {
-						return { error: mergedMetadata.error }
+						return { error: mergedMetadata.error };
 					} else {
 						return { credentialMetadata: mergedMetadata, warnings };
 					}
@@ -247,8 +279,7 @@ export async function getSdJwtVcMetadata(vctResolutionEngine: VctDocumentProvide
 		warnings.push({ code: CredentialParsingError.NotFound });
 
 		return { credentialMetadata: undefined, warnings };
-	}
-	catch (err) {
+	} catch (err) {
 		console.log(err);
 		return { error: CredentialParsingError.UnknownError };
 	}

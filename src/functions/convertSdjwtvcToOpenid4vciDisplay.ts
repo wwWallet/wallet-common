@@ -1,8 +1,8 @@
-import type { TypeDisplayEntry } from "../schemas/SdJwtVcTypeMetadataSchema";
-import type { CredentialConfigurationSupported } from "../schemas/CredentialConfigurationSupportedSchema";
+import type { TypeDisplayEntry } from '../schemas/SdJwtVcTypeMetadataSchema';
+import type { CredentialConfigurationSupported } from '../schemas/CredentialConfigurationSupportedSchema';
 
-type CredentialMetadata = NonNullable<CredentialConfigurationSupported["credential_metadata"]>;
-type OpenIdCredentialDisplay = NonNullable<CredentialMetadata["display"]>;
+type CredentialMetadata = NonNullable<CredentialConfigurationSupported['credential_metadata']>;
+type OpenIdCredentialDisplay = NonNullable<CredentialMetadata['display']>;
 type IssuerDisplayEntry = OpenIdCredentialDisplay[number];
 
 /**
@@ -22,7 +22,7 @@ type IssuerDisplayEntry = OpenIdCredentialDisplay[number];
  */
 
 export function convertSdjwtvcToOpenid4vciDisplay(
-	display?: TypeDisplayEntry[]
+	display?: TypeDisplayEntry[],
 ): OpenIdCredentialDisplay | undefined {
 	if (!display?.length) return undefined;
 
@@ -45,11 +45,11 @@ export function convertSdjwtvcToOpenid4vciDisplay(
 
 			...(simple?.logo?.uri
 				? {
-					logo: {
-						uri: simple.logo.uri,
-						alt_text: simple.logo.alt_text,
-					},
-				}
+						logo: {
+							uri: simple.logo.uri,
+							alt_text: simple.logo.alt_text,
+						},
+					}
 				: {}),
 		};
 
