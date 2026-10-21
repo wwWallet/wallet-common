@@ -19,6 +19,7 @@
 		"test": "tsc && vitest run",
 		"test-start": "vitest",
 		"build": "rm -rf dist/ && tsc",
+		"typecheck": "tsc --noEmit",
 		"prepare": "npm run build"
 	},
 	"dependencies": {
