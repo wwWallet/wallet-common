@@ -27,7 +27,6 @@ jobs:
           build
           ci
           chore
-          revert
         requireScope: false
         subjectPattern: ^(?![A-Z]).+$
         subjectPatternError: |
