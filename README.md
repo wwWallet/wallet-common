@@ -77,11 +77,11 @@ type(optional-scope): lower-case summary
 wallet-common follows [semantic versioning](https://semver.org/). Every merge to `master` runs the `release` workflow, which uses [semantic-release](https://github.com/semantic-release/semantic-release) to work out the next version from the commits merged since the last `v*` tag (PR title and description). If there are several, the largest bump wins:
 
 | PR title                                           | Release (e.g. from `1.0.1`) |
-| -------------------------------------------------- | ---------------------------- |
-| any type with `!`, e.g. `feat!: …`                 | major (`2.0.0`)              |
-| `feat: …`                                          | minor (`1.1.0`)              |
-| `fix: …`, `perf: …`                                | patch (`1.0.2`)              |
-| `docs`, `test`, `ci`, `build`, `refactor`, `chore` | no release                   |
+| -------------------------------------------------- | --------------------------- |
+| any type with `!`, e.g. `feat!: …`                 | major (`2.0.0`)             |
+| `feat: …`                                          | minor (`1.1.0`)             |
+| `fix: …`, `perf: …`                                | patch (`1.0.2`)             |
+| `docs`, `test`, `ci`, `build`, `refactor`, `chore` | no release                  |
 
 A line starting with `BREAKING CHANGE:` (or `BREAKING-CHANGE:`) in the PR description also makes a major release, whatever the title.
 
