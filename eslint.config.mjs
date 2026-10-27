@@ -42,4 +42,9 @@ export default defineConfig(
 		},
 	},
 	prettierConfig,
+	{
+		rules: {
+			'no-unexpected-multiline': 'error',
+		},
+	},
 );
