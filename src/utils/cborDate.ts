@@ -17,9 +17,7 @@ export const isCborDate = (value: unknown): value is CborDateWrapper => {
 	const dateValue = value.date;
 
 	return (
-		dateValue instanceof Date ||
-		typeof dateValue === 'string' ||
-		typeof dateValue === 'number'
+		dateValue instanceof Date || typeof dateValue === 'string' || typeof dateValue === 'number'
 	);
 };
 
@@ -30,20 +28,16 @@ export const formatCborDate = (
 	value: CborDateWrapper,
 	locales: string | string[] = 'en-GB',
 ): string | object => {
-
 	if (value === undefined || value === null) {
 		return value;
-	};
+	}
 
 	const rawDate = value.date;
 	if (rawDate === undefined) {
 		return value;
 	}
 
-	const parsedDate =
-		rawDate instanceof Date
-			? rawDate
-			: new Date(rawDate);
+	const parsedDate = rawDate instanceof Date ? rawDate : new Date(rawDate);
 
 	if (Number.isNaN(parsedDate.getTime())) {
 		return String(rawDate);

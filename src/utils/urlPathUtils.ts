@@ -9,7 +9,6 @@
  * @example prependToPath("https://example.com/", ".well-known/openid-credential-issuer") => "https://example.com/.well-known/openid-credential-issuer"
  */
 export function prependToPath(urlString: string, segment: string): string | null {
-
 	if (!urlString) return null;
 	if (!segment) return urlString;
 
@@ -20,12 +19,12 @@ export function prependToPath(urlString: string, segment: string): string | null
 		return null;
 	}
 
-	const pathSegments = url.pathname.split("/").filter(Boolean);
+	const pathSegments = url.pathname.split('/').filter(Boolean);
 
-	const newSegment = segment.split("/").filter(Boolean);
+	const newSegment = segment.split('/').filter(Boolean);
 
 	const newPathSegments = [...newSegment, ...pathSegments];
-	url.pathname = "/" + newPathSegments.join("/").replace(/^\/+/, "");
+	url.pathname = '/' + newPathSegments.join('/').replace(/^\/+/, '');
 
 	return url.toString();
 }

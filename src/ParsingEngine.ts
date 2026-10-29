@@ -1,5 +1,5 @@
-import { CredentialParsingError } from "./error";
-import { CredentialParser, ParsingEngineI } from "./interfaces";
+import { CredentialParsingError } from './error';
+import { CredentialParser, ParsingEngineI } from './interfaces';
 
 export function ParsingEngine(): ParsingEngineI {
 	const parsers: CredentialParser[] = [];
@@ -21,7 +21,6 @@ export function ParsingEngine(): ParsingEngineI {
 
 					// Otherwise return immediately
 					return result;
-
 				} catch {
 					return { success: false, error: CredentialParsingError.UnknownError };
 				}
@@ -29,6 +28,6 @@ export function ParsingEngine(): ParsingEngineI {
 
 			// No parser handled it
 			return { success: false, error: CredentialParsingError.UnsupportedFormat };
-		}
+		},
 	};
 }

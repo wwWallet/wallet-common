@@ -1,4 +1,4 @@
-import { GenericStore } from "./Store";
+import { GenericStore } from './Store';
 
 export class MemoryStore<TKey, TValue> implements GenericStore<TKey, TValue> {
 	private map = new Map<TKey, TValue>();

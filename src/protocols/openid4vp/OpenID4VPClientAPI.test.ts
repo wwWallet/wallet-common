@@ -1,43 +1,42 @@
-import { assert, describe, it, vi } from "vitest";
-import { MemoryStore } from "../../core/MemoryStore";
-import { OpenID4VPClientAPI } from "./OpenID4VPClientAPI";
-import { OpenID4VPResponseMode  } from "./types";
-import { generateKeyPair, exportPKCS8, exportJWK, CompactEncrypt } from "jose";
-import { fromBase64Url, toBase64Url } from "../../utils/util";
-import type { HttpClient } from "../../interfaces";
-import { VerifiableCredentialFormat } from "../../types";
-import { DcqlPresentationResult } from "dcql";
+import { assert, describe, it, vi } from 'vitest';
+import { MemoryStore } from '../../core/MemoryStore';
+import { OpenID4VPClientAPI } from './OpenID4VPClientAPI';
+import { OpenID4VPResponseMode } from './types';
+import { generateKeyPair, exportPKCS8, exportJWK, CompactEncrypt } from 'jose';
+import { fromBase64Url, toBase64Url } from '../../utils/util';
+import type { HttpClient } from '../../interfaces';
+import { VerifiableCredentialFormat } from '../../types';
+import { DcqlPresentationResult } from 'dcql';
 
 const x5c = [
-	"MIICyzCCAnGgAwIBAgIULnrxux9sI34oqbby3M4lSKOs8owwCgYIKoZIzj0EAwIwPzELMAkGA1UEBhMCRVUxFTATBgNVBAoMDHd3V2FsbGV0Lm9yZzEZMBcGA1UEAwwQd3dXYWxsZXQgUm9vdCBDQTAeFw0yNTA0MjkxMDI5NTNaFw0yNjA0MjkxMDI5NTNaMEExCzAJBgNVBAYTAkVVMRUwEwYDVQQKDAx3d1dhbGxldC5vcmcxGzAZBgNVBAMMEmxvY2FsLnd3d2FsbGV0Lm9yZzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABFVivGt53M4qEP06QT20BSlGiMIdzLLvG+b9fq/fHKM+NGT+a3snXiPwU7X7jrOFWxwyjZeean40+vx6Gy06VfqjggFHMIIBQzAdBgNVHQ4EFgQUM/A3FTQLjww5/9u01MX/SRyVqaUwHwYDVR0jBBgwFoAU0HGu3T+/Wqh3yNifz9sNd+HPBS4wDgYDVR0PAQH/BAQDAgeAMDIGA1UdEgQrMCmBEWluZm9Ad3d3YWxsZXQub3JnhhRodHRwczovL3d3d2FsbGV0Lm9yZzASBgNVHSUECzAJBgcogYxdBQECMAwGA1UdEwEB/wQCMAAwRAYDVR0fBD0wOzA5oDegNYYzaHR0cHM6Ly93d3dhbGxldC5vcmcvaWFjYS9jcmwvd3d3YWxsZXRfb3JnX2lhY2EuY3JsMFUGA1UdEQROMEyCEmxvY2FsLnd3d2FsbGV0Lm9yZ4IZbG9jYWwtaXNzdWVyLnd3d2FsbGV0Lm9yZ4IbbG9jYWwtdmVyaWZpZXIud3d3YWxsZXQub3JnMAoGCCqGSM49BAMCA0gAMEUCIQCQ8h+5krhO+f4woReDY1D7CaM6qCda3m814e6DLvOphAIgHQL+Wm7WFRwxgjzMLN37RojJGrZbF4OFChIkmm0uu5o="
+	'MIICyzCCAnGgAwIBAgIULnrxux9sI34oqbby3M4lSKOs8owwCgYIKoZIzj0EAwIwPzELMAkGA1UEBhMCRVUxFTATBgNVBAoMDHd3V2FsbGV0Lm9yZzEZMBcGA1UEAwwQd3dXYWxsZXQgUm9vdCBDQTAeFw0yNTA0MjkxMDI5NTNaFw0yNjA0MjkxMDI5NTNaMEExCzAJBgNVBAYTAkVVMRUwEwYDVQQKDAx3d1dhbGxldC5vcmcxGzAZBgNVBAMMEmxvY2FsLnd3d2FsbGV0Lm9yZzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABFVivGt53M4qEP06QT20BSlGiMIdzLLvG+b9fq/fHKM+NGT+a3snXiPwU7X7jrOFWxwyjZeean40+vx6Gy06VfqjggFHMIIBQzAdBgNVHQ4EFgQUM/A3FTQLjww5/9u01MX/SRyVqaUwHwYDVR0jBBgwFoAU0HGu3T+/Wqh3yNifz9sNd+HPBS4wDgYDVR0PAQH/BAQDAgeAMDIGA1UdEgQrMCmBEWluZm9Ad3d3YWxsZXQub3JnhhRodHRwczovL3d3d2FsbGV0Lm9yZzASBgNVHSUECzAJBgcogYxdBQECMAwGA1UdEwEB/wQCMAAwRAYDVR0fBD0wOzA5oDegNYYzaHR0cHM6Ly93d3dhbGxldC5vcmcvaWFjYS9jcmwvd3d3YWxsZXRfb3JnX2lhY2EuY3JsMFUGA1UdEQROMEyCEmxvY2FsLnd3d2FsbGV0Lm9yZ4IZbG9jYWwtaXNzdWVyLnd3d2FsbGV0Lm9yZ4IbbG9jYWwtdmVyaWZpZXIud3d3YWxsZXQub3JnMAoGCCqGSM49BAMCA0gAMEUCIQCQ8h+5krhO+f4woReDY1D7CaM6qCda3m814e6DLvOphAIgHQL+Wm7WFRwxgjzMLN37RojJGrZbF4OFChIkmm0uu5o=',
 ];
 
 const presentationRequest = {
 	dcql_query: {
 		credentials: [
 			{
-				id: "pidMsoMdoc",
-				format: "mso_mdoc",
-				meta: { doctype_value: "eu.europa.ec.eudi.pid.1" },
+				id: 'pidMsoMdoc',
+				format: 'mso_mdoc',
+				meta: { doctype_value: 'eu.europa.ec.eudi.pid.1' },
 				claims: [
 					{
-						path: ["eu.europa.ec.eudi.pid.1", "family_name"],
-						intent_to_retain: false
-					}
-				]
-			}
-		]
-	}
+						path: ['eu.europa.ec.eudi.pid.1', 'family_name'],
+						intent_to_retain: false,
+					},
+				],
+			},
+		],
+	},
 };
 
-describe("OpenID4VPClientAPI.validateDcqlVpToken", () => {
-
-	it("should serialize Map values when building presentation claim values", () => {
+describe('OpenID4VPClientAPI.validateDcqlVpToken', () => {
+	it('should serialize Map values when building presentation claim values', () => {
 		const kv = new MemoryStore<string, any>();
 		const httpClient: HttpClient = {
 			get: async () => {
-				throw new Error("unexpected http call");
-			}
+				throw new Error('unexpected http call');
+			},
 		};
 		const helper = new OpenID4VPClientAPI(
 			kv,
@@ -45,39 +44,36 @@ describe("OpenID4VPClientAPI.validateDcqlVpToken", () => {
 				credentialEngineOptions: {
 					clockTolerance: 0,
 					subtle: crypto.subtle,
-					lang: "en",
+					lang: 'en',
 					trustedCertificates: [],
-					trustedCredentialIssuerIdentifiers: undefined
+					trustedCredentialIssuerIdentifiers: undefined,
 				},
-				redirectUri: "openid4vp://cb"
+				redirectUri: 'openid4vp://cb',
 			},
-			httpClient
+			httpClient,
 		);
 
 		const result = (helper as any).calculatePresentationClaimValue(
 			new Map([
-				["given_name", "John"],
-				["family_name", "Doe"]
-			])
+				['given_name', 'John'],
+				['family_name', 'Doe'],
+			]),
 		);
 
-		assert.equal(
-			result,
-			'{"given_name":"John","family_name":"Doe"}'
-		);
+		assert.equal(result, '{"given_name":"John","family_name":"Doe"}');
 	});
 });
 
-describe("OpenID4VPClientAPI.generateAuthorizationRequestURL", () => {
-	it("should build a valid URL, store rpState, and include DCQL in the request JWT", async () => {
+describe('OpenID4VPClientAPI.generateAuthorizationRequestURL', () => {
+	it('should build a valid URL, store rpState, and include DCQL in the request JWT', async () => {
 		const kv = new MemoryStore<string, any>();
 		const httpClient: HttpClient = {
 			get: async () => {
-				throw new Error("unexpected http call");
-			}
+				throw new Error('unexpected http call');
+			},
 		};
 
-		const { privateKey } = await generateKeyPair("ES256");
+		const { privateKey } = await generateKeyPair('ES256');
 		const privateKeyPem = await exportPKCS8(privateKey);
 
 		const helper = new OpenID4VPClientAPI(
@@ -86,18 +82,18 @@ describe("OpenID4VPClientAPI.generateAuthorizationRequestURL", () => {
 				credentialEngineOptions: {
 					clockTolerance: 0,
 					subtle: crypto.subtle,
-					lang: "en",
+					lang: 'en',
 					trustedCertificates: [],
-					trustedCredentialIssuerIdentifiers: undefined
+					trustedCredentialIssuerIdentifiers: undefined,
 				},
-				redirectUri: "openid4vp://cb"
+				redirectUri: 'openid4vp://cb',
 			},
-			httpClient
+			httpClient,
 		);
 
-		const responseUri = "https://verifier.example.com/cb";
-		const baseUri = "https://verifier.example.com";
-		const sessionId = "session-123";
+		const responseUri = 'https://verifier.example.com/cb';
+		const baseUri = 'https://verifier.example.com';
+		const sessionId = 'session-123';
 
 		const result = await helper.generateAuthorizationRequestURL(
 			presentationRequest,
@@ -107,14 +103,17 @@ describe("OpenID4VPClientAPI.generateAuthorizationRequestURL", () => {
 			privateKeyPem,
 			x5c,
 			OpenID4VPResponseMode.DIRECT_POST,
-			"https://verifier.example.com/callback"
+			'https://verifier.example.com/callback',
 		);
 
 		assert(result.stateId === sessionId);
-		assert(result.url.protocol === "openid4vp:");
-		assert(result.url.host === "cb");
-		assert(result.url.searchParams.get("client_id") === "x509_san_dns:verifier.example.com");
-		assert(result.url.searchParams.get("request_uri") === `${baseUri}/verification/request-object?id=${sessionId}`);
+		assert(result.url.protocol === 'openid4vp:');
+		assert(result.url.host === 'cb');
+		assert(result.url.searchParams.get('client_id') === 'x509_san_dns:verifier.example.com');
+		assert(
+			result.url.searchParams.get('request_uri') ===
+				`${baseUri}/verification/request-object?id=${sessionId}`,
+		);
 
 		const stored = await kv.get(`rpstate:${sessionId}`);
 		assert(stored !== undefined);
@@ -123,33 +122,33 @@ describe("OpenID4VPClientAPI.generateAuthorizationRequestURL", () => {
 		assert(stored.signed_request);
 		assert(stored.dcql_query !== null);
 		assert(stored.completed === null);
-		assert(await kv.get(`key:${stored.rp_eph_kid}`) === sessionId);
+		assert((await kv.get(`key:${stored.rp_eph_kid}`)) === sessionId);
 
-		const [encodedHeader, encodedPayload] = stored.signed_request.split(".");
+		const [encodedHeader, encodedPayload] = stored.signed_request.split('.');
 		assert(encodedHeader && encodedPayload);
 		const payload = JSON.parse(new TextDecoder().decode(fromBase64Url(encodedPayload)));
 		assert(payload.response_uri === responseUri);
-		assert(payload.response_type === "vp_token");
+		assert(payload.response_type === 'vp_token');
 		assert(payload.response_mode === OpenID4VPResponseMode.DIRECT_POST);
 		assert(payload.state === sessionId);
 		assert(payload.nonce);
-		assert(payload.client_id === "x509_san_dns:verifier.example.com");
-		assert(payload.dcql_query?.credentials?.[0]?.id === "pidMsoMdoc");
-		assert(!("transaction_data" in payload));
+		assert(payload.client_id === 'x509_san_dns:verifier.example.com');
+		assert(payload.dcql_query?.credentials?.[0]?.id === 'pidMsoMdoc');
+		assert(!('transaction_data' in payload));
 		assert(payload.client_metadata?.jwks?.keys?.length === 1);
-		assert(payload.client_metadata?.jwks?.keys?.[0]?.alg === "ECDH-ES");
-		assert(result.rpState.rp_eph_pub.alg === "ECDH-ES");
+		assert(payload.client_metadata?.jwks?.keys?.[0]?.alg === 'ECDH-ES');
+		assert(result.rpState.rp_eph_pub.alg === 'ECDH-ES');
 	});
 
-	it("should build a valid URL using x509_hash client identifier", async () => {
+	it('should build a valid URL using x509_hash client identifier', async () => {
 		const kv = new MemoryStore<string, any>();
 		const httpClient: HttpClient = {
 			get: async () => {
-				throw new Error("unexpected http call");
-			}
+				throw new Error('unexpected http call');
+			},
 		};
 
-		const { privateKey } = await generateKeyPair("ES256");
+		const { privateKey } = await generateKeyPair('ES256');
 		const privateKeyPem = await exportPKCS8(privateKey);
 
 		const helper = new OpenID4VPClientAPI(
@@ -158,49 +157,49 @@ describe("OpenID4VPClientAPI.generateAuthorizationRequestURL", () => {
 				credentialEngineOptions: {
 					clockTolerance: 0,
 					subtle: crypto.subtle,
-					lang: "en",
+					lang: 'en',
 					trustedCertificates: [],
-					trustedCredentialIssuerIdentifiers: undefined
+					trustedCredentialIssuerIdentifiers: undefined,
 				},
-				redirectUri: "openid4vp://cb"
+				redirectUri: 'openid4vp://cb',
 			},
-			httpClient
+			httpClient,
 		);
 
-		const certBytes = Uint8Array.from(Buffer.from(x5c[0], "base64"));
-		const certHash = await crypto.subtle.digest("SHA-256", certBytes);
+		const certBytes = Uint8Array.from(Buffer.from(x5c[0], 'base64'));
+		const certHash = await crypto.subtle.digest('SHA-256', certBytes);
 		const certHashB64Url = toBase64Url(new Uint8Array(certHash));
 		const expectedClientId = `x509_hash:${certHashB64Url}`;
 
 		const result = await helper.generateAuthorizationRequestURL(
 			presentationRequest,
-			"session-hash",
-			"https://verifier.example.com/cb",
-			"https://verifier.example.com",
+			'session-hash',
+			'https://verifier.example.com/cb',
+			'https://verifier.example.com',
 			privateKeyPem,
 			x5c,
 			OpenID4VPResponseMode.DIRECT_POST,
-			"https://verifier.example.com/callback",
-			"x509_hash"
+			'https://verifier.example.com/callback',
+			'x509_hash',
 		);
 
-		assert(result.url.searchParams.get("client_id") === expectedClientId);
+		assert(result.url.searchParams.get('client_id') === expectedClientId);
 		assert(result.rpState.audience === expectedClientId);
-		assert(result.rpState.rp_eph_pub.alg === "ECDH-ES");
-		const [, encodedPayload] = result.rpState.signed_request.split(".");
+		assert(result.rpState.rp_eph_pub.alg === 'ECDH-ES');
+		const [, encodedPayload] = result.rpState.signed_request.split('.');
 		const payload = JSON.parse(new TextDecoder().decode(fromBase64Url(encodedPayload)));
 		assert(payload.client_id === expectedClientId);
-		assert(payload.client_metadata?.jwks?.keys?.[0]?.alg === "ECDH-ES");
+		assert(payload.client_metadata?.jwks?.keys?.[0]?.alg === 'ECDH-ES');
 	});
 });
 
-describe("OpenID4VPClientAPI small get/set helpers", () => {
-	it("should save and load rpState by session id", async () => {
+describe('OpenID4VPClientAPI small get/set helpers', () => {
+	it('should save and load rpState by session id', async () => {
 		const kv = new MemoryStore<string, any>();
 		const httpClient: HttpClient = {
 			get: async () => {
-				throw new Error("unexpected http call");
-			}
+				throw new Error('unexpected http call');
+			},
 		};
 
 		const helper = new OpenID4VPClientAPI(
@@ -209,29 +208,29 @@ describe("OpenID4VPClientAPI small get/set helpers", () => {
 				credentialEngineOptions: {
 					clockTolerance: 0,
 					subtle: crypto.subtle,
-					lang: "en",
+					lang: 'en',
 					trustedCertificates: [],
-					trustedCredentialIssuerIdentifiers: undefined
+					trustedCredentialIssuerIdentifiers: undefined,
 				},
-				redirectUri: "openid4vp://cb"
+				redirectUri: 'openid4vp://cb',
 			},
-			httpClient
+			httpClient,
 		);
 
 		const rpState = {
-			session_id: "session-a",
+			session_id: 'session-a',
 			is_cross_device: true,
-			signed_request: "signed",
-			state: "session-a",
-			nonce: "nonce",
+			signed_request: 'signed',
+			state: 'session-a',
+			nonce: 'nonce',
 			callback_endpoint: null,
-			audience: "aud",
-			presentation_request_id: "pid",
+			audience: 'aud',
+			presentation_request_id: 'pid',
 			presentation_definition: null,
 			dcql_query: null,
-			rp_eph_kid: "kid-a",
-			rp_eph_pub: { kty: "EC", crv: "P-256", x: "x", y: "y" },
-			rp_eph_priv: { kty: "EC", crv: "P-256", x: "x", y: "y", d: "d" },
+			rp_eph_kid: 'kid-a',
+			rp_eph_pub: { kty: 'EC', crv: 'P-256', x: 'x', y: 'y' },
+			rp_eph_priv: { kty: 'EC', crv: 'P-256', x: 'x', y: 'y', d: 'd' },
 			encrypted_response: null,
 			vp_token: null,
 			presentation_submission: null,
@@ -239,20 +238,20 @@ describe("OpenID4VPClientAPI small get/set helpers", () => {
 			claims: null,
 			completed: null,
 			presentation_during_issuance_session: null,
-			date_created: Date.now()
+			date_created: Date.now(),
 		};
 
 		await helper.saveRPState(rpState.session_id, rpState);
-		const loaded = await helper.getRPStateBySessionId("session-a");
-		assert(loaded?.session_id === "session-a");
+		const loaded = await helper.getRPStateBySessionId('session-a');
+		assert(loaded?.session_id === 'session-a');
 	});
 
-	it("should return null when rpState is missing by session id", async () => {
+	it('should return null when rpState is missing by session id', async () => {
 		const kv = new MemoryStore<string, any>();
 		const httpClient: HttpClient = {
 			get: async () => {
-				throw new Error("unexpected http call");
-			}
+				throw new Error('unexpected http call');
+			},
 		};
 
 		const helper = new OpenID4VPClientAPI(
@@ -261,25 +260,25 @@ describe("OpenID4VPClientAPI small get/set helpers", () => {
 				credentialEngineOptions: {
 					clockTolerance: 0,
 					subtle: crypto.subtle,
-					lang: "en",
+					lang: 'en',
 					trustedCertificates: [],
-					trustedCredentialIssuerIdentifiers: undefined
+					trustedCredentialIssuerIdentifiers: undefined,
 				},
-				redirectUri: "openid4vp://cb"
+				redirectUri: 'openid4vp://cb',
 			},
-			httpClient
+			httpClient,
 		);
 
-		const loaded = await helper.getRPStateBySessionId("missing");
+		const loaded = await helper.getRPStateBySessionId('missing');
 		assert(loaded === null);
 	});
 
-	it("should return null when rpState is missing by kid", async () => {
+	it('should return null when rpState is missing by kid', async () => {
 		const kv = new MemoryStore<string, any>();
 		const httpClient: HttpClient = {
 			get: async () => {
-				throw new Error("unexpected http call");
-			}
+				throw new Error('unexpected http call');
+			},
 		};
 
 		const helper = new OpenID4VPClientAPI(
@@ -288,25 +287,25 @@ describe("OpenID4VPClientAPI small get/set helpers", () => {
 				credentialEngineOptions: {
 					clockTolerance: 0,
 					subtle: crypto.subtle,
-					lang: "en",
+					lang: 'en',
 					trustedCertificates: [],
-					trustedCredentialIssuerIdentifiers: undefined
+					trustedCredentialIssuerIdentifiers: undefined,
 				},
-				redirectUri: "openid4vp://cb"
+				redirectUri: 'openid4vp://cb',
 			},
-			httpClient
+			httpClient,
 		);
 
-		const loaded = await helper.getRPStateByKid("missing-kid");
+		const loaded = await helper.getRPStateByKid('missing-kid');
 		assert(loaded === null);
 	});
 
-	it("should return rpState by kid when mapping exists", async () => {
+	it('should return rpState by kid when mapping exists', async () => {
 		const kv = new MemoryStore<string, any>();
 		const httpClient: HttpClient = {
 			get: async () => {
-				throw new Error("unexpected http call");
-			}
+				throw new Error('unexpected http call');
+			},
 		};
 
 		const helper = new OpenID4VPClientAPI(
@@ -315,29 +314,29 @@ describe("OpenID4VPClientAPI small get/set helpers", () => {
 				credentialEngineOptions: {
 					clockTolerance: 0,
 					subtle: crypto.subtle,
-					lang: "en",
+					lang: 'en',
 					trustedCertificates: [],
-					trustedCredentialIssuerIdentifiers: undefined
+					trustedCredentialIssuerIdentifiers: undefined,
 				},
-				redirectUri: "openid4vp://cb"
+				redirectUri: 'openid4vp://cb',
 			},
-			httpClient
+			httpClient,
 		);
 
 		const rpState = {
-			session_id: "session-b",
+			session_id: 'session-b',
 			is_cross_device: true,
-			signed_request: "signed",
-			state: "session-b",
-			nonce: "nonce",
+			signed_request: 'signed',
+			state: 'session-b',
+			nonce: 'nonce',
 			callback_endpoint: null,
-			audience: "aud",
-			presentation_request_id: "pid",
+			audience: 'aud',
+			presentation_request_id: 'pid',
 			presentation_definition: null,
 			dcql_query: null,
-			rp_eph_kid: "kid-b",
-			rp_eph_pub: { kty: "EC", crv: "P-256", x: "x", y: "y" },
-			rp_eph_priv: { kty: "EC", crv: "P-256", x: "x", y: "y", d: "d" },
+			rp_eph_kid: 'kid-b',
+			rp_eph_pub: { kty: 'EC', crv: 'P-256', x: 'x', y: 'y' },
+			rp_eph_priv: { kty: 'EC', crv: 'P-256', x: 'x', y: 'y', d: 'd' },
 			encrypted_response: null,
 			vp_token: null,
 			presentation_submission: null,
@@ -345,22 +344,22 @@ describe("OpenID4VPClientAPI small get/set helpers", () => {
 			claims: null,
 			completed: null,
 			presentation_during_issuance_session: null,
-			date_created: Date.now()
+			date_created: Date.now(),
 		};
 
 		await helper.saveRPState(rpState.session_id, rpState);
-		await kv.set("key:kid-b", rpState.session_id);
+		await kv.set('key:kid-b', rpState.session_id);
 
-		const loaded = await helper.getRPStateByKid("kid-b");
-		assert(loaded?.session_id === "session-b");
+		const loaded = await helper.getRPStateByKid('kid-b');
+		assert(loaded?.session_id === 'session-b');
 	});
 
-	it("should return null when response code mapping is missing", async () => {
+	it('should return null when response code mapping is missing', async () => {
 		const kv = new MemoryStore<string, any>();
 		const httpClient: HttpClient = {
 			get: async () => {
-				throw new Error("unexpected http call");
-			}
+				throw new Error('unexpected http call');
+			},
 		};
 
 		const helper = new OpenID4VPClientAPI(
@@ -369,25 +368,25 @@ describe("OpenID4VPClientAPI small get/set helpers", () => {
 				credentialEngineOptions: {
 					clockTolerance: 0,
 					subtle: crypto.subtle,
-					lang: "en",
+					lang: 'en',
 					trustedCertificates: [],
-					trustedCredentialIssuerIdentifiers: undefined
+					trustedCredentialIssuerIdentifiers: undefined,
 				},
-				redirectUri: "openid4vp://cb"
+				redirectUri: 'openid4vp://cb',
 			},
-			httpClient
+			httpClient,
 		);
 
-		const loaded = await helper.getRPStateByResponseCode("missing-code");
+		const loaded = await helper.getRPStateByResponseCode('missing-code');
 		assert(loaded === null);
 	});
 
-	it("should return rpState by response code when mapping exists", async () => {
+	it('should return rpState by response code when mapping exists', async () => {
 		const kv = new MemoryStore<string, any>();
 		const httpClient: HttpClient = {
 			get: async () => {
-				throw new Error("unexpected http call");
-			}
+				throw new Error('unexpected http call');
+			},
 		};
 
 		const helper = new OpenID4VPClientAPI(
@@ -396,51 +395,55 @@ describe("OpenID4VPClientAPI small get/set helpers", () => {
 				credentialEngineOptions: {
 					clockTolerance: 0,
 					subtle: crypto.subtle,
-					lang: "en",
+					lang: 'en',
 					trustedCertificates: [],
-					trustedCredentialIssuerIdentifiers: undefined
+					trustedCredentialIssuerIdentifiers: undefined,
 				},
-				redirectUri: "openid4vp://cb"
+				redirectUri: 'openid4vp://cb',
 			},
-			httpClient
+			httpClient,
 		);
 
 		const rpState = {
-			session_id: "session-c",
+			session_id: 'session-c',
 			is_cross_device: true,
-			signed_request: "signed",
-			state: "session-c",
-			nonce: "nonce",
+			signed_request: 'signed',
+			state: 'session-c',
+			nonce: 'nonce',
 			callback_endpoint: null,
-			audience: "aud",
-			presentation_request_id: "pid",
+			audience: 'aud',
+			presentation_request_id: 'pid',
 			presentation_definition: null,
 			dcql_query: null,
-			rp_eph_kid: "kid-c",
-			rp_eph_pub: { kty: "EC", crv: "P-256", x: "x", y: "y" },
-			rp_eph_priv: { kty: "EC", crv: "P-256", x: "x", y: "y", d: "d" },
+			rp_eph_kid: 'kid-c',
+			rp_eph_pub: { kty: 'EC', crv: 'P-256', x: 'x', y: 'y' },
+			rp_eph_priv: { kty: 'EC', crv: 'P-256', x: 'x', y: 'y', d: 'd' },
 			encrypted_response: null,
 			vp_token: null,
 			presentation_submission: null,
-			response_code: "resp-code",
+			response_code: 'resp-code',
 			claims: null,
 			completed: null,
 			presentation_during_issuance_session: null,
-			date_created: Date.now()
+			date_created: Date.now(),
 		};
 
 		await helper.saveRPState(rpState.session_id, rpState);
-		await kv.set("response_code:resp-code", rpState.session_id);
+		await kv.set('response_code:resp-code', rpState.session_id);
 
-		const loaded = await helper.getRPStateByResponseCode("resp-code");
-		assert(loaded?.session_id === "session-c");
+		const loaded = await helper.getRPStateByResponseCode('resp-code');
+		assert(loaded?.session_id === 'session-c');
 	});
 });
 
-describe("OpenID4VPClientAPI.handleResponseDirectPost", () => {
-	it("should store response details and mark completed", async () => {
+describe('OpenID4VPClientAPI.handleResponseDirectPost', () => {
+	it('should store response details and mark completed', async () => {
 		const kv = new MemoryStore<string, any>();
-		const httpClient: HttpClient = { get: async () => { throw new Error("unexpected http call"); } };
+		const httpClient: HttpClient = {
+			get: async () => {
+				throw new Error('unexpected http call');
+			},
+		};
 
 		const helper = new OpenID4VPClientAPI(
 			kv,
@@ -448,29 +451,29 @@ describe("OpenID4VPClientAPI.handleResponseDirectPost", () => {
 				credentialEngineOptions: {
 					clockTolerance: 0,
 					subtle: crypto.subtle,
-					lang: "en",
+					lang: 'en',
 					trustedCertificates: [],
-					trustedCredentialIssuerIdentifiers: undefined
+					trustedCredentialIssuerIdentifiers: undefined,
 				},
-				redirectUri: "openid4vp://cb"
+				redirectUri: 'openid4vp://cb',
 			},
-			httpClient
+			httpClient,
 		);
 
 		const rpState = {
-			session_id: "session-d",
+			session_id: 'session-d',
 			is_cross_device: true,
-			signed_request: "signed",
-			state: "session-d",
-			nonce: "nonce",
+			signed_request: 'signed',
+			state: 'session-d',
+			nonce: 'nonce',
 			callback_endpoint: null,
-			audience: "aud",
-			presentation_request_id: "pid",
+			audience: 'aud',
+			presentation_request_id: 'pid',
 			presentation_definition: null,
 			dcql_query: null,
-			rp_eph_kid: "kid-d",
-			rp_eph_pub: { kty: "EC", crv: "P-256", x: "x", y: "y" },
-			rp_eph_priv: { kty: "EC", crv: "P-256", x: "x", y: "y", d: "d" },
+			rp_eph_kid: 'kid-d',
+			rp_eph_pub: { kty: 'EC', crv: 'P-256', x: 'x', y: 'y' },
+			rp_eph_priv: { kty: 'EC', crv: 'P-256', x: 'x', y: 'y', d: 'd' },
 			encrypted_response: null,
 			vp_token: null,
 			presentation_submission: null,
@@ -478,66 +481,70 @@ describe("OpenID4VPClientAPI.handleResponseDirectPost", () => {
 			claims: null,
 			completed: null,
 			presentation_during_issuance_session: null,
-			date_created: Date.now()
+			date_created: Date.now(),
 		};
 
 		await helper.saveRPState(rpState.session_id, rpState);
 
-		const vpToken = { pid: "vp" };
-		const result = await helper.handleResponseDirectPost("session-d", vpToken, { id: "ps" });
+		const vpToken = { pid: 'vp' };
+		const result = await helper.handleResponseDirectPost('session-d', vpToken, { id: 'ps' });
 		assert(result.ok === true);
 
-		const stored = await helper.getRPStateBySessionId("session-d");
+		const stored = await helper.getRPStateBySessionId('session-d');
 		assert(stored?.completed === true);
 		assert(stored?.response_code);
-		assert(stored?.presentation_submission?.id === "ps");
+		assert(stored?.presentation_submission?.id === 'ps');
 		assert(stored?.vp_token);
 
 		const mapped = await kv.get(`response_code:${stored?.response_code}`);
-		assert(mapped === "session-d");
+		assert(mapped === 'session-d');
 	});
 
-	it("should return errors for invalid inputs or state", async () => {
+	it('should return errors for invalid inputs or state', async () => {
 		const kv = new MemoryStore<string, any>();
-		const httpClient: HttpClient = { get: async () => { throw new Error("unexpected http call"); } };
+		const httpClient: HttpClient = {
+			get: async () => {
+				throw new Error('unexpected http call');
+			},
+		};
 		const helper = new OpenID4VPClientAPI(
 			kv,
 			{
 				credentialEngineOptions: {
 					clockTolerance: 0,
 					subtle: crypto.subtle,
-					lang: "en",
+					lang: 'en',
 					trustedCertificates: [],
-					trustedCredentialIssuerIdentifiers: undefined
+					trustedCredentialIssuerIdentifiers: undefined,
 				},
-				redirectUri: "openid4vp://cb"
+				redirectUri: 'openid4vp://cb',
 			},
-			httpClient
+			httpClient,
 		);
 
-		const missingState = await helper.handleResponseDirectPost(undefined, "vp", null);
+		const missingState = await helper.handleResponseDirectPost(undefined, 'vp', null);
 		assert(missingState.ok === false);
 
-		const missingVp = await helper.handleResponseDirectPost("state", undefined, null);
+		const missingVp = await helper.handleResponseDirectPost('state', undefined, null);
 		assert(missingVp.ok === false);
 
-		const missingRp = await helper.handleResponseDirectPost("missing", "vp", null);
+		const missingRp = await helper.handleResponseDirectPost('missing', 'vp', null);
 		assert(missingRp.ok === false);
 
 		const rpState = {
-			session_id: "session-e",
+			session_id: 'session-e',
 			is_cross_device: true,
-			signed_request: "signed",
-			state: "session-e",
-			nonce: "nonce",
+			signed_request: 'signed',
+			state: 'session-e',
+			nonce: 'nonce',
 			callback_endpoint: null,
-			audience: "aud",
-			presentation_request_id: "pid",
+			audience: 'aud',
+			presentation_request_id: 'pid',
 			presentation_definition: null,
 			dcql_query: null,
-			rp_eph_kid: "kid-e",
-			rp_eph_pub: { kty: "EC", crv: "P-256", x: "x", y: "y" },
-			rp_eph_priv: { kty: "EC", crv: "P-256", x: "x", y: "y", d: "d" },
+			rp_eph_kid: 'kid-e',
+			rp_eph_pub: { kty: 'EC', crv: 'P-256', x: 'x', y: 'y' },
+			rp_eph_priv: { kty: 'EC', crv: 'P-256', x: 'x', y: 'y', d: 'd' },
 			encrypted_response: null,
 			vp_token: null,
 			presentation_submission: null,
@@ -545,19 +552,23 @@ describe("OpenID4VPClientAPI.handleResponseDirectPost", () => {
 			claims: null,
 			completed: true,
 			presentation_during_issuance_session: null,
-			date_created: Date.now()
+			date_created: Date.now(),
 		};
 		await helper.saveRPState(rpState.session_id, rpState);
 
-		const alreadyDone = await helper.handleResponseDirectPost("session-e", "vp", null);
+		const alreadyDone = await helper.handleResponseDirectPost('session-e', 'vp', null);
 		assert(alreadyDone.ok === false);
 	});
 });
 
-describe("OpenID4VPClientAPI.handleEncryptedAuthorizationResponse", () => {
-	it("should decrypt and store response details", async () => {
+describe('OpenID4VPClientAPI.handleEncryptedAuthorizationResponse', () => {
+	it('should decrypt and store response details', async () => {
 		const kv = new MemoryStore<string, any>();
-		const httpClient: HttpClient = { get: async () => { throw new Error("unexpected http call"); } };
+		const httpClient: HttpClient = {
+			get: async () => {
+				throw new Error('unexpected http call');
+			},
+		};
 
 		const helper = new OpenID4VPClientAPI(
 			kv,
@@ -565,33 +576,33 @@ describe("OpenID4VPClientAPI.handleEncryptedAuthorizationResponse", () => {
 				credentialEngineOptions: {
 					clockTolerance: 0,
 					subtle: crypto.subtle,
-					lang: "en",
+					lang: 'en',
 					trustedCertificates: [],
-					trustedCredentialIssuerIdentifiers: undefined
+					trustedCredentialIssuerIdentifiers: undefined,
 				},
-				redirectUri: "openid4vp://cb"
+				redirectUri: 'openid4vp://cb',
 			},
-			httpClient
+			httpClient,
 		);
 
-		const { publicKey, privateKey } = await generateKeyPair("ECDH-ES");
+		const { publicKey, privateKey } = await generateKeyPair('ECDH-ES');
 		const rpEphPub = await exportJWK(publicKey);
 		const rpEphPriv = await exportJWK(privateKey);
-		rpEphPub.kid = "kid-e2ee";
-		rpEphPriv.kid = "kid-e2ee";
+		rpEphPub.kid = 'kid-e2ee';
+		rpEphPriv.kid = 'kid-e2ee';
 
 		const rpState = {
-			session_id: "session-e2ee",
+			session_id: 'session-e2ee',
 			is_cross_device: true,
-			signed_request: "signed",
-			state: "session-e2ee",
-			nonce: "nonce",
+			signed_request: 'signed',
+			state: 'session-e2ee',
+			nonce: 'nonce',
 			callback_endpoint: null,
-			audience: "aud",
-			presentation_request_id: "pid",
+			audience: 'aud',
+			presentation_request_id: 'pid',
 			presentation_definition: null,
 			dcql_query: null,
-			rp_eph_kid: "kid-e2ee",
+			rp_eph_kid: 'kid-e2ee',
 			rp_eph_pub: rpEphPub,
 			rp_eph_priv: rpEphPriv,
 			encrypted_response: null,
@@ -601,33 +612,41 @@ describe("OpenID4VPClientAPI.handleEncryptedAuthorizationResponse", () => {
 			claims: null,
 			completed: null,
 			presentation_during_issuance_session: null,
-			date_created: Date.now()
+			date_created: Date.now(),
 		};
 
 		await helper.saveRPState(rpState.session_id, rpState);
-		await kv.set("key:kid-e2ee", rpState.session_id);
+		await kv.set('key:kid-e2ee', rpState.session_id);
 
-		const payload = { state: "session-e2ee", vp_token: { pid: "vp" }, presentation_submission: { id: "ps" } };
+		const payload = {
+			state: 'session-e2ee',
+			vp_token: { pid: 'vp' },
+			presentation_submission: { id: 'ps' },
+		};
 		const jwe = await new CompactEncrypt(new TextEncoder().encode(JSON.stringify(payload)))
-			.setProtectedHeader({ alg: "ECDH-ES", enc: "A256GCM" })
+			.setProtectedHeader({ alg: 'ECDH-ES', enc: 'A256GCM' })
 			.encrypt(publicKey);
 
-		const result = await helper.handleEncryptedAuthorizationResponse(jwe, "kid-e2ee");
+		const result = await helper.handleEncryptedAuthorizationResponse(jwe, 'kid-e2ee');
 		assert(result.ok === true);
 
-		const stored = await helper.getRPStateBySessionId("session-e2ee");
+		const stored = await helper.getRPStateBySessionId('session-e2ee');
 		assert(stored?.completed === true);
 		assert(stored?.response_code);
-		assert(stored?.presentation_submission?.id === "ps");
+		assert(stored?.presentation_submission?.id === 'ps');
 		assert(stored?.vp_token);
 
 		const mapped = await kv.get(`response_code:${stored?.response_code}`);
-		assert(mapped === "session-e2ee");
+		assert(mapped === 'session-e2ee');
 	});
 
-	it("should return errors for missing state, missing vp_token, and completed session", async () => {
+	it('should return errors for missing state, missing vp_token, and completed session', async () => {
 		const kv = new MemoryStore<string, any>();
-		const httpClient: HttpClient = { get: async () => { throw new Error("unexpected http call"); } };
+		const httpClient: HttpClient = {
+			get: async () => {
+				throw new Error('unexpected http call');
+			},
+		};
 
 		const helper = new OpenID4VPClientAPI(
 			kv,
@@ -635,33 +654,33 @@ describe("OpenID4VPClientAPI.handleEncryptedAuthorizationResponse", () => {
 				credentialEngineOptions: {
 					clockTolerance: 0,
 					subtle: crypto.subtle,
-					lang: "en",
+					lang: 'en',
 					trustedCertificates: [],
-					trustedCredentialIssuerIdentifiers: undefined
+					trustedCredentialIssuerIdentifiers: undefined,
 				},
-				redirectUri: "openid4vp://cb"
+				redirectUri: 'openid4vp://cb',
 			},
-			httpClient
+			httpClient,
 		);
 
-		const { publicKey, privateKey } = await generateKeyPair("ECDH-ES");
+		const { publicKey, privateKey } = await generateKeyPair('ECDH-ES');
 		const rpEphPub = await exportJWK(publicKey);
 		const rpEphPriv = await exportJWK(privateKey);
-		rpEphPub.kid = "kid-e2ee-2";
-		rpEphPriv.kid = "kid-e2ee-2";
+		rpEphPub.kid = 'kid-e2ee-2';
+		rpEphPriv.kid = 'kid-e2ee-2';
 
 		const rpState = {
-			session_id: "session-e2ee2",
+			session_id: 'session-e2ee2',
 			is_cross_device: true,
-			signed_request: "signed",
-			state: "session-e2ee2",
-			nonce: "nonce",
+			signed_request: 'signed',
+			state: 'session-e2ee2',
+			nonce: 'nonce',
 			callback_endpoint: null,
-			audience: "aud",
-			presentation_request_id: "pid",
+			audience: 'aud',
+			presentation_request_id: 'pid',
 			presentation_definition: null,
 			dcql_query: null,
-			rp_eph_kid: "kid-e2ee-2",
+			rp_eph_kid: 'kid-e2ee-2',
 			rp_eph_pub: rpEphPub,
 			rp_eph_priv: rpEphPriv,
 			encrypted_response: null,
@@ -671,37 +690,48 @@ describe("OpenID4VPClientAPI.handleEncryptedAuthorizationResponse", () => {
 			claims: null,
 			completed: true,
 			presentation_during_issuance_session: null,
-			date_created: Date.now()
+			date_created: Date.now(),
 		};
 
 		await helper.saveRPState(rpState.session_id, rpState);
-		await kv.set("key:kid-e2ee-2", rpState.session_id);
+		await kv.set('key:kid-e2ee-2', rpState.session_id);
 
-		const payloadMissingState = { vp_token: { pid: "vp" }, presentation_submission: null };
-		const jweMissingState = await new CompactEncrypt(new TextEncoder().encode(JSON.stringify(payloadMissingState)))
-			.setProtectedHeader({ alg: "ECDH-ES", enc: "A256GCM" })
+		const payloadMissingState = { vp_token: { pid: 'vp' }, presentation_submission: null };
+		const jweMissingState = await new CompactEncrypt(
+			new TextEncoder().encode(JSON.stringify(payloadMissingState)),
+		)
+			.setProtectedHeader({ alg: 'ECDH-ES', enc: 'A256GCM' })
 			.encrypt(publicKey);
-		const missingState = await helper.handleEncryptedAuthorizationResponse(jweMissingState, "kid-e2ee-2");
+		const missingState = await helper.handleEncryptedAuthorizationResponse(
+			jweMissingState,
+			'kid-e2ee-2',
+		);
 		assert(missingState.ok === false);
 
-		const payloadMissingVp = { state: "session-e2ee2", presentation_submission: null };
-		const jweMissingVp = await new CompactEncrypt(new TextEncoder().encode(JSON.stringify(payloadMissingVp)))
-			.setProtectedHeader({ alg: "ECDH-ES", enc: "A256GCM" })
+		const payloadMissingVp = { state: 'session-e2ee2', presentation_submission: null };
+		const jweMissingVp = await new CompactEncrypt(
+			new TextEncoder().encode(JSON.stringify(payloadMissingVp)),
+		)
+			.setProtectedHeader({ alg: 'ECDH-ES', enc: 'A256GCM' })
 			.encrypt(publicKey);
-		const missingVp = await helper.handleEncryptedAuthorizationResponse(jweMissingVp, "kid-e2ee-2");
+		const missingVp = await helper.handleEncryptedAuthorizationResponse(jweMissingVp, 'kid-e2ee-2');
 		assert(missingVp.ok === false);
 
-		const payloadOk = { state: "session-e2ee2", vp_token: "vp", presentation_submission: null };
+		const payloadOk = { state: 'session-e2ee2', vp_token: 'vp', presentation_submission: null };
 		const jweOk = await new CompactEncrypt(new TextEncoder().encode(JSON.stringify(payloadOk)))
-			.setProtectedHeader({ alg: "ECDH-ES", enc: "A256GCM" })
+			.setProtectedHeader({ alg: 'ECDH-ES', enc: 'A256GCM' })
 			.encrypt(publicKey);
-		const completed = await helper.handleEncryptedAuthorizationResponse(jweOk, "kid-e2ee-2");
+		const completed = await helper.handleEncryptedAuthorizationResponse(jweOk, 'kid-e2ee-2');
 		assert(completed.ok === false);
 	});
 
-	it("should return error when rpState or decryption is missing/invalid", async () => {
+	it('should return error when rpState or decryption is missing/invalid', async () => {
 		const kv = new MemoryStore<string, any>();
-		const httpClient: HttpClient = { get: async () => { throw new Error("unexpected http call"); } };
+		const httpClient: HttpClient = {
+			get: async () => {
+				throw new Error('unexpected http call');
+			},
+		};
 
 		const helper = new OpenID4VPClientAPI(
 			kv,
@@ -709,36 +739,39 @@ describe("OpenID4VPClientAPI.handleEncryptedAuthorizationResponse", () => {
 				credentialEngineOptions: {
 					clockTolerance: 0,
 					subtle: crypto.subtle,
-					lang: "en",
+					lang: 'en',
 					trustedCertificates: [],
-					trustedCredentialIssuerIdentifiers: undefined
+					trustedCredentialIssuerIdentifiers: undefined,
 				},
-				redirectUri: "openid4vp://cb"
+				redirectUri: 'openid4vp://cb',
 			},
-			httpClient
+			httpClient,
 		);
 
-		const missingRp = await helper.handleEncryptedAuthorizationResponse("invalid.jwe", "missing-kid");
+		const missingRp = await helper.handleEncryptedAuthorizationResponse(
+			'invalid.jwe',
+			'missing-kid',
+		);
 		assert(missingRp.ok === false);
 
-		const { publicKey, privateKey } = await generateKeyPair("ECDH-ES");
+		const { publicKey, privateKey } = await generateKeyPair('ECDH-ES');
 		const rpEphPub = await exportJWK(publicKey);
 		const rpEphPriv = await exportJWK(privateKey);
-		rpEphPub.kid = "kid-e2ee-3";
-		rpEphPriv.kid = "kid-e2ee-3";
+		rpEphPub.kid = 'kid-e2ee-3';
+		rpEphPriv.kid = 'kid-e2ee-3';
 
 		const rpState = {
-			session_id: "session-e2ee3",
+			session_id: 'session-e2ee3',
 			is_cross_device: true,
-			signed_request: "signed",
-			state: "session-e2ee3",
-			nonce: "nonce",
+			signed_request: 'signed',
+			state: 'session-e2ee3',
+			nonce: 'nonce',
 			callback_endpoint: null,
-			audience: "aud",
-			presentation_request_id: "pid",
+			audience: 'aud',
+			presentation_request_id: 'pid',
 			presentation_definition: null,
 			dcql_query: null,
-			rp_eph_kid: "kid-e2ee-3",
+			rp_eph_kid: 'kid-e2ee-3',
 			rp_eph_pub: rpEphPub,
 			rp_eph_priv: rpEphPriv,
 			encrypted_response: null,
@@ -748,18 +781,21 @@ describe("OpenID4VPClientAPI.handleEncryptedAuthorizationResponse", () => {
 			claims: null,
 			completed: null,
 			presentation_during_issuance_session: null,
-			date_created: Date.now()
+			date_created: Date.now(),
 		};
 
 		await helper.saveRPState(rpState.session_id, rpState);
-		await kv.set("key:kid-e2ee-3", rpState.session_id);
+		await kv.set('key:kid-e2ee-3', rpState.session_id);
 
-		const okPayload = { state: "session-e2ee3", vp_token: "vp", presentation_submission: null };
+		const okPayload = { state: 'session-e2ee3', vp_token: 'vp', presentation_submission: null };
 		const okJwe = await new CompactEncrypt(new TextEncoder().encode(JSON.stringify(okPayload)))
-			.setProtectedHeader({ alg: "ECDH-ES", enc: "A256GCM" })
+			.setProtectedHeader({ alg: 'ECDH-ES', enc: 'A256GCM' })
 			.encrypt(publicKey);
-		const tamperedJwe = okJwe.split(".").slice(0, 4).concat("invalid!").join(".");
-		const decryptFail = await helper.handleEncryptedAuthorizationResponse(tamperedJwe, "kid-e2ee-3");
+		const tamperedJwe = okJwe.split('.').slice(0, 4).concat('invalid!').join('.');
+		const decryptFail = await helper.handleEncryptedAuthorizationResponse(
+			tamperedJwe,
+			'kid-e2ee-3',
+		);
 		assert(decryptFail.ok === false);
 	});
 });

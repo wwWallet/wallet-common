@@ -10,7 +10,7 @@ export function serializeDcqlQuery(obj: any): any {
 		return Object.fromEntries(
 			Object.entries(obj)
 				.filter(([key, _]) => !key.startsWith('_'))
-				.map(([key, value]) => [key, serializeDcqlQuery(value)])
+				.map(([key, value]) => [key, serializeDcqlQuery(value)]),
 		);
 	}
 	return obj;

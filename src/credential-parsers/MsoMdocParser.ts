@@ -1,25 +1,34 @@
-import { CredentialParsingError } from "../error";
-import { Context, CredentialParser, HttpClient, CredentialIssuerInfo } from "../interfaces";
-import { cborDecode, DeviceResponse, IssuerSigned } from "@owf/mdoc";
-import { X509Certificate } from "@peculiar/x509";
-import { fromBase64Url } from "../utils/util";
-import { FriendlyNameCallback, ImageDataUriCallback, ParsedCredential, VerifiableCredentialFormat, TypeMetadataResult } from "../types";
-import { CustomCredentialSvg } from "../functions/CustomCredentialSvg";
-import { CredentialRenderingService } from "../rendering";
-import { getIssuerMetadata } from "../utils/getIssuerMetadata";
-import { convertOpenid4vciToSdjwtvcClaims } from "../functions/convertOpenid4vciToSdjwtvcClaims";
-import type { z } from "zod";
-import { OpenidCredentialIssuerMetadataSchema, } from "../schemas";
-import { dataUriResolver } from "../resolvers/dataUriResolver";
-import { friendlyNameResolver } from "../resolvers/friendlyNameResolver";
+import { CredentialParsingError } from '../error';
+import { Context, CredentialParser, HttpClient, CredentialIssuerInfo } from '../interfaces';
+import { cborDecode, DeviceResponse, IssuerSigned } from '@owf/mdoc';
+import { X509Certificate } from '@peculiar/x509';
+import { fromBase64Url } from '../utils/util';
+import {
+	FriendlyNameCallback,
+	ImageDataUriCallback,
+	ParsedCredential,
+	VerifiableCredentialFormat,
+	TypeMetadataResult,
+} from '../types';
+import { CustomCredentialSvg } from '../functions/CustomCredentialSvg';
+import { CredentialRenderingService } from '../rendering';
+import { getIssuerMetadata } from '../utils/getIssuerMetadata';
+import { convertOpenid4vciToSdjwtvcClaims } from '../functions/convertOpenid4vciToSdjwtvcClaims';
+import type { z } from 'zod';
+import { OpenidCredentialIssuerMetadataSchema } from '../schemas';
+import { dataUriResolver } from '../resolvers/dataUriResolver';
+import { friendlyNameResolver } from '../resolvers/friendlyNameResolver';
 
 type IssuerMetadata = z.infer<typeof OpenidCredentialIssuerMetadataSchema>;
 
-export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }): CredentialParser {
+export function MsoMdocParser(args: {
+	context: Context;
+	httpClient: HttpClient;
+}): CredentialParser {
 	const credentialRendering = CredentialRenderingService();
 
 	function looksLikeCborMap(raw: unknown): raw is string {
-		if (typeof raw !== "string") return false;
+		if (typeof raw !== 'string') return false;
 
 		let bytes: Uint8Array;
 		try {
@@ -35,10 +44,14 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 		// Definite maps: 0xA0..0xBB
 		// Indefinite map: 0xBF
 		// 0xBC..0xBE are reserved/invalid.
-		return (first >= 0xA0 && first <= 0xBB) || first === 0xBF;
+		return (first >= 0xa0 && first <= 0xbb) || first === 0xbf;
 	}
 
-	function extractValidityInfo(issuerSigned: IssuerSigned): { validUntil?: Date, validFrom?: Date, signed?: Date } {
+	function extractValidityInfo(issuerSigned: IssuerSigned): {
+		validUntil?: Date;
+		validFrom?: Date;
+		signed?: Date;
+	} {
 		const validityInfo = issuerSigned.issuerAuth.mobileSecurityObject.validityInfo;
 		return {
 			signed: validityInfo.signed,
@@ -49,13 +62,16 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 
 	function collectAllAttrValues(issuerSigned: IssuerSigned): Record<string, unknown> {
 		const issuerNamespaces = issuerSigned.issuerNamespaces?.issuerNamespaces ?? new Map();
-		return Array.from(issuerNamespaces.entries()).reduce<Record<string, unknown>>((acc, [ns, items]) => {
-			acc[ns] = items.reduce<Record<string, unknown>>((nsAcc, item) => {
-				nsAcc[item.elementIdentifier] = item.elementValue;
-				return nsAcc;
-			}, {});
-			return acc;
-		}, {});
+		return Array.from(issuerNamespaces.entries()).reduce<Record<string, unknown>>(
+			(acc, [ns, items]) => {
+				acc[ns] = items.reduce<Record<string, unknown>>((nsAcc, item) => {
+					nsAcc[item.elementIdentifier] = item.elementValue;
+					return nsAcc;
+				}, {});
+				return acc;
+			},
+			{},
+		);
 	}
 
 	function extractIssuerName(issuerSigned: IssuerSigned): string {
@@ -63,32 +79,40 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 			const certificateBytes = new Uint8Array(issuerSigned.issuerAuth.certificate);
 			return new X509Certificate(certificateBytes).issuerName.toString();
 		} catch {
-			return "Unknown issuer";
+			return 'Unknown issuer';
 		}
 	}
 
 	async function fetchIssuerMetadataAndDocs(
-		credentialIssuer?: CredentialIssuerInfo | null
+		credentialIssuer?: CredentialIssuerInfo | null,
 	): Promise<{ issuerMetadata: IssuerMetadata | null; TypeMetadata: TypeMetadataResult }> {
 		let issuerMetadata: IssuerMetadata | null = null;
 		let TypeMetadata: TypeMetadataResult = {};
 
 		try {
 			if (credentialIssuer?.credentialIssuerIdentifier) {
-				const { metadata } = await getIssuerMetadata(args.httpClient, credentialIssuer.credentialIssuerIdentifier, []);
+				const { metadata } = await getIssuerMetadata(
+					args.httpClient,
+					credentialIssuer.credentialIssuerIdentifier,
+					[],
+				);
 				issuerMetadata = metadata ?? null;
 
 				const issuerClaimsArray = credentialIssuer?.credentialConfigurationId
-					? issuerMetadata?.credential_configurations_supported?.[credentialIssuer.credentialConfigurationId]?.credential_metadata?.claims
+					? issuerMetadata?.credential_configurations_supported?.[
+							credentialIssuer.credentialConfigurationId
+						]?.credential_metadata?.claims
 					: undefined;
 
-				const convertedClaims = issuerClaimsArray ? convertOpenid4vciToSdjwtvcClaims(issuerClaimsArray) : undefined;
+				const convertedClaims = issuerClaimsArray
+					? convertOpenid4vciToSdjwtvcClaims(issuerClaimsArray)
+					: undefined;
 				if (convertedClaims?.length) {
 					TypeMetadata = { claims: convertedClaims };
 				}
 			}
 		} catch (e) {
-			console.warn("Issuer metadata unavailable or invalid:", e);
+			console.warn('Issuer metadata unavailable or invalid:', e);
 		}
 
 		return { issuerMetadata, TypeMetadata };
@@ -100,7 +124,7 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 		signedClaims: Record<string, unknown>,
 		TypeMetadata: TypeMetadataResult,
 		friendlyName: FriendlyNameCallback,
-		dataUri: ImageDataUriCallback
+		dataUri: ImageDataUriCallback,
 	): ParsedCredential {
 		const issuerName = extractIssuerName(issuerSigned);
 
@@ -111,21 +135,21 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 					doctype: docType,
 					TypeMetadata,
 					image: { dataUri },
-					name: friendlyName
+					name: friendlyName,
 				},
 				issuer: {
 					id: issuerName,
-					name: issuerName
-				}
+					name: issuerName,
+				},
 			},
 			signedClaims: { ...signedClaims },
-			validityInfo: { ...extractValidityInfo(issuerSigned) }
+			validityInfo: { ...extractValidityInfo(issuerSigned) },
 		};
 	}
 
 	async function deviceResponseParser(
 		rawCredential: string,
-		credentialIssuer?: CredentialIssuerInfo | null
+		credentialIssuer?: CredentialIssuerInfo | null,
 	): Promise<ParsedCredential | null> {
 		try {
 			const decodedCred = fromBase64Url(rawCredential);
@@ -138,12 +162,14 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 			const { issuerMetadata, TypeMetadata } = await fetchIssuerMetadataAndDocs(credentialIssuer);
 
 			const issuerDisplayArray = credentialIssuer?.credentialConfigurationId
-				? issuerMetadata?.credential_configurations_supported?.[credentialIssuer.credentialConfigurationId]?.credential_metadata?.display
+				? issuerMetadata?.credential_configurations_supported?.[
+						credentialIssuer.credentialConfigurationId
+					]?.credential_metadata?.display
 				: undefined;
 
 			const friendlyName = friendlyNameResolver({
 				issuerDisplayArray,
-				fallbackName: "mdoc Verifiable Credential",
+				fallbackName: 'mdoc Verifiable Credential',
 			});
 
 			const dataUri = dataUriResolver({
@@ -153,10 +179,17 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 				issuerDisplayArray,
 				sdJwtVcRenderer: credentialRendering,
 				sdJwtVcMetadataClaims: TypeMetadata.claims,
-				fallbackName: "mdoc Verifiable Credential",
+				fallbackName: 'mdoc Verifiable Credential',
 			});
 
-			return toParsedCredential(parsedDocument.docType, parsedDocument.issuerSigned, signedClaims, TypeMetadata, friendlyName, dataUri);
+			return toParsedCredential(
+				parsedDocument.docType,
+				parsedDocument.issuerSigned,
+				signedClaims,
+				TypeMetadata,
+				friendlyName,
+				dataUri,
+			);
 		} catch {
 			return null;
 		}
@@ -164,7 +197,7 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 
 	async function issuerSignedParser(
 		rawCredential: string,
-		credentialIssuer?: CredentialIssuerInfo | null
+		credentialIssuer?: CredentialIssuerInfo | null,
 	): Promise<ParsedCredential | null> {
 		try {
 			const credentialBytes = fromBase64Url(rawCredential);
@@ -176,12 +209,14 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 			const { issuerMetadata, TypeMetadata } = await fetchIssuerMetadataAndDocs(credentialIssuer);
 
 			const issuerDisplayArray = credentialIssuer?.credentialConfigurationId
-				? issuerMetadata?.credential_configurations_supported?.[credentialIssuer.credentialConfigurationId]?.credential_metadata?.display
+				? issuerMetadata?.credential_configurations_supported?.[
+						credentialIssuer.credentialConfigurationId
+					]?.credential_metadata?.display
 				: undefined;
 
 			const friendlyName = friendlyNameResolver({
 				issuerDisplayArray,
-				fallbackName: "mdoc Verifiable Credential",
+				fallbackName: 'mdoc Verifiable Credential',
 			});
 
 			const dataUri = dataUriResolver({
@@ -191,10 +226,17 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 				issuerDisplayArray,
 				sdJwtVcRenderer: credentialRendering,
 				sdJwtVcMetadataClaims: TypeMetadata.claims,
-				fallbackName: "mdoc Verifiable Credential",
+				fallbackName: 'mdoc Verifiable Credential',
 			});
 
-			return toParsedCredential(docType, issuerSigned, signedClaims, TypeMetadata, friendlyName, dataUri);
+			return toParsedCredential(
+				docType,
+				issuerSigned,
+				signedClaims,
+				TypeMetadata,
+				friendlyName,
+				dataUri,
+			);
 		} catch {
 			return null;
 		}
@@ -209,26 +251,32 @@ export function MsoMdocParser(args: { context: Context, httpClient: HttpClient }
 				};
 			}
 
-			const deviceResponseParsingResult = await deviceResponseParser(rawCredential, credentialIssuer ?? null);
+			const deviceResponseParsingResult = await deviceResponseParser(
+				rawCredential,
+				credentialIssuer ?? null,
+			);
 			if (deviceResponseParsingResult) {
 				return {
 					success: true,
-					value: deviceResponseParsingResult
-				}
+					value: deviceResponseParsingResult,
+				};
 			}
 
-			const issuerSignedParsingResult = await issuerSignedParser(rawCredential, credentialIssuer ?? null);
+			const issuerSignedParsingResult = await issuerSignedParser(
+				rawCredential,
+				credentialIssuer ?? null,
+			);
 			if (issuerSignedParsingResult) {
 				return {
 					success: true,
 					value: issuerSignedParsingResult,
-				}
+				};
 			}
 
 			return {
 				success: false,
 				error: CredentialParsingError.CouldNotParse,
-			}
+			};
 		},
-	}
+	};
 }
