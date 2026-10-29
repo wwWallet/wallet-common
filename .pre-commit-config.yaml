@@ -4,14 +4,32 @@ repos:
     hooks:
       - id: end-of-file-fixer
         name: Minor auto-fixes
-        exclude: ^(node_modules|assets|dist|build|public)/
+        exclude: ^(node_modules|dist|output|build)/
+
+  - repo: https://github.com/editorconfig-checker/editorconfig-checker
+    rev: v4.0.2
+    hooks:
+      - id: editorconfig-checker
+        name: Check .editorconfig rules
+        args: ['-no-color']
+        types_or: [text]
 
   - repo: local
     hooks:
-      - id: editorconfig-checker-docker
-        name: Check .editorconfig rules
-        language: docker_image
-        entry: mstruebing/editorconfig-checker:latest
-        args: ["ec", "-no-color"]
-        types_or: [text]
-        exclude: ^(node_modules|assets|dist|build|public)/
+      - id: prettier
+        name: Check Prettier formatting
+        entry: yarn format:check
+        language: system
+        pass_filenames: false
+
+      - id: eslint
+        name: Check ESLint rules
+        entry: yarn lint
+        language: system
+        pass_filenames: false
+
+      - id: typecheck
+        name: Check TypeScript types
+        entry: yarn typecheck
+        language: system
+        pass_filenames: false

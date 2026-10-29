@@ -1,4 +1,4 @@
-import type { JWK } from "jose";
+import type { JWK } from 'jose';
 
 export type ClaimRecord = {
 	key: string;
@@ -10,7 +10,7 @@ export type PresentationClaims = Record<string, ClaimRecord[]>;
 
 export type PresentationInfo = {
 	[descriptor_id: string]: Array<string>;
-}
+};
 
 export interface RPState {
 	session_id: string;
@@ -60,8 +60,8 @@ export type CredentialEngineOptions = {
 };
 
 export type OpenID4VPOptions = {
-	credentialEngineOptions: CredentialEngineOptions,
-	redirectUri: string
+	credentialEngineOptions: CredentialEngineOptions;
+	redirectUri: string;
 };
 
 export type CredentialIssuerMetadata = {
@@ -73,19 +73,19 @@ export type IacasResponse = {
 };
 
 export enum OpenID4VPResponseMode {
-	DIRECT_POST = "direct_post",
-	DIRECT_POST_JWT = "direct_post.jwt",
-	DC_API = "dc_api",
-	DC_API_JWT = "dc_api.jwt",
+	DIRECT_POST = 'direct_post',
+	DIRECT_POST_JWT = 'direct_post.jwt',
+	DC_API = 'dc_api',
+	DC_API_JWT = 'dc_api.jwt',
 }
 
 export enum OpenID4VPJweEncryption {
-	A128GCM = "A128GCM",
-	A192GCM = "A192GCM",
-	A256GCM = "A256GCM",
+	A128GCM = 'A128GCM',
+	A192GCM = 'A192GCM',
+	A256GCM = 'A256GCM',
 }
 
-export type OpenID4VPClientIdScheme = "x509_san_dns" | "x509_hash";
+export type OpenID4VPClientIdScheme = 'x509_san_dns' | 'x509_hash';
 
 export type OpenID4VPClientMetadata = {
 	jwks?: { keys: any[] };
@@ -127,7 +127,9 @@ export type TransactionDataResponseParams = {
 };
 
 export type TransactionDataResponseGenerator = {
-	generateTransactionDataResponse(transaction_data: string[]): Promise<[TransactionDataResponseParams | null, Error | null]>;
+	generateTransactionDataResponse(
+		transaction_data: string[],
+	): Promise<[TransactionDataResponseParams | null, Error | null]>;
 };
 
 export type TransactionDataResponseGeneratorParams = {

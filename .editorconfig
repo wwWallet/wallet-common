@@ -1,5 +1,7 @@
 # EditorConfig: https://EditorConfig.org
 
+root = true
+
 [*]
 charset = utf-8
 # Type of newline is managed by git in .gitattributes

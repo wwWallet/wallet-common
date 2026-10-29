@@ -1,8 +1,8 @@
-import { SDJwt } from "@sd-jwt/core";
-import { IssuerSigned } from "@owf/mdoc";
-import { base64url, EncryptJWT, importJWK, importX509, jwtVerify } from "jose";
-import { DcqlPresentationResult, DcqlQuery } from "dcql";
-import { generateRandomIdentifier } from "../../utils";
+import { SDJwt } from '@sd-jwt/core';
+import { IssuerSigned } from '@owf/mdoc';
+import { base64url, EncryptJWT, importJWK, importX509, jwtVerify } from 'jose';
+import { DcqlPresentationResult, DcqlQuery } from 'dcql';
+import { generateRandomIdentifier } from '../../utils';
 import {
 	OpenID4VPClientMetadata,
 	OpenID4VPRelyingPartyState,
@@ -13,29 +13,30 @@ import {
 	OpenID4VPJweEncryption,
 	TransactionDataResponseGenerator,
 	TransactionDataResponseGeneratorParams,
-	TransactionDataResponseParams
-} from "./types";
-import { VerifiableCredentialFormat } from "../../types";
+	TransactionDataResponseParams,
+} from './types';
+import { VerifiableCredentialFormat } from '../../types';
 export const HandleAuthorizationRequestErrors = {
-	NON_SUPPORTED_CLIENT_ID_SCHEME: "non_supported_client_id_scheme",
-	INSUFFICIENT_CREDENTIALS: "insufficient_credentials",
-	MISSING_DCQL_QUERY: "missing_dcql_query",
-	NONTRUSTED_VERIFIER: "nontrusted_verifier",
-	INVALID_RESPONSE_MODE: "invalid_response_mode",
-	OLD_STATE: "old_state",
-	INVALID_TRANSACTION_DATA: "invalid_transaction_data",
-	INVALID_TYP: "invalid_jwt_typ",
-	COULD_NOT_RESOLVE_REQUEST: "could_not_resolve_request",
+	NON_SUPPORTED_CLIENT_ID_SCHEME: 'non_supported_client_id_scheme',
+	INSUFFICIENT_CREDENTIALS: 'insufficient_credentials',
+	MISSING_DCQL_QUERY: 'missing_dcql_query',
+	NONTRUSTED_VERIFIER: 'nontrusted_verifier',
+	INVALID_RESPONSE_MODE: 'invalid_response_mode',
+	OLD_STATE: 'old_state',
+	INVALID_TRANSACTION_DATA: 'invalid_transaction_data',
+	INVALID_TYP: 'invalid_jwt_typ',
+	COULD_NOT_RESOLVE_REQUEST: 'could_not_resolve_request',
 } as const;
 
-export type HandleAuthorizationRequestError = typeof HandleAuthorizationRequestErrors[keyof typeof HandleAuthorizationRequestErrors];
+export type HandleAuthorizationRequestError =
+	(typeof HandleAuthorizationRequestErrors)[keyof typeof HandleAuthorizationRequestErrors];
 
 type OpenID4VPServerKeystore = {
 	signJwtPresentation(
 		nonce: string,
 		audience: string,
 		presentations: string[],
-		transactionDataResponseParams?: TransactionDataResponseParams
+		transactionDataResponseParams?: TransactionDataResponseParams,
 	): Promise<{ vpjwt: string }>;
 	generateDeviceResponse(
 		mdoc: any,
@@ -45,24 +46,36 @@ type OpenID4VPServerKeystore = {
 		clientId: string,
 		responseUri: string,
 		verifierEncryptionJwk?: JsonWebKey | Record<string, unknown>,
-		handoverType?: "redirect" | "dc_api",
-		dcApiOrigin?: string
+		handoverType?: 'redirect' | 'dc_api',
+		dcApiOrigin?: string,
 	): Promise<{ deviceResponseMDoc: any }>;
 };
 
 type OpenID4VPServerDeps<CredentialT extends OpenID4VPServerCredential, ParsedTransactionDataT> = {
-	httpClient: { get: (url: string, options?: Record<string, unknown>) => Promise<{ data: unknown }> };
+	httpClient: {
+		get: (url: string, options?: Record<string, unknown>) => Promise<{ data: unknown }>;
+	};
 	rpStateStore: {
 		store(stateObject: OpenID4VPRelyingPartyState): Promise<void>;
 		retrieve(): Promise<OpenID4VPRelyingPartyState>;
 	};
-	parseCredential: (credential: CredentialT) => Promise<{ signedClaims: Record<string, unknown> } | null>;
-	selectCredentialForBatch: (batchId: number, vcEntityList: CredentialT[]) => Promise<CredentialT | null>;
+	parseCredential: (
+		credential: CredentialT,
+	) => Promise<{ signedClaims: Record<string, unknown> } | null>;
+	selectCredentialForBatch: (
+		batchId: number,
+		vcEntityList: CredentialT[],
+	) => Promise<CredentialT | null>;
 	keystore: OpenID4VPServerKeystore;
 	strings: OpenID4VPServerMessages;
 	lastUsedNonceStore?: OpenID4VPServerLastUsedNonceStore;
-	parseTransactionData?: (transaction_data: string[], dcql_query: Record<string, unknown>) => ParsedTransactionDataT[] | null;
-	transactionDataResponseGenerator?: (params: TransactionDataResponseGeneratorParams) => TransactionDataResponseGenerator;
+	parseTransactionData?: (
+		transaction_data: string[],
+		dcql_query: Record<string, unknown>,
+	) => ParsedTransactionDataT[] | null;
+	transactionDataResponseGenerator?: (
+		params: TransactionDataResponseGeneratorParams,
+	) => TransactionDataResponseGenerator;
 	verifyRequestUriAndCerts?: OpenID4VPServerRequestVerifier;
 	subtle?: SubtleCrypto;
 	randomUUID?: () => string;
@@ -79,8 +92,8 @@ export type OpenID4VPServerCredential = {
 const decoder = new TextDecoder();
 const encoder = new TextEncoder();
 const certFromB64 = (certBase64: string) =>
-	`-----BEGIN CERTIFICATE-----\n${certBase64.match(/.{1,64}/g)?.join("\n")}\n-----END CERTIFICATE-----`;
-const supportedClientIdSchemes = new Set(["x509_san_dns", "x509_hash"]);
+	`-----BEGIN CERTIFICATE-----\n${certBase64.match(/.{1,64}/g)?.join('\n')}\n-----END CERTIFICATE-----`;
+const supportedClientIdSchemes = new Set(['x509_san_dns', 'x509_hash']);
 const preferredJweEncryptions = [
 	OpenID4VPJweEncryption.A256GCM,
 	OpenID4VPJweEncryption.A192GCM,
@@ -98,8 +111,7 @@ function decodeIssuerSignedCredential(credentialDataB64u: string): {
 	const docType = issuerSigned.issuerAuth.mobileSecurityObject.docType;
 	const issuerNamespaces = issuerSigned.issuerNamespaces?.issuerNamespaces ?? new Map();
 	const firstNamespaceEntry = issuerNamespaces.entries().next().value as
-		| [string, Array<{ elementIdentifier: string; elementValue: unknown }>]
-		| undefined;
+		[string, Array<{ elementIdentifier: string; elementValue: unknown }>] | undefined;
 
 	if (!firstNamespaceEntry) {
 		return {
@@ -125,23 +137,29 @@ function decodeIssuerSignedCredential(credentialDataB64u: string): {
 }
 
 function isOpenID4VPResponseMode(value: unknown): value is OpenID4VPResponseMode {
-	return typeof value === "string" && Object.values(OpenID4VPResponseMode).includes(value as OpenID4VPResponseMode);
+	return (
+		typeof value === 'string' &&
+		Object.values(OpenID4VPResponseMode).includes(value as OpenID4VPResponseMode)
+	);
 }
 
 function getSubtleCrypto(subtle?: SubtleCrypto): SubtleCrypto {
 	if (subtle) return subtle;
 	if (globalThis.crypto?.subtle) return globalThis.crypto.subtle;
-	throw new Error("Missing SubtleCrypto implementation");
+	throw new Error('Missing SubtleCrypto implementation');
 }
 
 function getClientIdScheme(clientId: string): string {
-	return clientId.split(":")[0];
+	return clientId.split(':')[0];
 }
 
-async function calculateX509HashFromLeafCert(leafCertBase64: string, subtle?: SubtleCrypto): Promise<string> {
+async function calculateX509HashFromLeafCert(
+	leafCertBase64: string,
+	subtle?: SubtleCrypto,
+): Promise<string> {
 	let certBytes: Uint8Array;
-	if (typeof Buffer !== "undefined") {
-		certBytes = Uint8Array.from(Buffer.from(leafCertBase64, "base64"));
+	if (typeof Buffer !== 'undefined') {
+		certBytes = Uint8Array.from(Buffer.from(leafCertBase64, 'base64'));
 	} else {
 		const binary = atob(leafCertBase64);
 		certBytes = new Uint8Array(binary.length);
@@ -149,15 +167,23 @@ async function calculateX509HashFromLeafCert(leafCertBase64: string, subtle?: Su
 			certBytes[i] = binary.charCodeAt(i);
 		}
 	}
-	const digest = await getSubtleCrypto(subtle).digest("SHA-256", certBytes as Uint8Array<ArrayBuffer>);
+	const digest = await getSubtleCrypto(subtle).digest(
+		'SHA-256',
+		certBytes as Uint8Array<ArrayBuffer>,
+	);
 	return base64url.encode(new Uint8Array(digest));
 }
 
-export const retrieveKeys = async (S: OpenID4VPRelyingPartyState, httpClient: { get: (url: string, options?: Record<string, unknown>) => Promise<{ data: unknown }> }) => {
+export const retrieveKeys = async (
+	S: OpenID4VPRelyingPartyState,
+	httpClient: {
+		get: (url: string, options?: Record<string, unknown>) => Promise<{ data: unknown }>;
+	},
+) => {
 	if (S.client_metadata.jwks) {
-		const rp_eph_pub_jwk = S.client_metadata.jwks.keys.filter((k) => k.use === "enc")[0];
+		const rp_eph_pub_jwk = S.client_metadata.jwks.keys.filter((k) => k.use === 'enc')[0];
 		if (!rp_eph_pub_jwk) {
-			throw new Error("Could not find Relying Party public key for encryption");
+			throw new Error('Could not find Relying Party public key for encryption');
 		}
 		if (!rp_eph_pub_jwk.alg) {
 			throw new Error("alg is required in verifier's JWK");
@@ -166,11 +192,16 @@ export const retrieveKeys = async (S: OpenID4VPRelyingPartyState, httpClient: { 
 	}
 	if (S.client_metadata.jwks_uri) {
 		const response = await httpClient.get(S.client_metadata.jwks_uri).catch(() => null);
-		if (response && typeof response.data === "object" && response.data && "keys" in (response.data as Record<string, unknown>)) {
+		if (
+			response &&
+			typeof response.data === 'object' &&
+			response.data &&
+			'keys' in (response.data as Record<string, unknown>)
+		) {
 			const keys = (response.data as { keys: any[] }).keys;
-			const rp_eph_pub_jwk = keys.filter((k) => k.use === "enc")[0];
+			const rp_eph_pub_jwk = keys.filter((k) => k.use === 'enc')[0];
 			if (!rp_eph_pub_jwk) {
-				throw new Error("Could not find Relying Party public key for encryption");
+				throw new Error('Could not find Relying Party public key for encryption');
 			}
 			if (!rp_eph_pub_jwk.alg) {
 				throw new Error("alg is required in verifier's JWK");
@@ -178,10 +209,13 @@ export const retrieveKeys = async (S: OpenID4VPRelyingPartyState, httpClient: { 
 			return { rp_eph_pub_jwk, alg: rp_eph_pub_jwk.alg };
 		}
 	}
-	throw new Error("Could not find Relying Party public key for encryption");
+	throw new Error('Could not find Relying Party public key for encryption');
 };
 
-export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, ParsedTransactionDataT> {
+export class OpenID4VPServerAPI<
+	CredentialT extends OpenID4VPServerCredential,
+	ParsedTransactionDataT,
+> {
 	private deps: OpenID4VPServerDeps<CredentialT, ParsedTransactionDataT>;
 
 	constructor(deps: OpenID4VPServerDeps<CredentialT, ParsedTransactionDataT>) {
@@ -193,39 +227,43 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		const searchParams = authorizationRequest.searchParams;
 
 		return {
-			client_id: searchParams.get("client_id"),
-			response_uri: searchParams.get("response_uri"),
-			nonce: searchParams.get("nonce"),
-			state: searchParams.get("state") as string,
-			client_metadata: searchParams.get("client_metadata")
-				? JSON.parse(searchParams.get("client_metadata") as string)
+			client_id: searchParams.get('client_id'),
+			response_uri: searchParams.get('response_uri'),
+			nonce: searchParams.get('nonce'),
+			state: searchParams.get('state') as string,
+			client_metadata: searchParams.get('client_metadata')
+				? JSON.parse(searchParams.get('client_metadata') as string)
 				: null,
-			response_mode: searchParams.get("response_mode")
-				? JSON.parse(searchParams.get("response_mode") as string)
+			response_mode: searchParams.get('response_mode')
+				? JSON.parse(searchParams.get('response_mode') as string)
 				: null,
-			transaction_data: searchParams.get("transaction_data")
-				? JSON.parse(searchParams.get("transaction_data") as string)
+			transaction_data: searchParams.get('transaction_data')
+				? JSON.parse(searchParams.get('transaction_data') as string)
 				: null,
-			request_uri: searchParams.get("request_uri"),
-			dcql_query: searchParams.get("dcql_query")
-				? JSON.parse(searchParams.get("dcql_query") as string)
+			request_uri: searchParams.get('request_uri'),
+			dcql_query: searchParams.get('dcql_query')
+				? JSON.parse(searchParams.get('dcql_query') as string)
 				: null,
 		};
 	}
 
 	private async handleRequestUri(request_uri: string): Promise<
-		{ payload: Record<string, unknown>; parsedHeader: Record<string, unknown>; leafCertBase64: string } |
-		{ error: HandleAuthorizationRequestError }
+		| {
+				payload: Record<string, unknown>;
+				parsedHeader: Record<string, unknown>;
+				leafCertBase64: string;
+		  }
+		| { error: HandleAuthorizationRequestError }
 	> {
 		const requestUriResponse = await this.deps.httpClient.get(request_uri, {});
-		if (typeof requestUriResponse.data !== "string") {
+		if (typeof requestUriResponse.data !== 'string') {
 			return { error: HandleAuthorizationRequestErrors.COULD_NOT_RESOLVE_REQUEST };
 		}
 		const jwt = requestUriResponse.data;
-		const [header, payload] = jwt.split(".");
+		const [header, payload] = jwt.split('.');
 		const parsedHeader = JSON.parse(decoder.decode(base64url.decode(header)));
 
-		if (parsedHeader.typ !== "oauth-authz-req+jwt") {
+		if (parsedHeader.typ !== 'oauth-authz-req+jwt') {
 			return { error: HandleAuthorizationRequestErrors.INVALID_TYP };
 		}
 		const x5c = parsedHeader.x5c as string[];
@@ -242,8 +280,20 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		return { payload: decodedPayload, parsedHeader, leafCertBase64 };
 	}
 
-	private async matchCredentialsToDCQL(vcList: CredentialT[], dcqlJson: any): Promise<
-		| { mapping: Map<string, { credentials: number[]; requestedFields: { name: string; purpose: string; path?: (string | null)[] }[] }>; descriptorPurpose: string }
+	private async matchCredentialsToDCQL(
+		vcList: CredentialT[],
+		dcqlJson: any,
+	): Promise<
+		| {
+				mapping: Map<
+					string,
+					{
+						credentials: number[];
+						requestedFields: { name: string; purpose: string; path?: (string | null)[] }[];
+					}
+				>;
+				descriptorPurpose: string;
+		  }
 		| { error: HandleAuthorizationRequestError }
 	> {
 		const descriptorPurpose = this.deps.strings.purposeNotSpecified ?? null;
@@ -277,7 +327,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 				}
 				shapedCredentials.push(shaped);
 			} catch (e) {
-				console.error("DCQL shaping error for this VC:", e);
+				console.error('DCQL shaping error for this VC:', e);
 			}
 		}
 		if (shapedCredentials.length === 0) {
@@ -294,14 +344,18 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 			if (match?.success === false) {
 				match.failed_credentials?.forEach((failedCreds: any) => {
 					if (failedCreds.meta.success === false) {
-						console.error("DCQL metadata issues: ", failedCreds.meta.issues);
+						console.error('DCQL metadata issues: ', failedCreds.meta.issues);
 					}
 					if (!failedCreds.claims.success) {
-						console.error("DCQL failed claims: ", failedCreds.claims);
+						console.error('DCQL failed claims: ', failedCreds.claims);
 					}
 				});
 			}
-			return match?.success === true && Array.isArray(match.valid_credentials) && match.valid_credentials.length > 0;
+			return (
+				match?.success === true &&
+				Array.isArray(match.valid_credentials) &&
+				match.valid_credentials.length > 0
+			);
 		}
 
 		const satisfied = dcqlJson.credentials.every((cred: any) => hasValidMatch(cred.id));
@@ -310,7 +364,13 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		}
 
 		// Build the mapping for each credential query
-		const mapping = new Map<string, { credentials: number[]; requestedFields: { name: string; purpose: string; path?: (string | null)[] }[] }>();
+		const mapping = new Map<
+			string,
+			{
+				credentials: number[];
+				requestedFields: { name: string; purpose: string; path?: (string | null)[] }[];
+			}
+		>();
 		for (const credReq of dcqlJson.credentials) {
 			const match = result.credential_matches[credReq.id];
 			const conforming: number[] = [];
@@ -326,12 +386,18 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 				credentials: conforming,
 				requestedFields:
 					!credReq.claims || credReq.claims.length === 0
-						? [{ name: this.deps.strings.allClaimsRequested, purpose: descriptorPurpose, path: [null] }]
+						? [
+								{
+									name: this.deps.strings.allClaimsRequested,
+									purpose: descriptorPurpose,
+									path: [null],
+								},
+							]
 						: credReq.claims.map((cl: any) => ({
-							name: cl.id || cl.path.join("."),
-							purpose: descriptorPurpose,
-							path: cl.path,
-						})),
+								name: cl.id || cl.path.join('.'),
+								purpose: descriptorPurpose,
+								path: cl.path,
+							})),
 			});
 		}
 
@@ -363,19 +429,23 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 	private async handleDCQLFlow(
 		S: OpenID4VPRelyingPartyState,
 		selectionMap: Map<string, number>,
-		vcEntityList: CredentialT[]
+		vcEntityList: CredentialT[],
 	) {
 		const { dcql_query, client_id, nonce, response_uri, transaction_data } = S;
 		let verifierEncryptionJwk: JsonWebKey | Record<string, unknown> | undefined;
-		let handoverType: "redirect" | "dc_api" = "redirect";
+		let handoverType: 'redirect' | 'dc_api' = 'redirect';
 		let dcApiOrigin: string | undefined;
-		if ([OpenID4VPResponseMode.DIRECT_POST_JWT, OpenID4VPResponseMode.DC_API_JWT].includes(S.response_mode)) {
+		if (
+			[OpenID4VPResponseMode.DIRECT_POST_JWT, OpenID4VPResponseMode.DC_API_JWT].includes(
+				S.response_mode,
+			)
+		) {
 			const { rp_eph_pub_jwk } = await retrieveKeys(S, this.deps.httpClient);
 			verifierEncryptionJwk = rp_eph_pub_jwk as JsonWebKey | Record<string, unknown>;
 		}
 		if (S.response_mode === OpenID4VPResponseMode.DC_API_JWT) {
-			handoverType = "dc_api";
-			dcApiOrigin = S.client_id.replace(/^origin:/, "");
+			handoverType = 'dc_api';
+			dcApiOrigin = S.client_id.replace(/^origin:/, '');
 		}
 		const generatedVPs: string[] = [];
 		const originalVCs: CredentialT[] = [];
@@ -394,7 +464,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 				}
 				const parsed = await this.deps.parseCredential(credential);
 				if (!parsed) {
-					throw new Error("Failed to parse credential");
+					throw new Error('Failed to parse credential');
 				}
 				const { signedClaims } = parsed;
 
@@ -403,7 +473,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 				if (!descriptor.claims || descriptor.claims.length === 0) {
 					paths = [];
 					const getNestedPaths = (val: any, path: string[]) => {
-						if (val === null || typeof val !== "object") {
+						if (val === null || typeof val !== 'object') {
 							if (path.length) paths.push(path);
 							return;
 						}
@@ -432,14 +502,15 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 				const frame = this.generatePresentationFrameForDCQLPaths(paths);
 				const subtle = getSubtleCrypto(this.deps.subtle);
 				const hasher = (data: string | ArrayBuffer, alg: string) => {
-					const bytes = typeof data === "string" ? encoder.encode(data) : new Uint8Array(data);
+					const bytes = typeof data === 'string' ? encoder.encode(data) : new Uint8Array(data);
 					return subtle.digest(alg, bytes).then((buf) => new Uint8Array(buf));
 				};
 
 				const sdJwt = await SDJwt.fromEncode(credential.data, hasher);
-				const presentation = credential.data.split("~").length - 1 > 1
-					? await sdJwt.present(frame, hasher)
-					: credential.data;
+				const presentation =
+					credential.data.split('~').length - 1 > 1
+						? await sdJwt.present(frame, hasher)
+						: credential.data;
 
 				const shaped = {
 					credential_format: credential.format,
@@ -449,14 +520,14 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 						!descriptor.claims || descriptor.claims.length === 0
 							? signedClaims
 							: Object.fromEntries(
-								Object.entries(signedClaims).filter(([k]) =>
-									descriptor.claims.some((cl: any) => cl.path.includes(k))
-								)
-							)
+									Object.entries(signedClaims).filter(([k]) =>
+										descriptor.claims.some((cl: any) => cl.path.includes(k)),
+									),
+								),
 				};
 				const presResult = DcqlPresentationResult.fromDcqlPresentation(
 					{ [selectionKey]: [shaped] } as any,
-					{ dcqlQuery: dcql_query as any }
+					{ dcqlQuery: dcql_query as any },
 				);
 				if (!presResult.credential_matches[selectionKey]?.success) {
 					throw new Error(`Presentation for '${selectionKey}' did not satisfy DCQL`);
@@ -479,7 +550,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 					nonce,
 					client_id,
 					[presentation],
-					transactionDataResponseParams
+					transactionDataResponseParams,
 				);
 
 				generatedVPs.push(vpjwt);
@@ -490,7 +561,8 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 					throw new Error(`No DCQL descriptor for id ${selectionKey}`);
 				}
 				const descriptorId = descriptor.meta?.doctype_value;
-				const { issuerSigned, docType, namespaceName, namespaceClaims } = decodeIssuerSignedCredential(credential.data);
+				const { issuerSigned, docType, namespaceName, namespaceClaims } =
+					decodeIssuerSignedCredential(credential.data);
 				const effectiveDocType = descriptorId ?? docType;
 				const mdoc = {
 					documents: [
@@ -504,10 +576,14 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 				let dcqlQueryWithClaims: any;
 				if (!descriptor.claims || descriptor.claims.length === 0) {
 					dcqlQueryWithClaims = JSON.parse(JSON.stringify(dcql_query));
-					const descriptorIndex = dcqlQueryWithClaims.credentials.findIndex((c: any) => c.id === selectionKey);
+					const descriptorIndex = dcqlQueryWithClaims.credentials.findIndex(
+						(c: any) => c.id === selectionKey,
+					);
 					if (descriptorIndex !== -1) {
 						const namespaceForPaths = namespaceName ?? effectiveDocType;
-						dcqlQueryWithClaims.credentials[descriptorIndex].claims = Object.keys(namespaceClaims).map((key) => ({
+						dcqlQueryWithClaims.credentials[descriptorIndex].claims = Object.keys(
+							namespaceClaims,
+						).map((key) => ({
 							id: key,
 							path: [namespaceForPaths, key],
 						}));
@@ -525,7 +601,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 					response_uri,
 					verifierEncryptionJwk,
 					handoverType,
-					dcApiOrigin
+					dcApiOrigin,
 				);
 				const encodedDeviceResponse = base64url.encode(deviceResponseMDoc.encode());
 
@@ -535,7 +611,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		}
 
 		const vpTokenObject = Object.fromEntries(
-			Array.from(selectionMap.keys()).map((key, idx) => [key, [generatedVPs[idx]]])
+			Array.from(selectionMap.keys()).map((key, idx) => [key, [generatedVPs[idx]]]),
 		);
 
 		const presentationSubmission = {
@@ -545,13 +621,20 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 
 		const formData = new URLSearchParams();
 
-		if ([OpenID4VPResponseMode.DIRECT_POST_JWT, OpenID4VPResponseMode.DC_API_JWT].includes(S.response_mode)) {
+		if (
+			[OpenID4VPResponseMode.DIRECT_POST_JWT, OpenID4VPResponseMode.DC_API_JWT].includes(
+				S.response_mode,
+			)
+		) {
 			let jweEnc: string;
 			if (S.client_metadata.encrypted_response_enc_values_supported) {
-				const bestSupportedEnc = preferredJweEncryptions.find(
-					(enc) => S.client_metadata.encrypted_response_enc_values_supported?.includes(enc));
+				const bestSupportedEnc = preferredJweEncryptions.find((enc) =>
+					S.client_metadata.encrypted_response_enc_values_supported?.includes(enc),
+				);
 				if (!bestSupportedEnc) {
-					throw new Error("Could not find supported algorithm in encrypted_response_enc_values_supported");
+					throw new Error(
+						'Could not find supported algorithm in encrypted_response_enc_values_supported',
+					);
 				}
 				jweEnc = bestSupportedEnc;
 			} else {
@@ -573,10 +656,10 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 				})
 				.encrypt(rp_eph_pub);
 
-			formData.append("response", jwe);
+			formData.append('response', jwe);
 		} else {
-			formData.append("vp_token", JSON.stringify(vpTokenObject));
-			if (S.state) formData.append("state", S.state);
+			formData.append('vp_token', JSON.stringify(vpTokenObject));
+			if (S.state) formData.append('state', S.state);
 		}
 
 		return { formData, generatedVPs, presentationSubmission, filteredVCEntities: originalVCs };
@@ -584,14 +667,14 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 
 	async handleAuthorizationRequest(
 		url: string,
-		vcEntityList: CredentialT[]
+		vcEntityList: CredentialT[],
 	): Promise<
 		| {
-			conformantCredentialsMap: Map<string, any>;
-			verifierDomainName: string;
-			verifierPurpose: string;
-			parsedTransactionData: ParsedTransactionDataT[] | null;
-		}
+				conformantCredentialsMap: Map<string, any>;
+				verifierDomainName: string;
+				verifierPurpose: string;
+				parsedTransactionData: ParsedTransactionDataT[] | null;
+		  }
 		| { error: HandleAuthorizationRequestError }
 	> {
 		let {
@@ -619,7 +702,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		if (request_uri) {
 			try {
 				const result = await this.handleRequestUri(request_uri);
-				if ("error" in result) {
+				if ('error' in result) {
 					return result;
 				}
 				const { payload, parsedHeader, leafCertBase64 } = result;
@@ -628,7 +711,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 				if (!supportedClientIdSchemes.has(requestObjectClientIdScheme)) {
 					return { error: HandleAuthorizationRequestErrors.NON_SUPPORTED_CLIENT_ID_SCHEME };
 				}
-				if (requestObjectClientIdScheme === "x509_hash") {
+				if (requestObjectClientIdScheme === 'x509_hash') {
 					const expectedClientId = `x509_hash:${await calculateX509HashFromLeafCert(leafCertBase64, this.deps.subtle)}`;
 					if (client_id !== expectedClientId) {
 						return { error: HandleAuthorizationRequestErrors.NONTRUSTED_VERIFIER };
@@ -637,7 +720,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 
 				dcql_query = payload.dcql_query ?? dcql_query;
 				response_uri = (payload.response_uri ?? payload.redirect_uri) as string;
-				if (response_uri && !response_uri.startsWith("http")) {
+				if (response_uri && !response_uri.startsWith('http')) {
 					response_uri = `https://${response_uri}`;
 				}
 				client_metadata = payload.client_metadata as OpenID4VPClientMetadata;
@@ -645,7 +728,10 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 				if (payload.transaction_data) {
 					transaction_data = payload.transaction_data as string[];
 					if (this.deps.parseTransactionData) {
-						parsedTransactionData = this.deps.parseTransactionData(transaction_data, dcql_query as Record<string, unknown>);
+						parsedTransactionData = this.deps.parseTransactionData(
+							transaction_data,
+							dcql_query as Record<string, unknown>,
+						);
 						if (parsedTransactionData === null) {
 							return { error: HandleAuthorizationRequestErrors.INVALID_TRANSACTION_DATA };
 						}
@@ -658,7 +744,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 					await this.deps.verifyRequestUriAndCerts({ request_uri, response_uri, parsedHeader });
 				}
 			} catch (e) {
-				console.error("Failed to handle request_uri", e);
+				console.error('Failed to handle request_uri', e);
 				return { error: HandleAuthorizationRequestErrors.NONTRUSTED_VERIFIER };
 			}
 		}
@@ -675,14 +761,14 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		if (!isOpenID4VPResponseMode(response_mode)) {
 			return { error: HandleAuthorizationRequestErrors.INVALID_RESPONSE_MODE };
 		}
-		console.log("VC entity list = ", vcEntityList)
+		console.log('VC entity list = ', vcEntityList);
 		const vcList = vcEntityList.filter((cred) => cred.instanceId === 0);
 
 		await this.deps.rpStateStore.store({
-			nonce: nonce ?? "",
-			response_uri: response_uri ?? "",
-			client_id: client_id ?? "",
-			state: state ?? "",
+			nonce: nonce ?? '',
+			response_uri: response_uri ?? '',
+			client_id: client_id ?? '',
+			state: state ?? '',
 			client_metadata: client_metadata ?? { vp_formats: {} },
 			response_mode,
 			transaction_data: transaction_data ?? [],
@@ -693,7 +779,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		if (dcql_query) {
 			matchResult = await this.matchCredentialsToDCQL(vcList, dcql_query);
 		}
-		if (matchResult && "error" in matchResult) {
+		if (matchResult && 'error' in matchResult) {
 			return { error: matchResult.error };
 		}
 
@@ -701,9 +787,7 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 			mapping: Map<string, any>;
 			descriptorPurpose: string;
 		};
-		const verifierDomainName = client_id.includes("http")
-			? new URL(client_id).hostname
-			: client_id;
+		const verifierDomainName = client_id.includes('http') ? new URL(client_id).hostname : client_id;
 
 		if (mapping.size === 0) {
 			throw new Error("Credentials don't satisfy any descriptor");
@@ -717,19 +801,19 @@ export class OpenID4VPServerAPI<CredentialT extends OpenID4VPServerCredential, P
 		};
 	}
 
-	async createAuthorizationResponse(selectionMap: Map<string, number>, vcEntityList: CredentialT[]) {
+	async createAuthorizationResponse(
+		selectionMap: Map<string, number>,
+		vcEntityList: CredentialT[],
+	) {
 		const S = await this.deps.rpStateStore.retrieve();
 
-		if (!S || S.nonce === "" || (this.deps.lastUsedNonceStore?.get?.() ?? null) === S.nonce) {
+		if (!S || S.nonce === '' || (this.deps.lastUsedNonceStore?.get?.() ?? null) === S.nonce) {
 			return {};
 		}
 		this.deps.lastUsedNonceStore?.set?.(S.nonce);
 
-		const { formData, generatedVPs, presentationSubmission, filteredVCEntities } = await this.handleDCQLFlow(
-			S,
-			selectionMap,
-			vcEntityList
-		);
+		const { formData, generatedVPs, presentationSubmission, filteredVCEntities } =
+			await this.handleDCQLFlow(S, selectionMap, vcEntityList);
 
 		return {
 			formData,

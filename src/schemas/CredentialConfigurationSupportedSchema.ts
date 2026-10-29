@@ -3,19 +3,15 @@ import { VerifiableCredentialFormat } from '../types';
 import { SvgTemplateEntry } from './SdJwtVcTypeMetadataSchema';
 
 const attackPotentialResistanceValues = [
-	"iso_18045_high",
-	"iso_18045_moderate",
-	"iso_18045_enhanced-basic",
-	"iso_18045_basic"
+	'iso_18045_high',
+	'iso_18045_moderate',
+	'iso_18045_enhanced-basic',
+	'iso_18045_basic',
 ] as const;
 
 const KeyAttestationsRequiredSchema = z.object({
-	key_storage: z.array(
-		z.enum(attackPotentialResistanceValues)
-	).min(1).optional(),
-	user_authentication: z.array(
-		z.enum(attackPotentialResistanceValues)
-	).min(1).optional(),
+	key_storage: z.array(z.enum(attackPotentialResistanceValues)).min(1).optional(),
+	user_authentication: z.array(z.enum(attackPotentialResistanceValues)).min(1).optional(),
 });
 
 const ProofTypeSchema = z.object({
@@ -29,52 +25,65 @@ const proofTypesSupportedSchema = z.object({
 });
 
 const OpenIdClaimSchema = z.object({
-	path: z.array(
-		z.union([z.string(), z.null(), z.number().int().nonnegative()])
-	).nonempty(),
+	path: z.array(z.union([z.string(), z.null(), z.number().int().nonnegative()])).nonempty(),
 	mandatory: z.boolean().optional(),
 	svg_id: z.string().optional(),
-	display: z.array(
-		z.object({
-			name: z.string().optional(),
-			locale: z.string().optional(),
-		})
-	).optional(),
+	display: z
+		.array(
+			z.object({
+				name: z.string().optional(),
+				locale: z.string().optional(),
+			}),
+		)
+		.optional(),
 });
 
 const commonSchema = z.object({
-	credential_metadata: z.object({
-		display: z.array(z.object({
-			name: z.string(),
-			description: z.string().optional(),
-			background_color: z.string().optional(),
-			text_color: z.string().optional(),
-			alt_text: z.string().optional(),
-			background_image: z.object({
-				uri: z.string()
-			}).optional(),
-			locale: z.string().optional(),
-			logo: z.object({
-				uri: z.string(),
-				alt_text: z.string().optional(),
-			}).optional(),
-			rendering: z.object({
-				svg_templates: z.array(SvgTemplateEntry).optional(),
-			}).optional(),
-		})).optional(),
-		claims: z.array(OpenIdClaimSchema).optional(),
-	}).optional(),
+	credential_metadata: z
+		.object({
+			display: z
+				.array(
+					z.object({
+						name: z.string(),
+						description: z.string().optional(),
+						background_color: z.string().optional(),
+						text_color: z.string().optional(),
+						alt_text: z.string().optional(),
+						background_image: z
+							.object({
+								uri: z.string(),
+							})
+							.optional(),
+						locale: z.string().optional(),
+						logo: z
+							.object({
+								uri: z.string(),
+								alt_text: z.string().optional(),
+							})
+							.optional(),
+						rendering: z
+							.object({
+								svg_templates: z.array(SvgTemplateEntry).optional(),
+							})
+							.optional(),
+					}),
+				)
+				.optional(),
+			claims: z.array(OpenIdClaimSchema).optional(),
+		})
+		.optional(),
 	scope: z.string(),
 	cryptographic_binding_methods_supported: z.array(z.string()).optional(),
 	proof_types_supported: proofTypesSupportedSchema.optional(),
 });
 
 const sdJwtSchema = commonSchema.extend({
-	format: z.literal(VerifiableCredentialFormat.VC_SDJWT).or(z.literal(VerifiableCredentialFormat.DC_SDJWT)),
+	format: z
+		.literal(VerifiableCredentialFormat.VC_SDJWT)
+		.or(z.literal(VerifiableCredentialFormat.DC_SDJWT)),
 	credential_signing_alg_values_supported: z.array(z.string()).optional(),
-	vct: z.string()
+	vct: z.string(),
 });
-
 
 const msoDocSchema = commonSchema.extend({
 	format: z.literal(VerifiableCredentialFormat.MSO_MDOC),
@@ -82,15 +91,17 @@ const msoDocSchema = commonSchema.extend({
 	credential_signing_alg_values_supported: z.array(z.number()).optional(),
 });
 
-
 const jwtVcJsonSchema = commonSchema.extend({
 	format: z.literal(VerifiableCredentialFormat.JWT_VC_JSON),
 	credential_signing_alg_values_supported: z.array(z.string()).optional(),
 });
 
+export const CredentialConfigurationSupportedSchema = sdJwtSchema
+	.or(msoDocSchema)
+	.or(jwtVcJsonSchema);
 
-export const CredentialConfigurationSupportedSchema = sdJwtSchema.or(msoDocSchema).or(jwtVcJsonSchema);
-
-export type CredentialConfigurationSupported = z.infer<typeof CredentialConfigurationSupportedSchema>;
+export type CredentialConfigurationSupported = z.infer<
+	typeof CredentialConfigurationSupportedSchema
+>;
 
 export type OpenIdClaim = z.infer<typeof OpenIdClaimSchema>;

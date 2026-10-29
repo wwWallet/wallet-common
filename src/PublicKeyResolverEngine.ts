@@ -1,5 +1,5 @@
-import { PublicKeyResolutionError } from "./error";
-import { PublicKeyResolver, PublicKeyResolverEngineI } from "./interfaces";
+import { PublicKeyResolutionError } from './error';
+import { PublicKeyResolver, PublicKeyResolverEngineI } from './interfaces';
 
 export function PublicKeyResolverEngine(): PublicKeyResolverEngineI {
 	const resolvers: PublicKeyResolver[] = [];
@@ -17,6 +17,5 @@ export function PublicKeyResolverEngine(): PublicKeyResolverEngineI {
 			}
 			return { success: false, error: PublicKeyResolutionError.CannotResolvePublicKey };
 		},
-	}
+	};
 }
-

@@ -1,8 +1,5 @@
-import {
-	ClaimMetadataEntry,
-	ClaimDisplayEntry,
-} from "../schemas/SdJwtVcTypeMetadataSchema";
-import { OpenIdClaim } from "../schemas";
+import { ClaimMetadataEntry, ClaimDisplayEntry } from '../schemas/SdJwtVcTypeMetadataSchema';
+import { OpenIdClaim } from '../schemas';
 
 /**
  * Converts SD-JWT VC type-metadata claims to OpenID4VCI claims.
@@ -20,10 +17,10 @@ export function convertSdjwtvcToOpenid4vciClaims(
 		const display = (claim.display ?? [])
 			.filter(
 				(d): d is ClaimDisplayEntry =>
-					typeof d?.locale === "string" &&
-					d.locale.trim() !== "" &&
-					typeof d?.label === "string" &&
-					d.label.trim() !== ""
+					typeof d?.locale === 'string' &&
+					d.locale.trim() !== '' &&
+					typeof d?.label === 'string' &&
+					d.label.trim() !== '',
 			)
 			.map((d) => ({
 				locale: d.locale.trim(),
@@ -31,10 +28,7 @@ export function convertSdjwtvcToOpenid4vciClaims(
 			}));
 
 		// Only include mandatory if explicitly present (true OR false)
-		const hasMandatory = Object.prototype.hasOwnProperty.call(
-			claim,
-			"mandatory",
-		);
+		const hasMandatory = Object.prototype.hasOwnProperty.call(claim, 'mandatory');
 
 		const result: any = {
 			path: claim.path,

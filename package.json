@@ -1,8 +1,12 @@
 {
 	"name": "wallet-common",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"main": "dist/index.js",
 	"license": "BSD-2-Clause",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/wwWallet/wallet-common.git"
+	},
 	"files": [
 		"dist/**/*",
 		"src/**/*",
@@ -15,6 +19,10 @@
 		"test": "tsc && vitest run",
 		"test-start": "vitest",
 		"build": "rm -rf dist/ && tsc",
+		"typecheck": "tsc --noEmit",
+		"lint": "eslint . --max-warnings=0",
+		"format": "prettier . --write",
+		"format:check": "prettier . --check",
 		"prepare": "npm run build"
 	},
 	"dependencies": {
@@ -32,10 +40,16 @@
 		"zod": "^3.24.1"
 	},
 	"devDependencies": {
+		"@eslint/js": "^9.39.5",
 		"@sd-jwt/types": "^0.10.0",
 		"@types/node": "^24.10.2",
 		"@xmldom/xmldom": "^0.9.12",
+		"eslint": "^9.39.5",
+		"eslint-config-prettier": "^10.1.8",
+		"globals": "^16.0.0",
+		"prettier": "^3.8.0",
 		"typescript": "~5.9.3",
+		"typescript-eslint": "^8.53.0",
 		"vitest": "^4.1.11"
 	}
 }

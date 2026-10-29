@@ -1,46 +1,43 @@
-import { assert, describe, it } from "vitest";
-import { formatCborDate, isCborDate } from "./cborDate";
+import { assert, describe, it } from 'vitest';
+import { formatCborDate, isCborDate } from './cborDate';
 
-describe("isCborDate", () => {
-
-	it("can match a CBOR Date object", () => {
-		const cborDate = {
-			date: '01-01-2026'
-		};
-
-		assert(isCborDate(cborDate));
-	});
-
-	it("can match a CBOR Date object with additional fields", () => {
+describe('isCborDate', () => {
+	it('can match a CBOR Date object', () => {
 		const cborDate = {
 			date: '01-01-2026',
-			approximate_mask: 'XXXXXXXX'
 		};
 
 		assert(isCborDate(cborDate));
 	});
 
-	it("does not match an object that is not a CBOR date", () => {
+	it('can match a CBOR Date object with additional fields', () => {
+		const cborDate = {
+			date: '01-01-2026',
+			approximate_mask: 'XXXXXXXX',
+		};
+
+		assert(isCborDate(cborDate));
+	});
+
+	it('does not match an object that is not a CBOR date', () => {
 		const randomObject = {
-			foo: 'bar'
+			foo: 'bar',
 		};
 
 		assert(!isCborDate(randomObject));
 	});
 
-
-	it("does not match a simple date string", () => {
-		const dateString = "04-06-2026";
+	it('does not match a simple date string', () => {
+		const dateString = '04-06-2026';
 
 		assert(!isCborDate(dateString));
 	});
 });
 
-describe("isCborDate", () => {
-
-	it("can format a CBOR Date object", () => {
+describe('isCborDate', () => {
+	it('can format a CBOR Date object', () => {
 		const cborDate = {
-			date: '01-01-2026'
+			date: '01-01-2026',
 		};
 
 		const formattedDate = formatCborDate(cborDate);
@@ -48,7 +45,7 @@ describe("isCborDate", () => {
 		assert(formattedDate === '01/01/2026');
 	});
 
-	it("does not alter an invalid CBOR object", () => {
+	it('does not alter an invalid CBOR object', () => {
 		const invalidCborDateObject = {
 			invalid_date: '01-01-2026',
 		};
@@ -60,5 +57,4 @@ describe("isCborDate", () => {
 
 		assert(JSON.stringify(invalidCborDateObject) === JSON.stringify(formattedDate));
 	});
-
 });
