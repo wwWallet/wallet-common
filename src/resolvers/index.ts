@@ -1,2 +1,2 @@
-export * from "./dataUriResolver";
-export * from "./friendlyNameResolver";
+export * from './dataUriResolver';
+export * from './friendlyNameResolver';

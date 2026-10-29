@@ -10,10 +10,7 @@ import {
 	SubtleAlgorithm,
 } from './sri';
 
-const ALGORITHMS = Object.entries(sriToSubtleAlgorithm) as [
-	sriAlgorithm,
-	SubtleAlgorithm,
-][];
+const ALGORITHMS = Object.entries(sriToSubtleAlgorithm) as [sriAlgorithm, SubtleAlgorithm][];
 
 function mockDigestFromString(str: string): ArrayBuffer {
 	const encoder = new TextEncoder();
@@ -21,8 +18,7 @@ function mockDigestFromString(str: string): ArrayBuffer {
 }
 
 function mockBtoa() {
-	(globalThis as any).btoa = (input: string) =>
-		Buffer.from(input, 'binary').toString('base64');
+	(globalThis as any).btoa = (input: string) => Buffer.from(input, 'binary').toString('base64');
 }
 
 function createMockSubtle(expectedDigest: ArrayBuffer) {
@@ -54,67 +50,42 @@ describe('sriUtils', () => {
 		it('returns SRI string with correct prefix', async () => {
 			const subtle = createMockSubtle(mockDigestFromString('hello'));
 
-			const result = await calculateDataSRI(
-				subtle,
-				new TextEncoder().encode('test'),
-				'SHA-256'
-			);
+			const result = await calculateDataSRI(subtle, new TextEncoder().encode('test'), 'SHA-256');
 
 			expect(result.startsWith('sha256-')).toBe(true);
-			expect(subtle.digest).toHaveBeenCalledWith(
-				'SHA-256',
-				expect.any(Uint8Array)
-			);
+			expect(subtle.digest).toHaveBeenCalledWith('SHA-256', expect.any(Uint8Array));
 		});
 
 		it('produces different hashes for different input', async () => {
 			const subtleA = createMockSubtle(mockDigestFromString('a'));
 			const subtleB = createMockSubtle(mockDigestFromString('b'));
 
-			const r1 = await calculateDataSRI(
-				subtleA,
-				new TextEncoder().encode('a'),
-				'SHA-256'
-			);
+			const r1 = await calculateDataSRI(subtleA, new TextEncoder().encode('a'), 'SHA-256');
 
-			const r2 = await calculateDataSRI(
-				subtleB,
-				new TextEncoder().encode('b'),
-				'SHA-256'
-			);
+			const r2 = await calculateDataSRI(subtleB, new TextEncoder().encode('b'), 'SHA-256');
 
 			expect(r1).not.toBe(r2);
 		});
 
-		it.each(
-			Object.entries(sriToSubtleAlgorithm) as Array<
-				[sriAlgorithm, SubtleAlgorithm]
-			>
-		)('supports %s algorithm', async (sriAlgo, subtleAlgo) => {
-			const subtle = createMockSubtle(mockDigestFromString('test'));
+		it.each(Object.entries(sriToSubtleAlgorithm) as Array<[sriAlgorithm, SubtleAlgorithm]>)(
+			'supports %s algorithm',
+			async (sriAlgo, subtleAlgo) => {
+				const subtle = createMockSubtle(mockDigestFromString('test'));
 
-			const result = await calculateDataSRI(
-				subtle,
-				new TextEncoder().encode('data'),
-				subtleAlgo
-			);
+				const result = await calculateDataSRI(subtle, new TextEncoder().encode('data'), subtleAlgo);
 
-			expect(result.startsWith(`${sriAlgo}-`)).toBe(true);
+				expect(result.startsWith(`${sriAlgo}-`)).toBe(true);
 
-			expect(subtle.digest).toHaveBeenCalledWith(
-				subtleAlgo,
-				expect.any(Uint8Array)
-			);
-		});
+				expect(subtle.digest).toHaveBeenCalledWith(subtleAlgo, expect.any(Uint8Array));
+			},
+		);
 	});
 
 	describe('calculateObjectSRI', () => {
 		it('hashes JSON stringified object', async () => {
 			const obj = { a: 1, b: 'test' };
 
-			const subtle = createMockSubtle(
-				mockDigestFromString(JSON.stringify(obj))
-			);
+			const subtle = createMockSubtle(mockDigestFromString(JSON.stringify(obj)));
 
 			const result = await calculateObjectSRI(subtle, obj);
 
@@ -134,35 +105,27 @@ describe('sriUtils', () => {
 			expect(r1).toBe(r2);
 		});
 
-		it.each(
-			Object.entries(sriToSubtleAlgorithm) as Array<
-				[sriAlgorithm, SubtleAlgorithm]
-			>
-		)('supports %s algorithm', async (sriAlgo, subtleAlgo) => {
-			const obj = { value: 123 };
+		it.each(Object.entries(sriToSubtleAlgorithm) as Array<[sriAlgorithm, SubtleAlgorithm]>)(
+			'supports %s algorithm',
+			async (sriAlgo, subtleAlgo) => {
+				const obj = { value: 123 };
 
-			const subtle = createMockSubtle(
-				mockDigestFromString(JSON.stringify(obj))
-			);
+				const subtle = createMockSubtle(mockDigestFromString(JSON.stringify(obj)));
 
-			const result = await calculateObjectSRI(subtle, obj, subtleAlgo);
+				const result = await calculateObjectSRI(subtle, obj, subtleAlgo);
 
-			expect(result.startsWith(`${sriAlgo}-`)).toBe(true);
+				expect(result.startsWith(`${sriAlgo}-`)).toBe(true);
 
-			expect(subtle.digest).toHaveBeenCalledWith(
-				subtleAlgo,
-				expect.any(Uint8Array)
-			);
-		});
+				expect(subtle.digest).toHaveBeenCalledWith(subtleAlgo, expect.any(Uint8Array));
+			},
+		);
 	});
 
 	describe('verifySRIFromObject', () => {
 		it('returns true when integrity matches', async () => {
 			const obj = { x: 42 };
 
-			const subtle = createMockSubtle(
-				mockDigestFromString(JSON.stringify(obj))
-			);
+			const subtle = createMockSubtle(mockDigestFromString(JSON.stringify(obj)));
 
 			const sri = await calculateObjectSRI(subtle, obj);
 
@@ -174,11 +137,7 @@ describe('sriUtils', () => {
 		it('returns false when integrity does not match', async () => {
 			const subtle = createMockSubtle(mockDigestFromString('x'));
 
-			const result = await verifySRIFromObject(
-				subtle,
-				{ a: 1 },
-				'sha256-wronghash'
-			);
+			const result = await verifySRIFromObject(subtle, { a: 1 }, 'sha256-wronghash');
 
 			expect(result).toBe(false);
 		});
@@ -186,17 +145,17 @@ describe('sriUtils', () => {
 		it('throws on invalid integrity format', async () => {
 			const subtle = createMockSubtle(mockDigestFromString('x'));
 
-			await expect(
-				verifySRIFromObject(subtle, { a: 1 }, 'invalidformat')
-			).rejects.toThrow('Invalid integrity string format');
+			await expect(verifySRIFromObject(subtle, { a: 1 }, 'invalidformat')).rejects.toThrow(
+				'Invalid integrity string format',
+			);
 		});
 
 		it('throws on unsupported algorithm', async () => {
 			const subtle = createMockSubtle(mockDigestFromString('x'));
 
-			await expect(
-				verifySRIFromObject(subtle, { a: 1 }, 'md5-abc123')
-			).rejects.toThrow('Unsupported algorithm');
+			await expect(verifySRIFromObject(subtle, { a: 1 }, 'md5-abc123')).rejects.toThrow(
+				'Unsupported algorithm',
+			);
 		});
 	});
 });

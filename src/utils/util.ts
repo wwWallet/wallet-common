@@ -9,7 +9,7 @@ function toU8(b: BufferSource) {
 export function toBase64(binary: BufferSource): string {
 	const uint8Array = toU8(binary);
 	const chunkSize = 0x8000; // 32KB
-	let result = "";
+	let result = '';
 	for (let i = 0; i < uint8Array.length; i += chunkSize) {
 		const chunk = uint8Array.subarray(i, i + chunkSize);
 		result += String.fromCharCode(...chunk);
@@ -18,10 +18,7 @@ export function toBase64(binary: BufferSource): string {
 }
 
 export function toBase64Url(binary: BufferSource): string {
-	return toBase64(binary)
-		.replace(/\+/g, "-")
-		.replace(/\//g, "_")
-		.replace(/=/g, "");
+	return toBase64(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
 export function byteArrayEquals(a: BufferSource, b: BufferSource): boolean {
@@ -33,33 +30,29 @@ function base64pad(s: string): string {
 	if (m === 0) {
 		return s;
 	} else if (m === 2) {
-		return s + "==";
+		return s + '==';
 	} else if (m === 3) {
-		return s + "=";
+		return s + '=';
 	} else {
-		throw Error("Invalid length of Base64 encoded data");
+		throw Error('Invalid length of Base64 encoded data');
 	}
 }
 
 export function fromBase64(s: string): Uint8Array {
-	return new Uint8Array(
-		Array.from(atob(base64pad(s))).map((c) => c.charCodeAt(0)),
-	);
+	return new Uint8Array(Array.from(atob(base64pad(s))).map((c) => c.charCodeAt(0)));
 }
 
 export function fromBase64Url(s: string): Uint8Array {
-	return fromBase64(s.replace(/-/g, "+").replace(/_/g, "/"));
+	return fromBase64(s.replace(/-/g, '+').replace(/_/g, '/'));
 }
 
 export function base64urlToBytes(base64urlValue: string): Uint8Array {
-	const base64 = base64urlValue.replace(/-/g, "+").replace(/_/g, "/");
+	const base64 = base64urlValue.replace(/-/g, '+').replace(/_/g, '/');
 	return fromBase64(base64);
 }
 
 export function generateRandomIdentifier(length: number) {
 	const array = new Uint8Array(length);
 	crypto.getRandomValues(array);
-	return Array.from(array, (byte) => byte.toString(16).padStart(2, "0")).join(
-		"",
-	);
+	return Array.from(array, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }

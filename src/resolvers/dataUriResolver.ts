@@ -1,15 +1,18 @@
-import type { HttpClient, CredentialRendering, CustomCredentialSvgI } from "../interfaces";
-import type { CredentialClaimPath, ImageDataUriCallback } from "../types";
-import { rankSvgTemplates } from "../functions/pickBestSvgTemplate";
-import { matchDisplayByLocale } from "../utils/matchLocalizedDisplay";
-import type { TypeDisplayEntry, ClaimMetadataEntry, SvgTemplateProperties } from "../schemas/SdJwtVcTypeMetadataSchema";
-import type { CredentialConfigurationSupported } from "../schemas/CredentialConfigurationSupportedSchema";
-import { loadSvgTemplate } from "./loadSvgTemplate";
+import type { HttpClient, CredentialRendering, CustomCredentialSvgI } from '../interfaces';
+import type { CredentialClaimPath, ImageDataUriCallback } from '../types';
+import { rankSvgTemplates } from '../functions/pickBestSvgTemplate';
+import { matchDisplayByLocale } from '../utils/matchLocalizedDisplay';
+import type {
+	TypeDisplayEntry,
+	ClaimMetadataEntry,
+	SvgTemplateProperties,
+} from '../schemas/SdJwtVcTypeMetadataSchema';
+import type { CredentialConfigurationSupported } from '../schemas/CredentialConfigurationSupportedSchema';
+import { loadSvgTemplate } from './loadSvgTemplate';
 
-type IssuerDisplayEntry =
-	NonNullable<
-		NonNullable<CredentialConfigurationSupported["credential_metadata"]>["display"]
-	>[number];
+type IssuerDisplayEntry = NonNullable<
+	NonNullable<CredentialConfigurationSupported['credential_metadata']>['display']
+>[number];
 
 type DataUriResolverOptions = {
 	httpClient: HttpClient;
@@ -33,35 +36,31 @@ export function dataUriResolver({
 	httpClient,
 	sdJwtVcRenderer,
 	sdJwtVcMetadataClaims,
-	fallbackName = "Verifiable Credential",
+	fallbackName = 'Verifiable Credential',
 }: DataUriResolverOptions): ImageDataUriCallback {
 	return async (
 		filter?: Array<CredentialClaimPath>,
-		preferredLangs: string[] = ["en-US"],
+		preferredLangs: string[] = ['en-US'],
 		preferredProperties: SvgTemplateProperties = {
-			orientation: "landscape",
-			color_scheme: "light",
-			contrast: "normal",
-		}
+			orientation: 'landscape',
+			color_scheme: 'light',
+			contrast: 'normal',
+		},
 	) => {
 		try {
 			// Localize display configs
 			const credentialDisplayLocalized = matchDisplayByLocale(
 				credentialDisplayArray,
-				preferredLangs
+				preferredLangs,
 			);
-			const issuerDisplayLocalized = matchDisplayByLocale(
-				issuerDisplayArray,
-				preferredLangs
-			);
+			const issuerDisplayLocalized = matchDisplayByLocale(issuerDisplayArray, preferredLangs);
 
 			const svgTemplates =
 				credentialDisplayLocalized?.rendering?.svg_templates ??
 				issuerDisplayLocalized?.rendering?.svg_templates;
 			const rankedSvgTemplates = rankSvgTemplates(svgTemplates, preferredProperties);
 
-			const simpleDisplayConfig =
-				credentialDisplayLocalized?.rendering?.simple || null;
+			const simpleDisplayConfig = credentialDisplayLocalized?.rendering?.simple || null;
 
 			// 1. Try every SVG template in preference order
 			if (sdJwtVcRenderer) {

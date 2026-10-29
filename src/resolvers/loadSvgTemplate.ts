@@ -1,9 +1,6 @@
-import type { HttpClient } from "../interfaces";
+import type { HttpClient } from '../interfaces';
 
-export async function loadSvgTemplate(
-	uri: string,
-	httpClient: HttpClient
-): Promise<string | null> {
+export async function loadSvgTemplate(uri: string, httpClient: HttpClient): Promise<string | null> {
 	if (uri.startsWith('data:')) {
 		const blob = await fetch(uri)
 			.then((response) => response.blob())
@@ -19,9 +16,7 @@ export async function loadSvgTemplate(
 	}
 
 	if (uri.startsWith('http')) {
-		const response = await httpClient
-			.get(uri, {}, { useCache: true })
-			.catch(() => null);
+		const response = await httpClient.get(uri, {}, { useCache: true }).catch(() => null);
 
 		if (
 			response &&

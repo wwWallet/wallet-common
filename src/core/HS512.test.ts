@@ -2,10 +2,10 @@ import { it, describe } from 'vitest';
 import { generateHS512Key, importHS512Key } from './HS512';
 import { jwtVerify, SignJWT } from 'jose';
 
-const alg = "HS512";
+const alg = 'HS512';
 
-describe("The HS512 module", () => {
-	it("should generate/import/export shared secret key, sign a jwt and then verify it", async () => {
+describe('The HS512 module', () => {
+	it('should generate/import/export shared secret key, sign a jwt and then verify it', async () => {
 		const { secret, exportedKey } = await generateHS512Key();
 
 		const jwt = await new SignJWT({ 'urn:example:claim': true })
@@ -19,5 +19,5 @@ describe("The HS512 module", () => {
 		const importedSecret = await importHS512Key(exportedKey);
 		// verify with exported to make sure that export and import operations are working
 		await jwtVerify(jwt, importedSecret);
-	})
-})
+	});
+});

@@ -17,21 +17,19 @@ export const subtleToSriAlgorithm: Record<SubtleAlgorithm, sriAlgorithm> = {
 export async function calculateObjectSRI(
 	subtle: SubtleCrypto,
 	obj: Record<string, any>,
-	algorithm: SubtleAlgorithm = 'SHA-256'
+	algorithm: SubtleAlgorithm = 'SHA-256',
 ): Promise<string> {
-
 	const jsonString = JSON.stringify(obj);
 	const encoder = new TextEncoder();
 	const data = encoder.encode(jsonString);
 
 	return calculateDataSRI(subtle, data, algorithm);
-
 }
 
 export async function calculateDataSRI(
 	subtle: SubtleCrypto,
 	data: Uint8Array | Buffer,
-	algorithm: SubtleAlgorithm = 'SHA-256'
+	algorithm: SubtleAlgorithm = 'SHA-256',
 ): Promise<string> {
 	const digest = await subtle.digest(algorithm, data as Uint8Array<ArrayBuffer>);
 	const hashArray = Array.from(new Uint8Array(digest));
