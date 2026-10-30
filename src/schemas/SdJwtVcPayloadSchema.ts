@@ -9,7 +9,7 @@ export const SdJwtVcPayloadSchema = z
 		vct: z.string().min(1, { message: "'vct' is required" }),
 		cnf: z
 			.object({
-				jwk: z.record(z.any()).optional(),
+				jwk: z.record(z.string(), z.any()).optional(),
 			})
 			.optional(),
 		vc: z
