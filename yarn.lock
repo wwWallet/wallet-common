@@ -809,10 +809,10 @@ cross-spawn@^7.0.6:
     shebang-command "^2.0.0"
     which "^2.0.1"
 
-dcql@^3.0.1:
-  version "3.0.1"
-  resolved "https://registry.yarnpkg.com/dcql/-/dcql-3.0.1.tgz#0a4ee0027635828076e16c5e946868e9b714a5a6"
-  integrity sha512-RxGW4fdMzLWQTqE096aiMKGIG4MT30YMs6/u7UNhId4q9FkMf2tkhvSyIaU54nplQXdeGW2YN/JsC/X0Ck647A==
+dcql@^4.0.1:
+  version "4.0.1"
+  resolved "https://registry.yarnpkg.com/dcql/-/dcql-4.0.1.tgz#07c82f32f45d719a85161a8bb34b2a3066c9179d"
+  integrity sha512-EzmmBUmUYuVZySNZJJZtbu3bhRgnX47DuJxiV1Ni6d75mVTTwFb8bqSjsAvuMvVskxqBdTaswpTGM1T7tmA0Uw==
   dependencies:
     valibot "^1.4.2"
 
