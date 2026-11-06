@@ -2,7 +2,10 @@ import { HttpClient } from '../interfaces';
 import { verifySRIFromObject } from './sri';
 import { MetadataError, MetadataWarning } from '../types';
 import { CredentialParsingError, isCredentialParsingWarnings } from '../error';
-import { TypeMetadata as TypeMetadataSchema } from '../schemas/SdJwtVcTypeMetadataSchema';
+import {
+	type ClaimMetadataEntry,
+	TypeMetadata as TypeMetadataSchema,
+} from '../schemas/SdJwtVcTypeMetadataSchema';
 import { VctDocumentProvider } from '../core';
 import { prependToPath } from './urlPathUtils';
 
@@ -28,6 +31,30 @@ function handleMetadataCode(
 		console.warn(`❌ Metadata Error [${code}]`);
 		return { error: code }; // now error
 	}
+}
+
+const claimPathKey = (claim: ClaimMetadataEntry) => JSON.stringify(claim.path);
+
+function hasInvalidClaimMetadataOverride(
+	parentClaims: TypeMetadataSchema['claims'],
+	childClaims: TypeMetadataSchema['claims'],
+): boolean {
+	const parentClaimsByPath = new Map(
+		(parentClaims ?? []).map((claim) => [claimPathKey(claim), claim]),
+	);
+
+	return (childClaims ?? []).some((childClaim) => {
+		const parentClaim = parentClaimsByPath.get(claimPathKey(childClaim));
+		if (!parentClaim) return false;
+
+		const changesFixedSd =
+			(parentClaim.sd === 'always' || parentClaim.sd === 'never') &&
+			childClaim.sd !== undefined &&
+			childClaim.sd !== parentClaim.sd;
+		const weakensMandatory = parentClaim.mandatory === true && childClaim.mandatory === false;
+
+		return changesFixedSd || weakensMandatory;
+	});
 }
 
 function deepMerge(parent: any, child: any): any {
@@ -155,6 +182,9 @@ async function fetchAndMergeMetadata(
 	}
 
 	if (!metadata) return undefined;
+	if (metadata.vct !== metadataId) {
+		return { error: CredentialParsingError.TypeMetadataVctMismatch };
+	}
 
 	if (integrity) {
 		const isValid = await verifySRIFromObject(subtle, metadata, integrity);
@@ -183,6 +213,9 @@ async function fetchAndMergeMetadata(
 			return metadata;
 		}
 		if ('error' in parent) return parent;
+		if (hasInvalidClaimMetadataOverride(parent.claims, metadata.claims)) {
+			return { error: CredentialParsingError.InvalidTypeMetadataInheritance };
+		}
 		merged = deepMerge(parent, metadata);
 	} else {
 		merged = metadata;
