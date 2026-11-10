@@ -350,6 +350,7 @@ export function MsoMdocVerifier(args: {
 
 	return {
 		async verify({ rawCredential, opts }) {
+			errors = [];
 			if (typeof rawCredential !== 'string') {
 				return {
 					success: false,
@@ -360,6 +361,8 @@ export function MsoMdocVerifier(args: {
 			try {
 				const decodedCred = fromBase64Url(rawCredential);
 				const parsedMDOC = DeviceResponse.decode(decodedCred);
+				if (parsedMDOC.documents?.length !== 1)
+					return { success: false, error: CredentialVerificationError.InvalidFormat };
 				const { holderPublicKeyJwk } = await deviceResponseCheck(parsedMDOC, opts);
 
 				if (errors.length === 0 && holderPublicKeyJwk !== null) {
@@ -367,6 +370,7 @@ export function MsoMdocVerifier(args: {
 						success: true,
 						value: {
 							holderPublicKey: holderPublicKeyJwk,
+							holderBindingVerified: !!opts.expectedNonce,
 						},
 					};
 				}
@@ -384,6 +388,7 @@ export function MsoMdocVerifier(args: {
 						success: true,
 						value: {
 							holderPublicKey: holderPublicKeyJwk,
+							holderBindingVerified: false,
 						},
 					};
 				}

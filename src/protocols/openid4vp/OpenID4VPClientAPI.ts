@@ -1,3 +1,5 @@
+import type { VerifiedDcqlPresentations } from './types';
+import { validateDcqlPresentation } from './DCQLSelection';
 import { err, GenericStore, ok, Result } from '../../core';
 import { generateRandomIdentifier } from '../../utils/util';
 import { MsoMdocParser } from '../../credential-parsers/MsoMdocParser';
@@ -23,7 +25,6 @@ import {
 	OpenID4VPResponseMode,
 	RPState,
 } from './types';
-import { DcqlPresentationResult } from 'dcql';
 import {
 	exportJWK,
 	generateKeyPair,
@@ -365,6 +366,7 @@ export class OpenID4VPClientAPI {
 		rpState: RPState,
 	): Promise<{
 		presentationClaims?: PresentationClaims;
+		verifiedPresentations?: VerifiedDcqlPresentations;
 		messages?: PresentationInfo;
 		error?: Error;
 	}> {
@@ -372,241 +374,148 @@ export class OpenID4VPClientAPI {
 		const ce = await this.initializeCredentialEngine();
 		const messages: PresentationInfo = {};
 
-		for (const descriptor of dcql_query.credentials) {
-			const vpEntry = vp_token_list[descriptor.id];
-			const vp = Array.isArray(vpEntry) ? vpEntry[0] : null;
-			if (!vp) {
-				return { error: new Error(`Missing VP for descriptor ${descriptor.id}`) };
-			}
-
-			try {
-				// detect if SD-JWT (has ~) or mdoc (CBOR-encoded)
-				if (typeof vp === 'string' && vp.includes('~')) {
-					// ========== SD-JWT ==========
-					try {
-						const [kbjwt] = vp.split('~').reverse();
-						const [_kbjwtEncodedHeader, kbjwtEncodedPayload, _kbjwtSig] = kbjwt.split('.');
-						const kbjwtPayload = JSON.parse(
-							decoder.decode(fromBase64Url(kbjwtEncodedPayload)),
-						) as Record<string, unknown>;
-						if (
-							Object.keys(kbjwtPayload).includes('transaction_data_hashes') &&
-							descriptor._transaction_data_type !== undefined
-						) {
-							const txData = TransactionData(descriptor._transaction_data_type);
-							if (!txData) {
-								return { error: new Error('specific transaction_data not supported error') };
+		const verifiedPresentations: VerifiedDcqlPresentations = Object.create(null);
+		const verified: Record<string, any[]> = Object.create(null);
+		try {
+			if (!vp_token_list || typeof vp_token_list !== 'object' || Array.isArray(vp_token_list))
+				throw new Error('Invalid vp_token');
+			for (const [id, entries] of Object.entries(vp_token_list)) {
+				const descriptor = dcql_query.credentials.find((c: any) => c.id === id);
+				if (
+					!descriptor ||
+					!Array.isArray(entries) ||
+					!entries.length ||
+					(!descriptor.multiple && entries.length !== 1)
+				)
+					throw new Error('Invalid DCQL presentation entries');
+				for (const [instanceIndex, vp] of entries.entries()) {
+					if (typeof vp !== 'string' || !vp) throw new Error('Invalid presentation');
+					const sdjwt =
+						descriptor.format === VerifiableCredentialFormat.DC_SDJWT ||
+						descriptor.format === VerifiableCredentialFormat.VC_SDJWT;
+					if (sdjwt && !vp.endsWith('~')) {
+						try {
+							const [kbjwt] = vp.split('~').reverse();
+							const [_kbjwtEncodedHeader, kbjwtEncodedPayload, _kbjwtSig] = kbjwt.split('.');
+							const kbjwtPayload = JSON.parse(
+								decoder.decode(fromBase64Url(kbjwtEncodedPayload)),
+							) as Record<string, unknown>;
+							if (
+								Object.keys(kbjwtPayload).includes('transaction_data_hashes') &&
+								descriptor._transaction_data_type !== undefined
+							) {
+								const txData = TransactionData(descriptor._transaction_data_type);
+								if (!txData) {
+									return { error: new Error('specific transaction_data not supported error') };
+								}
+								const { status, message } = await txData.validateTransactionDataResponse(
+									descriptor.id,
+									{
+										transaction_data_hashes: (kbjwtPayload as any)
+											.transaction_data_hashes as string[],
+										transaction_data_hashes_alg: (kbjwtPayload as any)
+											.transaction_data_hashes_alg as string[] | undefined,
+									},
+								);
+								console.log('Message: ', message);
+								(messages[descriptor.id] ??= []).push(message);
+								if (!status) {
+									return { error: new Error('transaction_data validation error') };
+								}
+								console.log('VALIDATED TRANSACTION DATA');
+							} else if (descriptor._transaction_data_type !== undefined) {
+								return {
+									error: new Error(
+										'transaction_data_hashes is missing from transaction data response',
+									),
+								};
 							}
-							const { status, message } = await txData.validateTransactionDataResponse(
-								descriptor.id,
-								{
-									transaction_data_hashes: (kbjwtPayload as any)
-										.transaction_data_hashes as string[],
-									transaction_data_hashes_alg: (kbjwtPayload as any).transaction_data_hashes_alg as
-										string[] | undefined,
+						} catch (e) {
+							console.error(e);
+							return { error: new Error('transaction_data validation error') };
+						}
+					} else if (descriptor._transaction_data_type !== undefined)
+						throw new Error('transaction_data response missing');
+					const verificationResult = sdjwt
+						? await ce.sdJwtVerifier.verify({
+								rawCredential: vp,
+								opts: { expectedAudience: rpState.audience, expectedNonce: rpState.nonce },
+							})
+						: await ce.msoMdocVerifier.verify({
+								rawCredential: vp,
+								opts: {
+									expectedAudience: rpState.audience,
+									expectedNonce: rpState.nonce,
+									responseUri: this.options.redirectUri,
+									verifierEncryptionJwk: rpState.rp_eph_pub,
+									handoverType:
+										rpState.response_mode === OpenID4VPResponseMode.DC_API_JWT &&
+										rpState.audience.startsWith('origin:')
+											? 'dc_api'
+											: 'redirect',
+									dcApiOrigin:
+										rpState.response_mode === OpenID4VPResponseMode.DC_API_JWT
+											? rpState.audience.replace(/^origin:/, '')
+											: undefined,
 								},
-							);
-							console.log('Message: ', message);
-							messages[descriptor.id] = [message];
-							if (!status) {
-								return { error: new Error('transaction_data validation error') };
+							});
+					if (!verificationResult.success)
+						throw new Error(`Verification failed for ${id}: ${verificationResult.error}`);
+					const parsed = await ce.credentialParsingEngine.parse({ rawCredential: vp });
+					if (!parsed.success) throw new Error(`Parsing failed for ${id}`);
+					const claims = parsed.value.signedClaims;
+					const holderBound = verificationResult.value.holderBindingVerified === true;
+					const shaped = sdjwt
+						? {
+								credential_format: parsed.value.metadata.credential.format,
+								vct: claims.vct,
+								claims,
+								cryptographic_holder_binding: holderBound,
 							}
-							console.log('VALIDATED TRANSACTION DATA');
-						} else if (descriptor._transaction_data_type !== undefined) {
-							return {
-								error: new Error(
-									'transaction_data_hashes is missing from transaction data response',
-								),
+						: {
+								credential_format: parsed.value.metadata.credential.format,
+								doctype:
+									'doctype' in parsed.value.metadata.credential
+										? parsed.value.metadata.credential.doctype
+										: undefined,
+								namespaces: claims,
+								cryptographic_holder_binding: holderBound,
 							};
-						}
-					} catch (e) {
-						console.error(e);
-						return { error: new Error('transaction_data validation error') };
-					}
-					const verificationResult = await ce.sdJwtVerifier.verify({
-						rawCredential: vp,
-						opts: {
-							expectedAudience: rpState.audience,
-							expectedNonce: rpState.nonce,
-						},
+					(verified[id] ??= []).push(shaped);
+					(verifiedPresentations[id] ??= []).push({
+						credentialFormat: parsed.value.metadata.credential.format,
+						holderBound,
+						claims,
 					});
-					if (!verificationResult.success) {
-						return {
-							error: new Error(
-								`SD-JWT verification failed for ${descriptor.id}: ${verificationResult.error}`,
-							),
-						};
-					}
-
-					const parseResult = await ce.credentialParsingEngine.parse({ rawCredential: vp });
-					if (!parseResult.success) {
-						return {
-							error: new Error(`Parsing SD-JWT failed for ${descriptor.id}: ${parseResult.error}`),
-						};
-					}
-
-					const signedClaims = parseResult.value.signedClaims;
-					const shaped = {
-						vct: signedClaims.vct,
-						credential_format: VerifiableCredentialFormat.DC_SDJWT,
-						claims: signedClaims,
-						cryptographic_holder_binding: true,
-					};
-
-					const dcqlResult = DcqlPresentationResult.fromDcqlPresentation(
-						/* @ts-ignore */
-						{ [descriptor.id]: [shaped] },
-						{ dcqlQuery: dcql_query },
+					// Keep the legacy flat claim list, with explicit presentation boundaries.
+					const values = sdjwt
+						? Object.entries(claims)
+								.filter(([key]) => !RESERVED_SDJWT_TOPLEVEL.has(key) && !key.startsWith('_'))
+								.map(([key, value]) => ({ key, value, path: [key] }))
+						: Object.entries(claims).flatMap(([namespace, values]) =>
+								Object.entries(values as Record<string, unknown>).map(([key, value]) => ({
+									key,
+									value,
+									path: [namespace, key],
+								})),
+							);
+					(presentationClaims[id] ??= []).push(
+						...values.map(({ key, value, path }) => ({
+							key,
+							name: key,
+							value: this.calculatePresentationClaimValue(value),
+							path,
+							instanceIndex,
+						})),
 					);
-					if (!dcqlResult.credential_matches[descriptor.id]?.success) {
-						return { error: new Error(`DCQL validation failed for ${descriptor.id}`) };
-					}
-
-					const output = dcqlResult.credential_matches[descriptor.id].valid_credentials?.[0].meta
-						.output as any;
-					if (
-						output.credential_format === VerifiableCredentialFormat.VC_SDJWT ||
-						output.credential_format === VerifiableCredentialFormat.DC_SDJWT
-					) {
-						const claims = dcqlResult.credential_matches[descriptor.id].valid_credentials?.[0]
-							?.claims as any;
-						const dcqlOut = claims?.valid_claim_sets?.[0]?.output as
-							Record<string, unknown> | undefined;
-						const signedClaims = parseResult.value.signedClaims as Record<string, unknown>;
-
-						const requestedAll = descriptor?.claims == null;
-
-						// Get all claims if no specific claims were requested
-						const source: Record<string, unknown> = requestedAll
-							? signedClaims
-							: dcqlOut && Object.keys(dcqlOut).length > 0
-								? dcqlOut
-								: signedClaims;
-
-						const filteredSource = Object.fromEntries(
-							Object.entries(source).filter(
-								([k]) => !RESERVED_SDJWT_TOPLEVEL.has(k) && !k.startsWith('_'),
-							),
-						);
-						presentationClaims[descriptor.id] = Object.entries(filteredSource).map(
-							([key, value]) => ({
-								key,
-								name: key,
-								value: this.calculatePresentationClaimValue(value),
-							}),
-						);
-					} else {
-						return {
-							error: new Error(`Unexpected credential_format for descriptor ${descriptor.id}`),
-						};
-					}
-				} else {
-					// ========== mdoc ==========
-					const verifierEncryptionJwk = rpState.rp_eph_pub;
-					const verificationResult = await ce.msoMdocVerifier.verify({
-						rawCredential: vp,
-						opts: {
-							expectedAudience: rpState.audience,
-							expectedNonce: rpState.nonce,
-							responseUri: this.options.redirectUri,
-							verifierEncryptionJwk,
-							handoverType:
-								rpState.response_mode === OpenID4VPResponseMode.DC_API_JWT &&
-								rpState.audience.startsWith('origin:')
-									? 'dc_api'
-									: 'redirect',
-							dcApiOrigin:
-								rpState.response_mode === OpenID4VPResponseMode.DC_API_JWT &&
-								rpState.audience.startsWith('origin:')
-									? rpState.audience.replace(/^origin:/, '')
-									: undefined,
-						},
-					});
-					if (!verificationResult.success) {
-						return {
-							error: new Error(
-								`mDoc verification failed for ${descriptor.id}: ${verificationResult.error}`,
-							),
-						};
-					}
-
-					const parseResult = await ce.credentialParsingEngine.parse({ rawCredential: vp });
-					if (!parseResult.success) {
-						return {
-							error: new Error(`Parsing mDoc failed for ${descriptor.id}: ${parseResult.error}`),
-						};
-					}
-					const signedClaims = parseResult.value.signedClaims;
-					const shaped = {
-						credential_format: VerifiableCredentialFormat.MSO_MDOC,
-						doctype: descriptor.meta?.doctype_value,
-						cryptographic_holder_binding: true,
-						namespaces: signedClaims,
-					};
-
-					const dcqlResult = DcqlPresentationResult.fromDcqlPresentation(
-						/* @ts-ignore */
-						{ [descriptor.id]: [shaped] },
-						{ dcqlQuery: dcql_query },
-					);
-
-					if (!dcqlResult.credential_matches[descriptor.id]?.success) {
-						return {
-							error: new Error(`DCQL validation failed for mdoc descriptor ${descriptor.id}`),
-						};
-					}
-					const output = dcqlResult.credential_matches[descriptor.id].valid_credentials?.[0].meta
-						.output as any;
-					if (output.credential_format === VerifiableCredentialFormat.MSO_MDOC) {
-						const claimsObject = dcqlResult.credential_matches[descriptor.id].valid_credentials?.[0]
-							.claims as any;
-						if (!claimsObject) {
-							return {
-								error: new Error(
-									`No claims found in mdoc for doctype ${descriptor.meta?.doctype_value}`,
-								),
-							};
-						}
-						const outputByNamespace = claimsObject.valid_claim_sets?.[0]?.output as
-							Record<string, Record<string, unknown>> | undefined;
-						const requestedNamespace = Array.isArray(descriptor?.claims)
-							? descriptor.claims.find(
-									(c: any) => Array.isArray(c?.path) && typeof c.path[0] === 'string',
-								)?.path?.[0]
-							: undefined;
-						const namespaceKey =
-							requestedNamespace ??
-							(outputByNamespace ? Object.keys(outputByNamespace)[0] : undefined);
-						if (!namespaceKey || !outputByNamespace?.[namespaceKey]) {
-							return {
-								error: new Error(`No mdoc output namespace found for descriptor ${descriptor.id}`),
-							};
-						}
-						presentationClaims[descriptor.id] = Object.entries(outputByNamespace[namespaceKey]).map(
-							([key, value]) => ({
-								key,
-								name: key,
-								value: this.calculatePresentationClaimValue(value),
-							}),
-						);
-					} else {
-						return {
-							error: new Error(
-								`Unexpected mdoc credential_format in output for descriptor ${descriptor.id}`,
-							),
-						};
-					}
 				}
-			} catch (e) {
-				console.error(`Error processing descriptor ${descriptor.id}:`, e);
-				return {
-					error: new Error(
-						`Internal error verifying or parsing VP for descriptor ${descriptor.id}`,
-					),
-				};
 			}
+			validateDcqlPresentation(verified, dcql_query);
+		} catch (error) {
+			return { error: error instanceof Error ? error : new Error('DCQL verification failed') };
 		}
-		return { presentationClaims, messages };
+
+		return { presentationClaims, messages, verifiedPresentations };
 	}
 
 	public async getPresentationBySessionId(
@@ -617,6 +526,7 @@ export class OpenID4VPClientAPI {
 				status: true;
 				presentations: unknown[];
 				presentationInfo: PresentationInfo;
+				verifiedPresentations: VerifiedDcqlPresentations;
 				rpState: RPState;
 		  }
 		| { status: false; error: Error }
@@ -651,6 +561,7 @@ export class OpenID4VPClientAPI {
 		if (rpState.dcql_query) {
 			const result = await this.validateDcqlVpToken(vp_token as any, rpState.dcql_query, rpState);
 			presentationClaims = result.presentationClaims;
+			rpState.verifiedPresentations = result.verifiedPresentations;
 			presentationInfo = result.messages ? result.messages : {};
 			error = result.error;
 		}
@@ -679,6 +590,7 @@ export class OpenID4VPClientAPI {
 				status: true,
 				rpState: rpState,
 				presentationInfo,
+				verifiedPresentations: rpState.verifiedPresentations ?? {},
 				presentations: Object.values(vp_token).flatMap((v) => v),
 			};
 		}

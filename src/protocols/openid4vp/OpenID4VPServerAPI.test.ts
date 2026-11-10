@@ -134,7 +134,9 @@ describe('OpenID4VPServerAPI.handleAuthorizationRequest', () => {
 			},
 			selectCredentialForBatch: async () => null,
 			keystore: {
-				signJwtPresentation: async () => ({ vpjwt: 'vp-jwt' }),
+				signJwtPresentation: async (_nonce, _audience, presentations) => ({
+					vpjwt: presentations[0],
+				}),
 				generateDeviceResponse: async () => ({ deviceResponseMDoc: {} }),
 			},
 			strings: {
@@ -203,7 +205,9 @@ describe('OpenID4VPServerAPI.handleAuthorizationRequest', () => {
 			parseCredential: async () => ({ signedClaims: signedClaimsPid }),
 			selectCredentialForBatch: async () => null,
 			keystore: {
-				signJwtPresentation: async () => ({ vpjwt: 'vp-jwt' }),
+				signJwtPresentation: async (_nonce, _audience, presentations) => ({
+					vpjwt: presentations[0],
+				}),
 				generateDeviceResponse: async () => ({ deviceResponseMDoc: {} }),
 			},
 			strings: {
@@ -261,7 +265,9 @@ describe('OpenID4VPServerAPI.handleAuthorizationRequest', () => {
 			parseCredential: async () => ({ signedClaims: signedClaimsPid }),
 			selectCredentialForBatch: async () => null,
 			keystore: {
-				signJwtPresentation: async () => ({ vpjwt: 'vp-jwt' }),
+				signJwtPresentation: async (_nonce, _audience, presentations) => ({
+					vpjwt: presentations[0],
+				}),
 				generateDeviceResponse: async () => ({ deviceResponseMDoc: {} }),
 			},
 			strings: {
@@ -314,7 +320,9 @@ describe('OpenID4VPServerAPI.handleAuthorizationRequest', () => {
 			parseCredential: async () => null,
 			selectCredentialForBatch: async () => null,
 			keystore: {
-				signJwtPresentation: async () => ({ vpjwt: 'vp-jwt' }),
+				signJwtPresentation: async (_nonce, _audience, presentations) => ({
+					vpjwt: presentations[0],
+				}),
 				generateDeviceResponse: async () => ({ deviceResponseMDoc: {} }),
 			},
 			strings: {
@@ -350,7 +358,9 @@ describe('OpenID4VPServerAPI.handleAuthorizationRequest', () => {
 			parseCredential: async () => null,
 			selectCredentialForBatch: async () => null,
 			keystore: {
-				signJwtPresentation: async () => ({ vpjwt: 'vp-jwt' }),
+				signJwtPresentation: async (_nonce, _audience, presentations) => ({
+					vpjwt: presentations[0],
+				}),
 				generateDeviceResponse: async () => ({ deviceResponseMDoc: {} }),
 			},
 			strings: {
@@ -398,7 +408,9 @@ describe('OpenID4VPServerAPI.handleAuthorizationRequest', () => {
 			parseCredential: async () => null,
 			selectCredentialForBatch: async () => null,
 			keystore: {
-				signJwtPresentation: async () => ({ vpjwt: 'vp-jwt' }),
+				signJwtPresentation: async (_nonce, _audience, presentations) => ({
+					vpjwt: presentations[0],
+				}),
 				generateDeviceResponse: async () => ({ deviceResponseMDoc: {} }),
 			},
 			strings: {
@@ -467,7 +479,9 @@ describe('OpenID4VPServerAPI.handleAuthorizationRequest', () => {
 			parseCredential: async () => ({ signedClaims: signedClaimsPid }),
 			selectCredentialForBatch: async () => null,
 			keystore: {
-				signJwtPresentation: async () => ({ vpjwt: 'vp-jwt' }),
+				signJwtPresentation: async (_nonce, _audience, presentations) => ({
+					vpjwt: presentations[0],
+				}),
 				generateDeviceResponse: async () => ({ deviceResponseMDoc: {} }),
 			},
 			strings: {
@@ -537,6 +551,7 @@ describe('OpenID4VPServerAPI.createAuthorizationResponse', () => {
 						credentials: [
 							{
 								id: 'pid',
+								require_cryptographic_holder_binding: false,
 								format: VerifiableCredentialFormat.DC_SDJWT,
 								meta: { vct_values: ['urn:eudi:pid:1'] },
 								claims: [{ path: ['given_name'] }],
@@ -550,7 +565,9 @@ describe('OpenID4VPServerAPI.createAuthorizationResponse', () => {
 			selectCredentialForBatch: async (batchId, vcEntityList) =>
 				vcEntityList.find((credential) => credential.batchId === batchId) ?? null,
 			keystore: {
-				signJwtPresentation: async () => ({ vpjwt: 'vp-jwt' }),
+				signJwtPresentation: async (_nonce, _audience, presentations) => ({
+					vpjwt: presentations[0],
+				}),
 				generateDeviceResponse: async () => ({ deviceResponseMDoc: {} }),
 			},
 			strings: {
@@ -559,9 +576,13 @@ describe('OpenID4VPServerAPI.createAuthorizationResponse', () => {
 			},
 		});
 
-		const result = await helper.createAuthorizationResponse(new Map([['pid', 7]]), [
-			{ format: VerifiableCredentialFormat.DC_SDJWT, data: sdJwtPid, batchId: 7 },
-		]);
+		const inventory = [{ format: VerifiableCredentialFormat.DC_SDJWT, data: sdJwtPid, batchId: 7 }];
+		const state = await (helper as any).deps.rpStateStore.retrieve();
+		const matches = await (helper as any).matchCredentialsToDCQL(inventory, state.dcql_query);
+		const result = await helper.createAuthorizationResponse(
+			new Map([['pid', matches.mapping.get('pid').candidates]]),
+			inventory,
+		);
 
 		assert('formData' in result);
 		return result.formData.get('response') as string;
