@@ -1,10 +1,20 @@
 import type { JWK } from 'jose';
 
 export type ClaimRecord = {
+	/** Index of the verified presentation within its query array. */
+	instanceIndex?: number;
+	path?: (string | number | null)[];
 	key: string;
 	name: string;
 	value: string;
 };
+
+export interface VerifiedDcqlPresentation {
+	credentialFormat: string;
+	holderBound: boolean;
+	claims: Record<string, unknown>;
+}
+export type VerifiedDcqlPresentations = Record<string, VerifiedDcqlPresentation[]>;
 
 export type PresentationClaims = Record<string, ClaimRecord[]>;
 
@@ -42,6 +52,7 @@ export interface RPState {
 	response_code: string | null;
 
 	claims: PresentationClaims | null;
+	verifiedPresentations?: VerifiedDcqlPresentations;
 
 	completed: boolean | null;
 

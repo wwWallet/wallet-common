@@ -1,7 +1,15 @@
+import {
+	DcqlSelection,
+	DcqlCredentialMatch,
+	dcqlRequirements,
+	validateDcqlPresentation,
+	dcqlDisclosureFrame,
+	dcqlClaimsFingerprint,
+} from './DCQLSelection';
 import { SDJwt } from '@sd-jwt/core';
 import { IssuerSigned } from '@owf/mdoc';
 import { base64url, EncryptJWT, importJWK, importX509, jwtVerify } from 'jose';
-import { DcqlPresentationResult, DcqlQuery } from 'dcql';
+import { DcqlQuery } from 'dcql';
 import { generateRandomIdentifier } from '../../utils';
 import {
 	OpenID4VPClientMetadata,
@@ -103,37 +111,19 @@ const preferredJweEncryptions = [
 function decodeIssuerSignedCredential(credentialDataB64u: string): {
 	issuerSigned: IssuerSigned;
 	docType: string;
-	namespaceName: string | null;
-	namespaceClaims: Record<string, unknown>;
+	namespaces: Record<string, Record<string, unknown>>;
 } {
 	const credentialBytes = base64url.decode(credentialDataB64u);
 	const issuerSigned = IssuerSigned.decode(credentialBytes);
 	const docType = issuerSigned.issuerAuth.mobileSecurityObject.docType;
 	const issuerNamespaces = issuerSigned.issuerNamespaces?.issuerNamespaces ?? new Map();
-	const firstNamespaceEntry = issuerNamespaces.entries().next().value as
-		[string, Array<{ elementIdentifier: string; elementValue: unknown }>] | undefined;
-
-	if (!firstNamespaceEntry) {
-		return {
-			issuerSigned,
-			docType,
-			namespaceName: null,
-			namespaceClaims: {},
-		};
-	}
-
-	const [namespaceName, items] = firstNamespaceEntry;
-	const namespaceClaims = items.reduce<Record<string, unknown>>((acc, item) => {
-		acc[item.elementIdentifier] = item.elementValue;
-		return acc;
-	}, {});
-
-	return {
-		issuerSigned,
-		docType,
-		namespaceName,
-		namespaceClaims,
-	};
+	const namespaces = Object.fromEntries(
+		[...issuerNamespaces].map(([name, items]) => [
+			name,
+			Object.fromEntries(items.map((item) => [item.elementIdentifier, item.elementValue])),
+		]),
+	);
+	return { issuerSigned, docType, namespaces };
 }
 
 function isOpenID4VPResponseMode(value: unknown): value is OpenID4VPResponseMode {
@@ -284,32 +274,29 @@ export class OpenID4VPServerAPI<
 		vcList: CredentialT[],
 		dcqlJson: any,
 	): Promise<
-		| {
-				mapping: Map<
-					string,
-					{
-						credentials: number[];
-						requestedFields: { name: string; purpose: string; path?: (string | null)[] }[];
-					}
-				>;
-				descriptorPurpose: string;
-		  }
+		| { mapping: Map<string, DcqlCredentialMatch>; descriptorPurpose: string }
 		| { error: HandleAuthorizationRequestError }
 	> {
 		const descriptorPurpose = this.deps.strings.purposeNotSpecified ?? null;
 
 		// shape all credentials in the wallet
 		const shapedCredentials: any[] = [];
-		for (const vc of vcList) {
+		for (const original of vcList) {
+			// Resolve the copy before consent, so mandatory cryptographic claims (e.g. cnf)
+			// in the preview describe the same copy that will be presented.
+			const vc =
+				original.batchId === undefined
+					? original
+					: ((await this.deps.selectCredentialForBatch(original.batchId, vcList)) ?? original);
 			let shaped: any = { credential_format: vc.format };
 			try {
 				if (vc.format === VerifiableCredentialFormat.MSO_MDOC) {
-					const { docType, namespaceName, namespaceClaims } = decodeIssuerSignedCredential(vc.data);
+					const { docType, namespaces } = decodeIssuerSignedCredential(vc.data);
 
 					shaped = {
 						credential_format: vc.format,
 						doctype: docType,
-						namespaces: namespaceName ? { [namespaceName]: namespaceClaims } : {},
+						namespaces,
 						batchId: vc.batchId,
 						cryptographic_holder_binding: true,
 					};
@@ -325,110 +312,122 @@ export class OpenID4VPServerAPI<
 					shaped.cryptographic_holder_binding = true;
 					shaped.batchId = vc.batchId;
 				}
+				shaped.sourceCredential = vc;
 				shapedCredentials.push(shaped);
 			} catch (e) {
 				console.error('DCQL shaping error for this VC:', e);
 			}
 		}
-		if (shapedCredentials.length === 0) {
-			return { error: HandleAuthorizationRequestErrors.INSUFFICIENT_CREDENTIALS };
-		}
 		const parsedQuery = DcqlQuery.parse(dcqlJson);
 		DcqlQuery.validate(parsedQuery);
 		const result = DcqlQuery.query(parsedQuery, shapedCredentials);
 
-		const matches = result.credential_matches;
-
-		function hasValidMatch(credId: string): boolean {
-			const match = matches[credId];
-			if (match?.success === false) {
-				match.failed_credentials?.forEach((failedCreds: any) => {
-					if (failedCreds.meta.success === false) {
-						console.error('DCQL metadata issues: ', failedCreds.meta.issues);
-					}
-					if (!failedCreds.claims.success) {
-						console.error('DCQL failed claims: ', failedCreds.claims);
-					}
-				});
-			}
-			return (
-				match?.success === true &&
-				Array.isArray(match.valid_credentials) &&
-				match.valid_credentials.length > 0
-			);
-		}
-
-		const satisfied = dcqlJson.credentials.every((cred: any) => hasValidMatch(cred.id));
-		if (!satisfied) {
+		if (!result.can_be_satisfied)
 			return { error: HandleAuthorizationRequestErrors.INSUFFICIENT_CREDENTIALS };
-		}
-
-		// Build the mapping for each credential query
-		const mapping = new Map<
-			string,
-			{
-				credentials: number[];
-				requestedFields: { name: string; purpose: string; path?: (string | null)[] }[];
-			}
-		>();
+		const requirements = dcqlRequirements(dcqlJson, result);
+		const mapping = new Map<string, DcqlCredentialMatch>();
 		for (const credReq of dcqlJson.credentials) {
 			const match = result.credential_matches[credReq.id];
-			const conforming: number[] = [];
-			if (match?.success && match.valid_credentials) {
+			const candidates: DcqlCredentialMatch['candidates'] = [];
+			if (match?.success)
 				for (const vcMatch of match.valid_credentials) {
 					const shaped = shapedCredentials[vcMatch.input_credential_index];
-					if (shaped?.batchId !== undefined) {
-						conforming.push(shaped.batchId);
+					if (shaped.batchId === undefined || candidates.some((c) => c.batchId === shaped.batchId))
+						continue;
+					const claimsResult = vcMatch.claims;
+					const claimSet = claimsResult.success
+						? claimsResult.valid_claim_sets.reduce((first, next) =>
+								(next.claim_set_index ?? -1) < (first.claim_set_index ?? -1) ? next : first,
+							)
+						: undefined;
+					const claimSetIndex = claimSet?.claim_set_index;
+					const requestedClaims =
+						claimSetIndex === undefined
+							? (credReq.claims ?? [])
+							: credReq.claims.filter((c: any) => credReq.claim_sets[claimSetIndex].includes(c.id));
+					const disclosurePaths = requestedClaims.map(
+						(c: any) => c.path ?? [c.namespace, c.claim_name],
+					);
+					let disclosedClaims: Record<string, unknown>;
+					if (credReq.format === VerifiableCredentialFormat.MSO_MDOC) {
+						// mdoc elements are indivisible. Absent claims requests no data elements.
+						disclosedClaims = disclosurePaths.length
+							? Object.fromEntries(
+									[
+										...new Set<string>(
+											disclosurePaths.map((p: (string | number | null)[]) => p[0] as string),
+										),
+									].map((ns) => [
+										ns,
+										Object.fromEntries(
+											disclosurePaths
+												.filter((p: (string | number | null)[]) => p[0] === ns)
+												.map((p: (string | number | null)[]) => [
+													p[1],
+													shaped.namespaces[ns][p[1] as string],
+												]),
+										),
+									]),
+								)
+							: { [shaped.doctype]: {} };
+					} else {
+						const source = shaped.sourceCredential as CredentialT;
+						const hasher = this.dcqlHasher();
+						const jwt = await SDJwt.fromEncode(source.data, hasher);
+						const presentation = await jwt.present(
+							dcqlDisclosureFrame(disclosurePaths, shaped.claims),
+							hasher,
+						);
+						disclosedClaims = await (
+							await SDJwt.fromEncode(presentation, hasher)
+						).getClaims<Record<string, unknown>>(hasher);
 					}
+					candidates.push({
+						batchId: shaped.batchId,
+						instanceId: shaped.sourceCredential.instanceId,
+						credentialId: shaped.sourceCredential.credentialId,
+						claimSetIndex,
+						disclosurePaths,
+						disclosedClaims,
+					});
 				}
-			}
 			mapping.set(credReq.id, {
-				credentials: conforming,
-				requestedFields:
-					!credReq.claims || credReq.claims.length === 0
-						? [
-								{
-									name: this.deps.strings.allClaimsRequested,
-									purpose: descriptorPurpose,
-									path: [null],
-								},
-							]
-						: credReq.claims.map((cl: any) => ({
-								name: cl.id || cl.path.join('.'),
-								purpose: descriptorPurpose,
-								path: cl.path,
-							})),
+				credentials: candidates.map((c) => c.batchId),
+				candidates,
+				multiple: credReq.multiple ?? false,
+				requirements,
+				inventoryCanSatisfy: result.can_be_satisfied,
+				failures: (match?.failed_credentials ?? []).map((failed) => ({
+					inputCredentialIndex: failed.input_credential_index,
+					metadata: !failed.meta.success,
+					claims: !failed.claims.success,
+					trustedAuthorities: !failed.trusted_authorities.success,
+				})),
+				...(!candidates.length
+					? { failure: 'No credential satisfies the format, metadata and claim requirements.' }
+					: {}),
+				requestedFields: (credReq.claims ?? []).map((cl: any) => ({
+					name: (cl.path ?? [cl.namespace, cl.claim_name]).join(' / '),
+					purpose: descriptorPurpose,
+					path: cl.path ?? [cl.namespace, cl.claim_name],
+				})),
 			});
 		}
 
-		const allConforming = Array.from(mapping.values()).flatMap((m) => m.credentials);
-		if (allConforming.length === 0) {
-			return { error: HandleAuthorizationRequestErrors.INSUFFICIENT_CREDENTIALS };
-		}
 		return { mapping, descriptorPurpose };
 	}
 
-	private generatePresentationFrameForDCQLPaths(paths: string[][]): any {
-		const frame: Record<string, any> = {};
-
-		for (const rawSegments of paths) {
-			let current = frame;
-			for (let i = 0; i < rawSegments.length; i++) {
-				const segment = rawSegments[i];
-				if (i === rawSegments.length - 1) {
-					current[segment] = true;
-				} else {
-					current[segment] = current[segment] || {};
-					current = current[segment];
-				}
-			}
-		}
-		return frame;
+	private dcqlHasher() {
+		const subtle = getSubtleCrypto(this.deps.subtle);
+		return (data: string | ArrayBuffer, alg: string) =>
+			subtle
+				.digest(alg, typeof data === 'string' ? encoder.encode(data) : new Uint8Array(data))
+				.then((buf) => new Uint8Array(buf));
 	}
 
 	private async handleDCQLFlow(
 		S: OpenID4VPRelyingPartyState,
-		selectionMap: Map<string, number>,
+		selectionMap: DcqlSelection,
 		vcEntityList: CredentialT[],
 	) {
 		const { dcql_query, client_id, nonce, response_uri, transaction_data } = S;
@@ -448,175 +447,205 @@ export class OpenID4VPServerAPI<
 			dcApiOrigin = S.client_id.replace(/^origin:/, '');
 		}
 		const generatedVPs: string[] = [];
+		const vpTokenObject: Record<string, string[]> = Object.create(null);
+		const disclosed: Record<string, any[]> = Object.create(null);
+		const matching = await this.matchCredentialsToDCQL(vcEntityList, dcql_query);
+		if ('error' in matching) throw new Error(matching.error);
+		const currentSelection: DcqlSelection = new Map();
+		for (const [id, instances] of selectionMap) {
+			const match = matching.mapping.get(id);
+			if (
+				!match ||
+				!instances.length ||
+				(!match.multiple && instances.length !== 1) ||
+				new Set(instances.map((i) => i.batchId)).size !== instances.length
+			)
+				throw new Error('Invalid credential selection');
+			currentSelection.set(
+				id,
+				instances.map((instance) => {
+					const candidate = match.candidates.find((c) => c.batchId === instance.batchId);
+					if (!candidate || dcqlClaimsFingerprint(candidate) !== dcqlClaimsFingerprint(instance))
+						throw new Error('Credential selection changed; consent required');
+					return candidate;
+				}),
+			);
+		}
+		// Validate the complete current choice before creating any holder-bound presentation.
+		const selectedInventory = Object.fromEntries(
+			[...currentSelection].map(([id, instances]) => {
+				const descriptor = (dcql_query as any).credentials.find((c: any) => c.id === id);
+				return [
+					id,
+					instances.map((instance) =>
+						descriptor.format === VerifiableCredentialFormat.MSO_MDOC
+							? {
+									credential_format: descriptor.format,
+									doctype: decodeIssuerSignedCredential(
+										vcEntityList.find((vc) => vc.batchId === instance.batchId)!.data,
+									).docType,
+									namespaces: instance.disclosedClaims,
+									cryptographic_holder_binding: true,
+								}
+							: {
+									credential_format: descriptor.format,
+									vct: instance.disclosedClaims.vct,
+									claims: instance.disclosedClaims,
+									cryptographic_holder_binding: true,
+								},
+					),
+				];
+			}),
+		);
+		validateDcqlPresentation(selectedInventory, dcql_query as any);
+
 		const originalVCs: CredentialT[] = [];
 
-		for (const [selectionKey, batchId] of selectionMap) {
-			const credential = await this.deps.selectCredentialForBatch(batchId, vcEntityList);
-			if (!credential) continue;
+		for (const [selectionKey, instances] of currentSelection) {
+			for (const instance of instances) {
+				const { batchId, disclosurePaths } = instance;
+				const credential = await this.deps.selectCredentialForBatch(batchId, vcEntityList);
+				if (!credential) throw new Error('Selected credential is unavailable');
+				if (
+					credential.instanceId !== instance.instanceId ||
+					credential.credentialId !== instance.credentialId
+				)
+					throw new Error('Selected credential copy changed; consent required');
 
-			if (
-				credential.format === VerifiableCredentialFormat.VC_SDJWT ||
-				credential.format === VerifiableCredentialFormat.DC_SDJWT
-			) {
-				const descriptor = (dcql_query as any).credentials.find((c: any) => c.id === selectionKey);
-				if (!descriptor) {
-					throw new Error(`No DCQL descriptor for id ${selectionKey}`);
-				}
-				const parsed = await this.deps.parseCredential(credential);
-				if (!parsed) {
-					throw new Error('Failed to parse credential');
-				}
-				const { signedClaims } = parsed;
-
-				let paths: string[][];
-
-				if (!descriptor.claims || descriptor.claims.length === 0) {
-					paths = [];
-					const getNestedPaths = (val: any, path: string[]) => {
-						if (val === null || typeof val !== 'object') {
-							if (path.length) paths.push(path);
-							return;
-						}
-						if (Array.isArray(val)) {
-							if (path.length) {
-								paths.push(path);
-							}
-							return;
-						}
-						const entries = Object.entries(val);
-						if (entries.length === 0) {
-							if (path.length) {
-								paths.push(path);
-							}
-							return;
-						}
-						for (const [k, v] of entries) {
-							getNestedPaths(v, path.concat(k));
-						}
-					};
-					getNestedPaths(signedClaims, []);
-				} else {
-					paths = descriptor.claims.map((cl: any) => cl.path);
-				}
-
-				const frame = this.generatePresentationFrameForDCQLPaths(paths);
-				const subtle = getSubtleCrypto(this.deps.subtle);
-				const hasher = (data: string | ArrayBuffer, alg: string) => {
-					const bytes = typeof data === 'string' ? encoder.encode(data) : new Uint8Array(data);
-					return subtle.digest(alg, bytes).then((buf) => new Uint8Array(buf));
-				};
-
-				const sdJwt = await SDJwt.fromEncode(credential.data, hasher);
-				const presentation =
-					credential.data.split('~').length - 1 > 1
-						? await sdJwt.present(frame, hasher)
-						: credential.data;
-
-				const shaped = {
-					credential_format: credential.format,
-					vct: (signedClaims as any).vct,
-					cryptographic_holder_binding: true,
-					claims:
-						!descriptor.claims || descriptor.claims.length === 0
-							? signedClaims
-							: Object.fromEntries(
-									Object.entries(signedClaims).filter(([k]) =>
-										descriptor.claims.some((cl: any) => cl.path.includes(k)),
-									),
-								),
-				};
-				const presResult = DcqlPresentationResult.fromDcqlPresentation(
-					{ [selectionKey]: [shaped] } as any,
-					{ dcqlQuery: dcql_query as any },
-				);
-				if (!presResult.credential_matches[selectionKey]?.success) {
-					throw new Error(`Presentation for '${selectionKey}' did not satisfy DCQL`);
-				}
-
-				let transactionDataResponseParams: TransactionDataResponseParams | undefined;
-				if (transaction_data?.length && this.deps.transactionDataResponseGenerator) {
-					const [res, err] = await this.deps
-						.transactionDataResponseGenerator({ descriptor_id: selectionKey, dcql_query })
-						.generateTransactionDataResponse(transaction_data);
-					if (err) {
-						throw err;
-					}
-					if (res) {
-						transactionDataResponseParams = { ...res };
-					}
-				}
-
-				const { vpjwt } = await this.deps.keystore.signJwtPresentation(
-					nonce,
-					client_id,
-					[presentation],
-					transactionDataResponseParams,
-				);
-
-				generatedVPs.push(vpjwt);
-				originalVCs.push(credential);
-			} else if (credential.format === VerifiableCredentialFormat.MSO_MDOC) {
-				const descriptor = (dcql_query as any).credentials.find((c: any) => c.id === selectionKey);
-				if (!descriptor) {
-					throw new Error(`No DCQL descriptor for id ${selectionKey}`);
-				}
-				const descriptorId = descriptor.meta?.doctype_value;
-				const { issuerSigned, docType, namespaceName, namespaceClaims } =
-					decodeIssuerSignedCredential(credential.data);
-				const effectiveDocType = descriptorId ?? docType;
-				const mdoc = {
-					documents: [
-						{
-							docType: effectiveDocType,
-							issuerSigned,
-						},
-					],
-				};
-
-				let dcqlQueryWithClaims: any;
-				if (!descriptor.claims || descriptor.claims.length === 0) {
-					dcqlQueryWithClaims = JSON.parse(JSON.stringify(dcql_query));
-					const descriptorIndex = dcqlQueryWithClaims.credentials.findIndex(
+				if (
+					credential.format === VerifiableCredentialFormat.VC_SDJWT ||
+					credential.format === VerifiableCredentialFormat.DC_SDJWT
+				) {
+					const descriptor = (dcql_query as any).credentials.find(
 						(c: any) => c.id === selectionKey,
 					);
-					if (descriptorIndex !== -1) {
-						const namespaceForPaths = namespaceName ?? effectiveDocType;
-						dcqlQueryWithClaims.credentials[descriptorIndex].claims = Object.keys(
-							namespaceClaims,
-						).map((key) => ({
-							id: key,
-							path: [namespaceForPaths, key],
-						}));
+					if (!descriptor) {
+						throw new Error(`No DCQL descriptor for id ${selectionKey}`);
 					}
-				} else {
-					dcqlQueryWithClaims = dcql_query;
+					const parsed = await this.deps.parseCredential(credential);
+					if (!parsed) {
+						throw new Error('Failed to parse credential');
+					}
+					const { signedClaims } = parsed;
+
+					const frame = dcqlDisclosureFrame(disclosurePaths, signedClaims);
+					const hasher = this.dcqlHasher();
+
+					const sdJwt = await SDJwt.fromEncode(credential.data, hasher);
+					const presentation = await sdJwt.present(frame, hasher);
+
+					let transactionDataResponseParams: TransactionDataResponseParams | undefined;
+					if (transaction_data?.length && this.deps.transactionDataResponseGenerator) {
+						const [res, err] = await this.deps
+							.transactionDataResponseGenerator({ descriptor_id: selectionKey, dcql_query })
+							.generateTransactionDataResponse(transaction_data);
+						if (err) {
+							throw err;
+						}
+						if (res) {
+							transactionDataResponseParams = { ...res };
+						}
+					}
+
+					const { vpjwt } = await this.deps.keystore.signJwtPresentation(
+						nonce,
+						client_id,
+						[presentation],
+						transactionDataResponseParams,
+					);
+
+					const generatedClaims = await (
+						await SDJwt.fromEncode(vpjwt, hasher)
+					).getClaims<Record<string, unknown>>(hasher);
+					if (
+						dcqlClaimsFingerprint(generatedClaims) !==
+						dcqlClaimsFingerprint(instance.disclosedClaims)
+					)
+						throw new Error('Generated disclosure differs from consent');
+					(disclosed[selectionKey] ??= []).push({
+						credential_format: credential.format,
+						vct: generatedClaims.vct,
+						cryptographic_holder_binding: !vpjwt.endsWith('~'),
+						claims: generatedClaims,
+					});
+					generatedVPs.push(vpjwt);
+					(vpTokenObject[selectionKey] ??= []).push(vpjwt);
+					originalVCs.push(credential);
+				} else if (credential.format === VerifiableCredentialFormat.MSO_MDOC) {
+					const descriptor = (dcql_query as any).credentials.find(
+						(c: any) => c.id === selectionKey,
+					);
+					if (!descriptor) {
+						throw new Error(`No DCQL descriptor for id ${selectionKey}`);
+					}
+
+					const { issuerSigned, docType } = decodeIssuerSignedCredential(credential.data);
+					const effectiveDocType = docType;
+					const mdoc = {
+						documents: [
+							{
+								docType: effectiveDocType,
+								issuerSigned,
+							},
+						],
+					};
+
+					const dcqlQueryWithClaims = {
+						credentials: [
+							{
+								...descriptor,
+								claim_sets: undefined,
+								claims: (descriptor.claims ?? []).filter((c: any) =>
+									disclosurePaths.some(
+										(p) =>
+											JSON.stringify(p) === JSON.stringify(c.path ?? [c.namespace, c.claim_name]),
+									),
+								),
+							},
+						],
+					};
+
+					const { deviceResponseMDoc } = await this.deps.keystore.generateDeviceResponse(
+						mdoc,
+						dcqlQueryWithClaims,
+						selectionKey,
+						nonce,
+						client_id,
+						response_uri,
+						verifierEncryptionJwk,
+						handoverType,
+						dcApiOrigin,
+					);
+					const encodedDeviceResponse = base64url.encode(deviceResponseMDoc.encode());
+
+					generatedVPs.push(encodedDeviceResponse);
+					(vpTokenObject[selectionKey] ??= []).push(encodedDeviceResponse);
+					const document = deviceResponseMDoc.documents[0];
+					const namespaces = Object.fromEntries(
+						[...document.issuerSigned.issuerNamespaces.issuerNamespaces].map(([ns, items]: any) => [
+							ns,
+							Object.fromEntries(
+								items.map((item: any) => [item.elementIdentifier, item.elementValue]),
+							),
+						]),
+					);
+					if (dcqlClaimsFingerprint(namespaces) !== dcqlClaimsFingerprint(instance.disclosedClaims))
+						throw new Error('Generated disclosure differs from consent');
+					(disclosed[selectionKey] ??= []).push({
+						credential_format: credential.format,
+						doctype: document.docType,
+						cryptographic_holder_binding: !!document.deviceSigned,
+						namespaces,
+					});
+					originalVCs.push(credential);
 				}
-
-				const { deviceResponseMDoc } = await this.deps.keystore.generateDeviceResponse(
-					mdoc,
-					dcqlQueryWithClaims,
-					selectionKey,
-					nonce,
-					client_id,
-					response_uri,
-					verifierEncryptionJwk,
-					handoverType,
-					dcApiOrigin,
-				);
-				const encodedDeviceResponse = base64url.encode(deviceResponseMDoc.encode());
-
-				generatedVPs.push(encodedDeviceResponse);
-				originalVCs.push(credential);
 			}
 		}
-
-		const vpTokenObject = Object.fromEntries(
-			Array.from(selectionMap.keys()).map((key, idx) => [key, [generatedVPs[idx]]]),
-		);
+		validateDcqlPresentation(disclosed, dcql_query as any);
 
 		const presentationSubmission = {
 			id: generateRandomIdentifier(8),
-			descriptor_map: Array.from(selectionMap.keys()).map((id, idx) => ({ id, path: `$[${idx}]` })),
+			descriptor_map: Array.from(selectionMap.keys()).map((id) => ({ id, path: `$['${id}']` })),
 		};
 
 		const formData = new URLSearchParams();
@@ -670,7 +699,7 @@ export class OpenID4VPServerAPI<
 		vcEntityList: CredentialT[],
 	): Promise<
 		| {
-				conformantCredentialsMap: Map<string, any>;
+				conformantCredentialsMap: Map<string, DcqlCredentialMatch>;
 				verifierDomainName: string;
 				verifierPurpose: string;
 				parsedTransactionData: ParsedTransactionDataT[] | null;
@@ -784,7 +813,7 @@ export class OpenID4VPServerAPI<
 		}
 
 		const { mapping, descriptorPurpose } = matchResult as {
-			mapping: Map<string, any>;
+			mapping: Map<string, DcqlCredentialMatch>;
 			descriptorPurpose: string;
 		};
 		const verifierDomainName = client_id.includes('http') ? new URL(client_id).hostname : client_id;
@@ -801,10 +830,7 @@ export class OpenID4VPServerAPI<
 		};
 	}
 
-	async createAuthorizationResponse(
-		selectionMap: Map<string, number>,
-		vcEntityList: CredentialT[],
-	) {
+	async createAuthorizationResponse(selectionMap: DcqlSelection, vcEntityList: CredentialT[]) {
 		const S = await this.deps.rpStateStore.retrieve();
 
 		if (!S || S.nonce === '' || (this.deps.lastUsedNonceStore?.get?.() ?? null) === S.nonce) {
