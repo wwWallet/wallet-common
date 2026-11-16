@@ -300,6 +300,38 @@ describe('wallet matching, claim preference, and generation', () => {
 		expect(w.matches.q0.candidates[0].disclosedClaims.secret).toBeUndefined();
 		expect(w.matches.q0.candidates[0].disclosedClaims.mandatory).toBe(true);
 	});
+	it('only discloses matching wildcard claim values in the generated presentation', async () => {
+		const q = {
+			credentials: [
+				sd('q0', {
+					claims: [{ path: ['qualifications', null, 'level'], values: [6] }],
+				}),
+			],
+		};
+		const w = await wallet(q, [
+			{
+				id: 'q0',
+				batchId: 1,
+				claims: { qualifications: [{ level: 6 }, { level: 4 }] },
+				frame: {
+					qualifications: {
+						_sd: [0, 1],
+						0: { _sd: ['level'] },
+						1: { _sd: ['level'] },
+					},
+				},
+			},
+		]);
+		const candidate = w.matches.q0.candidates[0];
+		expect(candidate.disclosedClaims.qualifications).toEqual([{ level: 6 }]);
+		const response = await w.helper.createAuthorizationResponse(
+			new Map([['q0', [candidate]]]),
+			w.inventory,
+		);
+		const token = JSON.parse(response.formData!.get('vp_token')!);
+		const claims = await (await SDJwt.fromEncode(token.q0[0], hasher)).getClaims<any>(hasher);
+		expect(claims.qualifications).toEqual([{ level: 6 }]);
+	});
 	it('deduplicates copies, generates distinct mdocs by query ID, and preserves object elements', async () => {
 		const entries = ['q0', 'q4', 'q5', 'q5'].map((id, i) => ({
 			id,
@@ -414,6 +446,17 @@ describe('wallet matching, claim preference, and generation', () => {
 			w.helper.createAuthorizationResponse(new Map([['q0', w.matches.q0.candidates]]), w.inventory),
 		).rejects.toThrow('unavailable');
 		expect(w.keystore.signJwtPresentation).not.toHaveBeenCalled();
+	});
+	it('filters wildcard disclosure paths by claim values', () => {
+		expect(
+			expandDcqlPaths(
+				[['qualifications', null, 'level']],
+				{
+					qualifications: [{ level: 6 }, { level: 4 }],
+				},
+				[6],
+			),
+		).toEqual([['qualifications', 0, 'level']]);
 	});
 
 	it('keeps overlapping references and removes abandoned selections', async () => {

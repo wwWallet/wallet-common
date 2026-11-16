@@ -375,7 +375,11 @@ export class OpenID4VPServerAPI<
 						const hasher = this.dcqlHasher();
 						const jwt = await SDJwt.fromEncode(source.data, hasher);
 						const presentation = await jwt.present(
-							dcqlDisclosureFrame(disclosurePaths, shaped.claims),
+							dcqlDisclosureFrame(
+								disclosurePaths,
+								shaped.claims,
+								requestedClaims.map((c: any) => c.values),
+							),
 							hasher,
 						);
 						disclosedClaims = await (
@@ -503,7 +507,7 @@ export class OpenID4VPServerAPI<
 
 		for (const [selectionKey, instances] of currentSelection) {
 			for (const instance of instances) {
-				const { batchId, disclosurePaths } = instance;
+				const { batchId, disclosurePaths, claimSetIndex } = instance;
 				const credential = await this.deps.selectCredentialForBatch(batchId, vcEntityList);
 				if (!credential) throw new Error('Selected credential is unavailable');
 				if (
@@ -528,7 +532,17 @@ export class OpenID4VPServerAPI<
 					}
 					const { signedClaims } = parsed;
 
-					const frame = dcqlDisclosureFrame(disclosurePaths, signedClaims);
+					const requestedClaims =
+						claimSetIndex === undefined
+							? (descriptor.claims ?? [])
+							: descriptor.claims.filter((c: any) =>
+									descriptor.claim_sets[claimSetIndex].includes(c.id),
+								);
+					const frame = dcqlDisclosureFrame(
+						disclosurePaths,
+						signedClaims,
+						requestedClaims.map((c: any) => c.values),
+					);
 					const hasher = this.dcqlHasher();
 
 					const sdJwt = await SDJwt.fromEncode(credential.data, hasher);

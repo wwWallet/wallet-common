@@ -136,13 +136,19 @@ export function validateDcqlPresentation(
 }
 
 /** Expand only array wildcards, preserving string object keys and numeric indexes. */
-export function expandDcqlPaths(paths: DcqlPath[], claims: unknown): (string | number)[][] {
+export function expandDcqlPaths(
+	paths: DcqlPath[],
+	claims: unknown,
+	values?: unknown[],
+): (string | number)[][] {
+	const matchingValues = values?.map(dcqlClaimsFingerprint);
 	const expand = (
 		path: DcqlPath,
 		value: any,
 		prefix: (string | number)[],
 	): (string | number)[][] => {
 		if (!path.length) {
+			if (matchingValues && !matchingValues.includes(dcqlClaimsFingerprint(value))) return [];
 			// A requested object includes all of its descendants, even when they are separately disclosable.
 			if (value && typeof value === 'object' && Object.keys(value).length)
 				return Object.entries(value).flatMap(([key, child]) =>
@@ -163,15 +169,21 @@ export function expandDcqlPaths(paths: DcqlPath[], claims: unknown): (string | n
 	};
 	return paths.flatMap((path) => expand(path, claims, []));
 }
-export function dcqlDisclosureFrame(paths: DcqlPath[], claims: unknown): Record<string, any> {
+export function dcqlDisclosureFrame(
+	paths: DcqlPath[],
+	claims: unknown,
+	values?: (unknown[] | undefined)[],
+): Record<string, any> {
 	const frame: Record<string, any> = Object.create(null);
-	for (const path of expandDcqlPaths(paths, claims)) {
-		let node = frame;
-		for (let i = 0; i < path.length; i++) {
-			const key = path[i];
-			if (node[key] === true) break;
-			if (i === path.length - 1) node[key] = true;
-			else node = node[key] ??= Object.create(null);
+	for (const [i, path] of paths.entries()) {
+		for (const expandedPath of expandDcqlPaths([path], claims, values?.[i])) {
+			let node = frame;
+			for (let j = 0; j < expandedPath.length; j++) {
+				const key = expandedPath[j];
+				if (node[key] === true) break;
+				if (j === expandedPath.length - 1) node[key] = true;
+				else node = node[key] ??= Object.create(null);
+			}
 		}
 	}
 	return frame;
