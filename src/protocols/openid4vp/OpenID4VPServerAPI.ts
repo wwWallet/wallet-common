@@ -273,21 +273,40 @@ export class OpenID4VPServerAPI<
 	private async matchCredentialsToDCQL(
 		vcList: CredentialT[],
 		dcqlJson: any,
+		selectedCopies?: Map<number, Pick<CredentialT, 'instanceId' | 'credentialId'>>,
 	): Promise<
-		| { mapping: Map<string, DcqlCredentialMatch>; descriptorPurpose: string }
+		| {
+				mapping: Map<string, DcqlCredentialMatch>;
+				descriptorPurpose: string;
+				resolvedCredentials: Map<number, CredentialT>;
+		  }
 		| { error: HandleAuthorizationRequestError }
 	> {
 		const descriptorPurpose = this.deps.strings.purposeNotSpecified ?? null;
 
 		// shape all credentials in the wallet
 		const shapedCredentials: any[] = [];
+		const resolvedCredentials = new Map<number, CredentialT>();
 		for (const original of vcList) {
 			// Resolve the copy before consent, so mandatory cryptographic claims (e.g. cnf)
 			// in the preview describe the same copy that will be presented.
-			const vc =
-				original.batchId === undefined
-					? original
-					: ((await this.deps.selectCredentialForBatch(original.batchId, vcList)) ?? original);
+			let vc = original;
+			if (original.batchId !== undefined) {
+				const selectedCopy = selectedCopies?.get(original.batchId);
+				if (selectedCopy) {
+					const selectedCredential = vcList.find(
+						(candidate) =>
+							candidate.batchId === original.batchId &&
+							candidate.instanceId === selectedCopy.instanceId &&
+							candidate.credentialId === selectedCopy.credentialId,
+					);
+					if (!selectedCredential) throw new Error('Selected credential is unavailable');
+					vc = selectedCredential;
+				} else {
+					vc = (await this.deps.selectCredentialForBatch(original.batchId, vcList)) ?? original;
+				}
+				resolvedCredentials.set(original.batchId, vc);
+			}
 			let shaped: any = { credential_format: vc.format };
 			try {
 				if (vc.format === VerifiableCredentialFormat.MSO_MDOC) {
@@ -418,7 +437,7 @@ export class OpenID4VPServerAPI<
 			});
 		}
 
-		return { mapping, descriptorPurpose };
+		return { mapping, descriptorPurpose, resolvedCredentials };
 	}
 
 	private dcqlHasher() {
@@ -453,7 +472,20 @@ export class OpenID4VPServerAPI<
 		const generatedVPs: string[] = [];
 		const vpTokenObject: Record<string, string[]> = Object.create(null);
 		const disclosed: Record<string, any[]> = Object.create(null);
-		const matching = await this.matchCredentialsToDCQL(vcEntityList, dcql_query);
+		const selectedCopies = new Map<number, Pick<CredentialT, 'instanceId' | 'credentialId'>>();
+		for (const instances of selectionMap.values()) {
+			for (const instance of instances) {
+				const previous = selectedCopies.get(instance.batchId);
+				if (
+					previous &&
+					(previous.instanceId !== instance.instanceId ||
+						previous.credentialId !== instance.credentialId)
+				)
+					throw new Error('Credential selection changed; consent required');
+				selectedCopies.set(instance.batchId, instance);
+			}
+		}
+		const matching = await this.matchCredentialsToDCQL(vcEntityList, dcql_query, selectedCopies);
 		if ('error' in matching) throw new Error(matching.error);
 		const currentSelection: DcqlSelection = new Map();
 		for (const [id, instances] of selectionMap) {
@@ -486,7 +518,7 @@ export class OpenID4VPServerAPI<
 							? {
 									credential_format: descriptor.format,
 									doctype: decodeIssuerSignedCredential(
-										vcEntityList.find((vc) => vc.batchId === instance.batchId)!.data,
+										matching.resolvedCredentials.get(instance.batchId)!.data,
 									).docType,
 									namespaces: instance.disclosedClaims,
 									cryptographic_holder_binding: true,
@@ -508,7 +540,7 @@ export class OpenID4VPServerAPI<
 		for (const [selectionKey, instances] of currentSelection) {
 			for (const instance of instances) {
 				const { batchId, disclosurePaths, claimSetIndex } = instance;
-				const credential = await this.deps.selectCredentialForBatch(batchId, vcEntityList);
+				const credential = matching.resolvedCredentials.get(batchId);
 				if (!credential) throw new Error('Selected credential is unavailable');
 				if (
 					credential.instanceId !== instance.instanceId ||

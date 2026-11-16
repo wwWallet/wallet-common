@@ -370,9 +370,9 @@ export class OpenID4VPClientAPI {
 		messages?: PresentationInfo;
 		error?: Error;
 	}> {
-		const presentationClaims: PresentationClaims = {};
+		const presentationClaims: PresentationClaims = Object.create(null);
 		const ce = await this.initializeCredentialEngine();
-		const messages: PresentationInfo = {};
+		const messages: PresentationInfo = Object.create(null);
 
 		const verifiedPresentations: VerifiedDcqlPresentations = Object.create(null);
 		const verified: Record<string, any[]> = Object.create(null);

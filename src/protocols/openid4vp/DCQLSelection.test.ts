@@ -97,7 +97,14 @@ const fakeIssuerSigned = (id: string, values: Record<string, unknown>) => ({
 });
 async function wallet(
 	dcql: any,
-	entries: { id: string; batchId: number; claims: Record<string, unknown>; frame?: any }[],
+	entries: {
+		id: string;
+		batchId: number;
+		claims: Record<string, unknown>;
+		frame?: any;
+		instanceId?: number;
+		credentialId?: number;
+	}[],
 ) {
 	const { privateKey } = await generateKeyPair('ES256');
 	const encodedMdocs = new Map<string, any>();
@@ -110,7 +117,13 @@ async function wallet(
 					: await issue({ vct: descriptor.meta.vct_values[0], ...entry.claims }, entry.frame);
 			if (descriptor.format === 'mso_mdoc')
 				encodedMdocs.set(data, fakeIssuerSigned(entry.id, entry.claims));
-			return { format: descriptor.format, data, batchId: entry.batchId };
+			return {
+				format: descriptor.format,
+				data,
+				batchId: entry.batchId,
+				instanceId: entry.instanceId,
+				credentialId: entry.credentialId,
+			};
 		}),
 	);
 	vi.spyOn(IssuerSigned, 'decode').mockImplementation((bytes) =>
@@ -170,7 +183,8 @@ async function wallet(
 				await SDJwt.fromEncode(credential.data, hasher)
 			).getClaims<Record<string, unknown>>(hasher),
 		}),
-		selectCredentialForBatch: async (batch) => inventory.find((c) => c.batchId === batch) ?? null,
+		selectCredentialForBatch: async (batch, vcEntityList) =>
+			vcEntityList.find((c) => c.batchId === batch) ?? null,
 		strings: { purposeNotSpecified: '', allClaimsRequested: '' },
 		keystore,
 	});
@@ -348,6 +362,36 @@ describe('wallet matching, claim preference, and generation', () => {
 		expect(result.filteredVCEntities!.map((c) => c.batchId)).toEqual([1, 2, 3, 4]);
 		expect(w.keystore.generateDeviceResponse).toHaveBeenCalledTimes(3);
 	});
+	it('uses the consented batch copy when preview and submission inventories differ', async () => {
+		const q = { credentials: [sd('q0')] };
+		const w = await wallet(q, [
+			{ id: 'q0', batchId: 1, instanceId: 0, credentialId: 1, claims: { value: 'preview' } },
+		]);
+		const previewCopy = w.inventory[0];
+		const submissionCopy = {
+			...w.inventory[0],
+			data: await issue({ vct: 'urn:synthetic:q0', value: 'submission' }),
+			instanceId: 0,
+			credentialId: 2,
+		};
+		const matches = await (w.helper as any).matchCredentialsToDCQL([previewCopy], q);
+		const candidate = matches.mapping.get('q0').candidates[0];
+
+		// The production resolver may ignore the restricted inventory
+		// and select another instance from the same batch.
+		const reselect = vi.fn(async () => submissionCopy);
+		(w.helper as any).deps.selectCredentialForBatch = reselect;
+
+		const result = await w.helper.createAuthorizationResponse(new Map([['q0', [candidate]]]), [
+			submissionCopy,
+			previewCopy,
+		]);
+
+		const token = JSON.parse(result.formData!.get('vp_token')!);
+		const claims = await (await SDJwt.fromEncode(token.q0[0], hasher)).getClaims<any>(hasher);
+		expect(claims.value).toBe('preview');
+		expect(reselect).not.toHaveBeenCalled();
+	});
 	it('refuses stale consent and incomplete selection', async () => {
 		const w = await wallet(query, [
 			{ id: 'q0', batchId: 1, claims: { value: true } },
@@ -441,9 +485,9 @@ describe('wallet matching, claim preference, and generation', () => {
 		const w = await wallet({ credentials: [sd('q0')] }, [
 			{ id: 'q0', batchId: 1, claims: { value: true } },
 		]);
-		(w.helper as any).deps.selectCredentialForBatch = async () => null;
+		const unavailableCopy = { ...w.matches.q0.candidates[0], credentialId: 1 };
 		await expect(
-			w.helper.createAuthorizationResponse(new Map([['q0', w.matches.q0.candidates]]), w.inventory),
+			w.helper.createAuthorizationResponse(new Map([['q0', [unavailableCopy]]]), w.inventory),
 		).rejects.toThrow('unavailable');
 		expect(w.keystore.signJwtPresentation).not.toHaveBeenCalled();
 	});

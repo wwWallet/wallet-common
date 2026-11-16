@@ -1,4 +1,4 @@
-import { assert, describe, it, vi } from 'vitest';
+import { assert, describe, expect, it, vi } from 'vitest';
 import { MemoryStore } from '../../core/MemoryStore';
 import { OpenID4VPClientAPI } from './OpenID4VPClientAPI';
 import { OpenID4VPResponseMode } from './types';
@@ -31,6 +31,59 @@ const presentationRequest = {
 };
 
 describe('OpenID4VPClientAPI.validateDcqlVpToken', () => {
+	it('supports prototype-named DCQL ids in presentation claims', async () => {
+		const helper = new OpenID4VPClientAPI(
+			new MemoryStore<string, any>(),
+			{
+				credentialEngineOptions: {
+					clockTolerance: 0,
+					subtle: crypto.subtle,
+					lang: 'en',
+					trustedCertificates: [],
+					trustedCredentialIssuerIdentifiers: undefined,
+				},
+				redirectUri: 'openid4vp://cb',
+			},
+			{ get: async () => ({ data: undefined }) },
+		);
+		vi.spyOn(helper as any, 'initializeCredentialEngine').mockResolvedValue({
+			sdJwtVerifier: {
+				verify: async () => ({
+					success: true,
+					value: { holderBindingVerified: true },
+				}),
+			},
+			credentialParsingEngine: {
+				parse: async () => ({
+					success: true,
+					value: {
+						signedClaims: { vct: 'urn:test', given_name: 'Ada' },
+						metadata: { credential: { format: VerifiableCredentialFormat.DC_SDJWT } },
+					},
+				}),
+			},
+		});
+
+		const result = await (helper as any).validateDcqlVpToken(
+			{ constructor: ['credential~'] },
+			{
+				credentials: [
+					{
+						id: 'constructor',
+						format: VerifiableCredentialFormat.DC_SDJWT,
+						claims: [{ path: ['given_name'] }],
+					},
+				],
+			},
+			{ audience: 'audience', nonce: 'nonce' },
+		);
+
+		expect(result.error).toBeUndefined();
+		expect(Object.getPrototypeOf(result.presentationClaims)).toBeNull();
+		expect(result.presentationClaims.constructor).toHaveLength(1);
+		expect(Object.getPrototypeOf(result.messages)).toBeNull();
+	});
+
 	it('should serialize Map values when building presentation claim values', () => {
 		const kv = new MemoryStore<string, any>();
 		const httpClient: HttpClient = {
