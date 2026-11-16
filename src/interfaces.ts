@@ -101,6 +101,7 @@ export interface CredentialVerifier {
 		CustomResult<
 			{
 				holderPublicKey: JWK;
+				holderBindingVerified?: boolean;
 			},
 			CredentialVerificationError
 		>

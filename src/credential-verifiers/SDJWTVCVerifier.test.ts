@@ -64,5 +64,17 @@ describe('The SDJWTVerifier', () => {
 
 		console.log((result as any).error);
 		assert(result.success === true);
+		// This existing fixture contains no presentation binding proof.
+		assert(result.value.holderBindingVerified === false);
+	});
+
+	it('does not equate an issuer-verified credential with a verified holder binding', async () => {
+		const unbound = exampleCredential.slice(0, exampleCredential.lastIndexOf('~') + 1);
+		const result = await SDJWTVCVerifier({ context, pkResolverEngine, httpClient: axios }).verify({
+			rawCredential: unbound,
+			opts: {},
+		});
+		assert(result.success === true);
+		assert(result.value.holderBindingVerified === false);
 	});
 });

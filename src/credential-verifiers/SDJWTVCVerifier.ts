@@ -401,6 +401,7 @@ export function SDJWTVCVerifier(args: {
 				value: {
 					valid: true,
 					holderPublicKey: await exportJWK(publicKeyResult.value),
+					holderBindingVerified: !rawCredential.endsWith('~'),
 				},
 			};
 		},
