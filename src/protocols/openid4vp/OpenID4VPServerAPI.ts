@@ -300,8 +300,16 @@ export class OpenID4VPServerAPI<
 							candidate.instanceId === selectedCopy.instanceId &&
 							candidate.credentialId === selectedCopy.credentialId,
 					);
-					if (!selectedCredential) throw new Error('Selected credential is unavailable');
-					vc = selectedCredential;
+					const resolvedCopy =
+						selectedCredential ??
+						(await this.deps.selectCredentialForBatch(original.batchId, vcList));
+					if (!resolvedCopy) throw new Error('Selected credential is unavailable');
+					if (
+						resolvedCopy.instanceId !== selectedCopy.instanceId ||
+						resolvedCopy.credentialId !== selectedCopy.credentialId
+					)
+						throw new Error('Selected credential is unavailable');
+					vc = resolvedCopy;
 				} else {
 					vc = (await this.deps.selectCredentialForBatch(original.batchId, vcList)) ?? original;
 				}

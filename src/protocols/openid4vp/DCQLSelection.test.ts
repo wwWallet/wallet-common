@@ -392,6 +392,33 @@ describe('wallet matching, claim preference, and generation', () => {
 		expect(claims.value).toBe('preview');
 		expect(reselect).not.toHaveBeenCalled();
 	});
+	it('resolves the selected copy when the inventory contains only the batch representative', async () => {
+		const q = { credentials: [sd('q0')] };
+		const w = await wallet(q, [
+			{ id: 'q0', batchId: 1, instanceId: 0, credentialId: 1, claims: { value: 'copy 0' } },
+		]);
+		const copy1 = {
+			...w.inventory[0],
+			data: await issue({ vct: 'urn:synthetic:q0', value: 'copy 1' }),
+			instanceId: 1,
+			credentialId: 2,
+		};
+		const selectCopy = vi.fn(async () => copy1);
+		(w.helper as any).deps.selectCredentialForBatch = selectCopy;
+
+		const preview = await (w.helper as any).matchCredentialsToDCQL(w.inventory, q);
+		const candidate = preview.mapping.get('q0').candidates[0];
+		const result = await w.helper.createAuthorizationResponse(
+			new Map([['q0', [candidate]]]),
+			w.inventory,
+		);
+
+		const token = JSON.parse(result.formData!.get('vp_token')!);
+		const claims = await (await SDJwt.fromEncode(token.q0[0], hasher)).getClaims<any>(hasher);
+		expect(claims.value).toBe('copy 1');
+		expect(result.filteredVCEntities).toEqual([copy1]);
+		expect(selectCopy).toHaveBeenCalled();
+	});
 	it('refuses stale consent and incomplete selection', async () => {
 		const w = await wallet(query, [
 			{ id: 'q0', batchId: 1, claims: { value: true } },
