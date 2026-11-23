@@ -59,6 +59,11 @@ function hasInvalidClaimMetadataOverride(
 
 function deepMerge(parent: any, child: any): any {
 	if (Array.isArray(parent) && Array.isArray(child)) {
+		// An empty child claims array does not override inherited claim rules.
+		if (parent[0]?.path && child.length === 0) {
+			return parent;
+		}
+
 		// Merge display[] by locale
 		if (parent[0]?.locale && child[0]?.locale) {
 			const map = new Map<string, any>();

@@ -85,6 +85,19 @@ describe('getSdJwtVcMetadata inheritance validation', () => {
 		expect(result).not.toHaveProperty('error');
 	});
 
+	it('inherits parent claims when the child claims array is empty', async () => {
+		const result = await resolve({
+			[parentVct]: parentMetadata({ path: ['name'], sd: 'always', mandatory: true }),
+			[childVct]: childMetadata(),
+		});
+
+		expect(result).toMatchObject({
+			credentialMetadata: {
+				claims: [{ path: ['name'], sd: 'always', mandatory: true }],
+			},
+		});
+	});
+
 	it('enforces restrictions inherited through multiple parents', async () => {
 		const middleVct = 'urn:test:middle';
 		const result = await resolve({
