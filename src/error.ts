@@ -13,6 +13,8 @@ export enum CredentialParsingError {
 	JwtVcIssuerMismatch = 'JwtVcIssuerMismatch',
 	IntegrityFail = 'IntegrityFail',
 	SchemaShapeFail = 'SchemaShapeFail',
+	TypeMetadataVctMismatch = 'TypeMetadataVctMismatch',
+	InvalidTypeMetadataInheritance = 'InvalidTypeMetadataInheritance',
 	JwtVcIssuerFail = 'JwtVcIssuerFail',
 	FailFetchIssuerMetadata = 'FailFetchIssuerMetadata',
 	FailSchemaIssuerMetadata = 'FailSchemaIssuerMetadata',
