@@ -153,5 +153,22 @@ describe('DCQL with verified issuer and holder signatures', () => {
 		}
 		const unbound = first.slice(0, first.lastIndexOf('~') + 1);
 		expect((await validate({ r0: [unbound] })).error).toBeDefined();
+
+		const transactionQuery = {
+			credentials: [
+				{
+					...descriptor('transaction'),
+					_transaction_data_type: 'https://cloudsignatureconsortium.org/2025/qes',
+				},
+				descriptor('alternative'),
+			],
+			credential_sets: [{ options: [['transaction'], ['alternative']] }],
+		};
+		const transactionlessAlternative = await (helper as any).validateDcqlVpToken(
+			{ alternative: [first] },
+			transactionQuery,
+			{ audience: 'aud', nonce: 'nonce' },
+		);
+		expect(transactionlessAlternative.error).toBeDefined();
 	});
 });

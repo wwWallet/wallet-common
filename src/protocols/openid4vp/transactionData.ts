@@ -208,7 +208,7 @@ export const QESAuthorizationTransactionData = () => {
 					}
 				}
 			}
-			return { status: true, message: '' };
+			return { status: false, message: '' };
 		},
 	};
 };

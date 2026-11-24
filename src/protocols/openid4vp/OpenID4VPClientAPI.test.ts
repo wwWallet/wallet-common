@@ -57,7 +57,7 @@ describe('OpenID4VPClientAPI.validateDcqlVpToken', () => {
 				parse: async () => ({
 					success: true,
 					value: {
-						signedClaims: { vct: 'urn:test', given_name: 'Ada' },
+						signedClaims: { vct: 'urn:test', given_name: 'Ada', birthdate: 'secret' },
 						metadata: { credential: { format: VerifiableCredentialFormat.DC_SDJWT } },
 					},
 				}),
@@ -81,6 +81,9 @@ describe('OpenID4VPClientAPI.validateDcqlVpToken', () => {
 		expect(result.error).toBeUndefined();
 		expect(Object.getPrototypeOf(result.presentationClaims)).toBeNull();
 		expect(result.presentationClaims.constructor).toHaveLength(1);
+		expect(result.presentationClaims.constructor).toMatchObject([
+			{ key: 'given_name', value: 'Ada', path: ['given_name'] },
+		]);
 		expect(Object.getPrototypeOf(result.messages)).toBeNull();
 	});
 
@@ -114,6 +117,82 @@ describe('OpenID4VPClientAPI.validateDcqlVpToken', () => {
 		);
 
 		assert.equal(result, '{"given_name":"John","family_name":"Doe"}');
+	});
+
+	it('persists only requested mdoc elements and preserves their namespace paths', async () => {
+		const helper = new OpenID4VPClientAPI(
+			new MemoryStore<string, any>(),
+			{
+				credentialEngineOptions: {
+					clockTolerance: 0,
+					subtle: crypto.subtle,
+					lang: 'en',
+					trustedCertificates: [],
+					trustedCredentialIssuerIdentifiers: undefined,
+				},
+				redirectUri: 'openid4vp://cb',
+			},
+			{ get: async () => ({ data: undefined }) },
+		);
+		vi.spyOn(helper as any, 'initializeCredentialEngine').mockResolvedValue({
+			msoMdocVerifier: {
+				verify: async () => ({ success: true, value: { holderBindingVerified: true } }),
+			},
+			credentialParsingEngine: {
+				parse: async () => ({
+					success: true,
+					value: {
+						signedClaims: {
+							'namespace.one': { given_name: 'Ada', secret: 'hidden' },
+							'namespace.two': { given_name: 'Lovelace' },
+							'unrequested.namespace': { secret: 'hidden' },
+						},
+						metadata: {
+							credential: {
+								format: VerifiableCredentialFormat.MSO_MDOC,
+								doctype: 'org.example',
+							},
+						},
+					},
+				}),
+			},
+		});
+
+		const result = await (helper as any).validateDcqlVpToken(
+			{ mdoc: ['encoded-mdoc'] },
+			{
+				credentials: [
+					{
+						id: 'mdoc',
+						format: VerifiableCredentialFormat.MSO_MDOC,
+						meta: { doctype_value: 'org.example' },
+						claims: [
+							{ path: ['namespace.one', 'given_name'] },
+							{ path: ['namespace.two', 'given_name'] },
+						],
+					},
+				],
+			},
+			{ audience: 'audience', nonce: 'nonce' },
+		);
+
+		expect(result.error).toBeUndefined();
+		expect(result.presentationClaims.mdoc).toEqual([
+			{
+				key: 'given_name',
+				name: 'given_name',
+				value: 'Ada',
+				path: ['namespace.one', 'given_name'],
+				instanceIndex: 0,
+			},
+			{
+				key: 'given_name',
+				name: 'given_name',
+				value: 'Lovelace',
+				path: ['namespace.two', 'given_name'],
+				instanceIndex: 0,
+			},
+		]);
 	});
 });
 

@@ -379,6 +379,13 @@ export class OpenID4VPClientAPI {
 		try {
 			if (!vp_token_list || typeof vp_token_list !== 'object' || Array.isArray(vp_token_list))
 				throw new Error('Invalid vp_token');
+			for (const descriptor of dcql_query.credentials) {
+				if (
+					descriptor._transaction_data_type !== undefined &&
+					!Object.prototype.hasOwnProperty.call(vp_token_list, descriptor.id)
+				)
+					throw new Error('transaction_data response missing');
+			}
 			for (const [id, entries] of Object.entries(vp_token_list)) {
 				const descriptor = dcql_query.credentials.find((c: any) => c.id === id);
 				if (
@@ -487,19 +494,42 @@ export class OpenID4VPClientAPI {
 						holderBound,
 						claims,
 					});
-					// Keep the legacy flat claim list, with explicit presentation boundaries.
+				}
+			}
+			const dcqlResult = validateDcqlPresentation(verified, dcql_query);
+			for (const [id, presentations] of Object.entries(verifiedPresentations)) {
+				const descriptor = dcql_query.credentials.find((c: any) => c.id === id);
+				if (!descriptor) throw new Error(`DCQL validation failed for ${id}`);
+				const match = dcqlResult.credential_matches[descriptor.id];
+				if (!match?.success) throw new Error(`DCQL validation failed for ${descriptor.id}`);
+				const requestedAll = descriptor.claims == null;
+				for (const [instanceIndex, presentation] of presentations.entries()) {
+					const sdjwt =
+						descriptor.format === VerifiableCredentialFormat.DC_SDJWT ||
+						descriptor.format === VerifiableCredentialFormat.VC_SDJWT;
+					const validCredential = match.valid_credentials.find(
+						(credential) => credential.input_credential_index === instanceIndex,
+					);
+					if (!validCredential)
+						throw new Error(
+							`DCQL validation failed for ${descriptor.id} instance ${instanceIndex}`,
+						);
+					const selectedClaims = requestedAll
+						? presentation.claims
+						: validCredential.claims.valid_claim_sets[0].output;
 					const values = sdjwt
-						? Object.entries(claims)
+						? Object.entries(selectedClaims as Record<string, unknown>)
 								.filter(([key]) => !RESERVED_SDJWT_TOPLEVEL.has(key) && !key.startsWith('_'))
 								.map(([key, value]) => ({ key, value, path: [key] }))
-						: Object.entries(claims).flatMap(([namespace, values]) =>
-								Object.entries(values as Record<string, unknown>).map(([key, value]) => ({
-									key,
-									value,
-									path: [namespace, key],
-								})),
+						: Object.entries(selectedClaims as Record<string, Record<string, unknown>>).flatMap(
+								([namespace, namespaceClaims]) =>
+									Object.entries(namespaceClaims).map(([key, value]) => ({
+										key,
+										value,
+										path: [namespace, key],
+									})),
 							);
-					(presentationClaims[id] ??= []).push(
+					(presentationClaims[descriptor.id] ??= []).push(
 						...values.map(({ key, value, path }) => ({
 							key,
 							name: key,
@@ -510,7 +540,6 @@ export class OpenID4VPClientAPI {
 					);
 				}
 			}
-			validateDcqlPresentation(verified, dcql_query);
 		} catch (error) {
 			return { error: error instanceof Error ? error : new Error('DCQL verification failed') };
 		}
